@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nhà thông minh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#e9eeec;--card:#fbfcfb;--ink:#1a2a2c;--mute:#667a7c;--line:#d3dcda;--accent:#16708a;--on:#e0a21b;--bad:#b3392f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 "Be Vietnam Pro",system-ui,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card)}
+h1{font-size:17px;margin:0;font-weight:700}
+h2{font-size:14px;margin:0 0 12px;font-weight:700;color:var(--mute)}
+main{max-width:1000px;margin:0 auto;padding:20px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.wide{grid-column:1/-1}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+input{font:inherit;width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+#login{max-width:340px;margin:12vh auto;padding:0 20px}
+#login .card{padding:22px}
+#err{color:var(--bad);min-height:20px;font-size:13px}
+.hidden{display:none!important}
+.temp{font-size:54px;font-weight:700;line-height:1;letter-spacing:-1px}
+.temp small{font-size:22px;font-weight:500;color:var(--mute);letter-spacing:0}
+.meta{color:var(--mute);font-size:13px;margin-top:8px}
+.dev{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.dev:first-of-type{border-top:0}
+.dev b{display:block;font-weight:500}
+.dev span{font-size:13px;color:var(--mute)}
+.dev button{min-width:92px}
+.dev button.on{background:var(--on);border-color:var(--on);color:#2b1d00;font-weight:500}
+ul{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto}
+li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+li:first-child{border-top:0}
+li em{font-style:normal;color:var(--mute);white-space:nowrap}
+.empty{color:var(--mute);font-size:14px}
+.chart{position:relative;height:240px}
+.off{color:var(--bad)}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <div class="card">
+    <h1>Đăng nhập</h1>
+    <p class="meta">Dùng tài khoản đã tạo trong Firebase Authentication.</p>
+    <input id="email" type="email" placeholder="Email" autocomplete="username">
+    <input id="pass" type="password" placeholder="Mật khẩu" autocomplete="current-password">
+    <button class="primary" id="btnLogin">Đăng nhập</button>
+    <div id="err"></div>
+  </div>
+</section>
+
+<div id="app" class="hidden">
+  <header>
+    <h1>Nhà thông minh</h1>
+    <div><span class="meta" id="dbStatus">Đang kết nối Firebase...</span> <span class="meta" id="who"></span> <button id="btnOut">Đăng xuất</button></div>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Nhiệt độ và độ ẩm</h2>
+      <div class="temp"><span id="t">--</span><small> °C</small></div>
+      <div class="meta">Độ ẩm <b id="h">--</b> %</div>
+      <div class="meta" id="tsInfo">Chưa có dữ liệu</div>
+    </section>
+
+    <section class="card">
+      <h2>Thiết bị</h2>
+      <div class="dev"><div><b>Đèn</b><span id="s-light">--</span></div><button data-dev="light">Bật / Tắt</button></div>
+      <div class="dev"><div><b>Quạt</b><span id="s-fan">--</span></div><button data-dev="fan">Bật / Tắt</button></div>
+      <div class="dev"><div><b>Rèm</b><span id="s-curtain">--</span></div><button data-dev="curtain">Mở / Đóng</button></div>
+      <div class="dev"><div><b>Cửa</b><span id="s-door">--</span></div><button class="primary" data-dev="door">Mở cửa</button></div>
+    </section>
+
+    <section class="card">
+      <h2>Lệnh giọng nói gần đây</h2>
+      <ul id="logs"><li class="empty">Chưa có lệnh nào</li></ul>
+    </section>
+
+    <section class="card wide">
+      <h2>Nhiệt độ và độ ẩm theo thời gian</h2>
+      <div class="chart"><canvas id="chTemp"></canvas></div>
+    </section>
+
+    <section class="card wide">
+      <h2>Số lệnh theo từ khóa (200 lệnh gần nhất)</h2>
+      <div class="chart"><canvas id="chKw"></canvas></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, onValue, set, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ====== SỬA CHỖ NÀY: lấy trong Firebase Console > Project settings > Your apps > Web ======
+const firebaseConfig = {
+  apiKey: "AIzaSyBJiQpsv00dnOuuU-u2njxSAaMoTNroPzI",
+  authDomain: "do-an-2-f791a.firebaseapp.com",
+  databaseURL: "https://do-an-2-f791a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "do-an-2-f791a",
+};
+// Giá trị lệnh rèm gửi xuống ESP32 (khớp với code ESP32 của bạn)
+const CURTAIN_OPEN = "open", CURTAIN_CLOSE = "close";
+// ===========================================================================================
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+const $ = id => document.getElementById(id);
+const state = { light: false, fan: false, curtain: CURTAIN_CLOSE, door: false };
+const confirmedState = { ...state };
+const pendingCommands = {};
+let started = false, charts = {};
+let commandSequence = 0;
+
+function showDatabaseError(error) {
+  console.error("Firebase Realtime Database:", error);
+  $("dbStatus").textContent = "Lỗi Firebase: " + (error.message || error.code || "không xác định");
+  $("dbStatus").classList.add("off");
+}
+
+// ---- Đăng nhập ----
+$("btnLogin").onclick = async () => {
+  $("err").textContent = "";
+  try { await signInWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value); }
+  catch (e) {
+    console.error(e);
+    const msg = {
+      "auth/invalid-credential": "Sai email hoặc mật khẩu.",
+      "auth/invalid-api-key": "apiKey sai hoặc chưa điền trong firebaseConfig.",
+      "auth/api-key-not-valid.-please-pass-a-valid-api-key.": "apiKey sai hoặc chưa điền trong firebaseConfig.",
+      "auth/operation-not-allowed": "Chưa bật Email/Password trong Authentication.",
+      "auth/network-request-failed": "Lỗi mạng hoặc trang đang mở bằng file://.",
+      "auth/too-many-requests": "Thử quá nhiều lần, đợi vài phút rồi thử lại."
+    }[e.code] || "Lỗi không rõ.";
+    $("err").textContent = msg + " (" + (e.code || e.message) + ")";
+  }
+};
+$("pass").addEventListener("keydown", e => { if (e.key === "Enter") $("btnLogin").click(); });
+$("btnOut").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, user => {
+  $("login").classList.toggle("hidden", !!user);
+  $("app").classList.toggle("hidden", !user);
+  if (user) { $("who").textContent = user.email; if (!started) { started = true; listen(); } }
+});
+
+// ---- Điều khiển ----
+document.querySelectorAll("[data-dev]").forEach(btn => {
+  btn.onclick = async () => {
+    const d = btn.dataset.dev;
+    const current = pendingCommands[d]?.value ?? state[d];
+    const v = d === "door" ? true : d === "curtain"
+      ? (current === CURTAIN_OPEN ? CURTAIN_CLOSE : CURTAIN_OPEN)
+      : !current;
+    const command = { value: v };
+    command.id = Date.now().toString(36) + "-" + (++commandSequence).toString(36);
+    const payload = d === "door"
+      ? { action: "open", ts: Date.now(), src: "web" }
+      : command;
+    pendingCommands[d] = command;
+    state[d] = v;
+    renderDevice(d);
+
+    try {
+      await set(ref(db, "commands/" + d), payload);
+      window.setTimeout(() => {
+        if (pendingCommands[d]?.id !== command.id) return;
+        delete pendingCommands[d];
+        state[d] = confirmedState[d];
+        renderDevice(d);
+        $("dbStatus").textContent = "Thiết bị chưa xác nhận lệnh " + d;
+        $("dbStatus").classList.add("off");
+      }, 8000);
+    } catch (e) {
+      if (pendingCommands[d]?.id === command.id) {
+        delete pendingCommands[d];
+        state[d] = confirmedState[d];
+        renderDevice(d);
+      }
+      showDatabaseError(e);
+      alert("Không gửi được lệnh: " + e.message);
+    }
+  };
+});
+
+function renderDevice(d) {
+  const on = d === "curtain" ? state.curtain === CURTAIN_OPEN : !!state[d];
+  const txt = d === "door"
+    ? (on ? "Đang mở" : "Đang đóng")
+    : d === "curtain"
+      ? (on ? "Đang mở" : "Đang đóng")
+      : (on ? "Đang bật" : "Đang tắt");
+  $("s-" + d).textContent = txt;
+  document.querySelector(`[data-dev="${d}"]`).classList.toggle("on", on);
+}
+
+// ---- Dữ liệu thời gian thực ----
+const fmtTime = ts => new Date(ts * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+let lastSensorTs = 0;
+
+function listen() {
+  onValue(ref(db, ".info/connected"), s => {
+    const connected = s.val() === true;
+    $("dbStatus").textContent = connected ? "Firebase: đã kết nối" : "Firebase: mất kết nối";
+    $("dbStatus").classList.toggle("off", !connected);
+  }, showDatabaseError);
+
+  onValue(ref(db, "devices/state"), s => {
+    const v = s.val() || {};
+    let commandAcknowledged = false;
+    ["light", "fan", "curtain", "door"].forEach(d => {
+      if (v[d] === undefined) return;
+      const incoming = d === "curtain" ? v[d] : !!v[d];
+      confirmedState[d] = incoming;
+      const pending = pendingCommands[d];
+      if (pending && incoming !== pending.value) return;
+      if (pending) {
+        delete pendingCommands[d];
+        commandAcknowledged = true;
+      }
+      state[d] = incoming;
+    });
+    ["light", "fan", "curtain", "door"].forEach(renderDevice);
+    if (commandAcknowledged) {
+      $("dbStatus").textContent = "Firebase: đã kết nối";
+      $("dbStatus").classList.remove("off");
+    }
+  }, showDatabaseError);
+
+  onValue(ref(db, "sensors/latest"), s => {
+    const v = s.val();
+    if (!v) return;
+    $("t").textContent = Number(v.temp).toFixed(1);
+    $("h").textContent = Number(v.hum).toFixed(0);
+    lastSensorTs = v.ts || 0;
+    updateAge();
+  }, showDatabaseError);
+  setInterval(updateAge, 10000);
+
+  onValue(query(ref(db, "logs/voice"), limitToLast(200)), s => {
+    const rows = [];
+    s.forEach(c => rows.push(c.val()));
+    rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    const ul = $("logs");
+    ul.innerHTML = "";
+    if (!rows.length) { ul.innerHTML = '<li class="empty">Chưa có lệnh nào</li>'; }
+    rows.slice(0, 15).forEach(r => {
+      const li = document.createElement("li");
+      const conf = r.confidence != null ? Math.round(r.confidence * 100) + "%" : "";
+      li.innerHTML = `<span><b></b> <em>${conf}</em></span><em>${r.ts ? fmtTime(r.ts) : ""}</em>`;
+      li.querySelector("b").textContent = r.keyword || "?";
+      ul.appendChild(li);
+    });
+    drawKeywords(rows);
+  }, showDatabaseError);
+
+  onValue(query(ref(db, "sensors/history"), limitToLast(200)), s => {
+    const pts = [];
+    s.forEach(c => pts.push(c.val()));
+    pts.sort((a, b) => a.ts - b.ts);
+    drawTemp(pts);
+  }, showDatabaseError);
+}
+
+function updateAge() {
+  if (!lastSensorTs) return;
+  const age = Math.floor(Date.now() / 1000) - lastSensorTs;
+  const el = $("tsInfo");
+  el.classList.toggle("off", age > 120);
+  el.textContent = age > 120
+    ? "Cập nhật lúc " + fmtTime(lastSensorTs) + ". Thiết bị có thể đang mất kết nối."
+    : "Cập nhật lúc " + fmtTime(lastSensorTs);
+}
+
+// ---- Biểu đồ ----
+function drawTemp(pts) {
+  const labels = pts.map(p => fmtTime(p.ts));
+  const data = {
+    labels,
+    datasets: [
+      { label: "Nhiệt độ (°C)", data: pts.map(p => p.temp), borderColor: "#c4572b", backgroundColor: "#c4572b", yAxisID: "y", pointRadius: 0, tension: .3 },
+      { label: "Độ ẩm (%)", data: pts.map(p => p.hum), borderColor: "#16708a", backgroundColor: "#16708a", yAxisID: "y1", pointRadius: 0, tension: .3 }
+    ]
+  };
+  if (charts.temp) { charts.temp.data = data; charts.temp.update("none"); return; }
+  charts.temp = new Chart($("chTemp"), {
+    type: "line", data,
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8 } },
+        y: { position: "left", title: { display: true, text: "°C" } },
+        y1: { position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "%" } }
+      }
+    }
+  });
+}
+
+function drawKeywords(rows) {
+  const count = {};
+  rows.forEach(r => { if (r.keyword) count[r.keyword] = (count[r.keyword] || 0) + 1; });
+  const labels = Object.keys(count);
+  const data = { labels, datasets: [{ label: "Số lệnh", data: labels.map(k => count[k]), backgroundColor: "#16708a" }] };
+  if (charts.kw) { charts.kw.data = data; charts.kw.update("none"); return; }
+  charts.kw = new Chart($("chKw"), {
+    type: "bar", data,
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
+</script>
+</body>
+</html>
