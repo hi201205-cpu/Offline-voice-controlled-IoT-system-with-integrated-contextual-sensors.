@@ -89,7 +89,7 @@ struct DoorRemoteCommand {
 #define FB_QUEUE_DEPTH      16
 #define FB_VOICE_LOG_QUEUE_DEPTH 8
 #define FB_DEVICE_COMMAND_QUEUE_DEPTH 8
-#define FB_TASK_STACK_SIZE  8192
+#define FB_TASK_STACK_SIZE  16384
 #define FB_TASK_PRIORITY    2
 #define FB_HTTP_TIMEOUT_MS  4000
 #define FB_HEARTBEAT_MS     30000
