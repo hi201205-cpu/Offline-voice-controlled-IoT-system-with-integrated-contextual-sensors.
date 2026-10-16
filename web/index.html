@@ -8,40 +8,160 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  try {
+    document.documentElement.dataset.theme = localStorage.getItem("smart-home-theme") || "system";
+  } catch (error) {
+    console.warn("Không thể đọc tùy chọn giao diện:", error);
+    document.documentElement.dataset.theme = "system";
+  }
+</script>
 <style>
-:root{--bg:#e9eeec;--card:#fbfcfb;--ink:#1a2a2c;--mute:#667a7c;--line:#d3dcda;--accent:#16708a;--on:#e0a21b;--bad:#b3392f}
+:root{color-scheme:dark;--bg:#07111f;--panel:#0d1b2d;--panel-raised:#11243a;--ink:#eef6ff;--mute:#8ea5bd;--line:rgba(151,187,222,.15);--accent:#37b8ff;--accent-2:#42e2de;--on:#39c9e9;--bad:#ff7e83;--good:#5ce0b2;--shadow:0 20px 60px rgba(0,0,0,.22);--chart-grid:rgba(174,202,232,.1);--chart-ink:#9bb1c9;--ambient:rgba(22,102,154,.16);--glass-tint:rgba(151,187,222,.05);--switch-off:#526174;--knob:#fff;--knob-shadow:rgba(0,0,0,.27);--overlay:rgba(2,9,18,.65);--accent-glow:rgba(55,184,255,.45);--gold:#ffd76a;--gold-glow:rgba(255,215,106,.7);--primary-ink:#041523;--brand-start:rgba(55,184,255,.22);--brand-end:rgba(66,226,222,.1);--nav-active:rgba(55,184,255,.12)}
+:root[data-theme="light"]{color-scheme:light;--bg:#eaf2fa;--panel:rgba(255,255,255,.78);--panel-raised:#f7fbff;--ink:#152c45;--mute:#58718b;--line:rgba(54,103,149,.18);--accent:#137fc2;--accent-2:#08a9ac;--on:#1eabd1;--bad:#c64759;--good:#168f70;--shadow:0 18px 48px rgba(43,82,121,.12);--chart-grid:rgba(44,86,128,.12);--chart-ink:#58718b;--ambient:rgba(45,123,183,.1);--glass-tint:rgba(255,255,255,.28);--switch-off:#9eacba;--knob:#fff;--knob-shadow:rgba(18,45,72,.2);--overlay:rgba(16,39,64,.48);--accent-glow:rgba(19,127,194,.35);--gold:#bd7b00;--gold-glow:rgba(189,123,0,.4);--primary-ink:#06263a;--brand-start:rgba(19,127,194,.18);--brand-end:rgba(8,169,172,.1);--nav-active:rgba(19,127,194,.1)}
+@media(prefers-color-scheme:light){:root[data-theme="system"]{color-scheme:light;--bg:#eaf2fa;--panel:rgba(255,255,255,.78);--panel-raised:#f7fbff;--ink:#152c45;--mute:#58718b;--line:rgba(54,103,149,.18);--accent:#137fc2;--accent-2:#08a9ac;--on:#1eabd1;--bad:#c64759;--good:#168f70;--shadow:0 18px 48px rgba(43,82,121,.12);--chart-grid:rgba(44,86,128,.12);--chart-ink:#58718b;--ambient:rgba(45,123,183,.1);--glass-tint:rgba(255,255,255,.28);--switch-off:#9eacba;--knob:#fff;--knob-shadow:rgba(18,45,72,.2);--overlay:rgba(16,39,64,.48);--accent-glow:rgba(19,127,194,.35);--gold:#bd7b00;--gold-glow:rgba(189,123,0,.4);--primary-ink:#06263a;--brand-start:rgba(19,127,194,.18);--brand-end:rgba(8,169,172,.1);--nav-active:rgba(19,127,194,.1)}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 "Be Vietnam Pro",system-ui,sans-serif}
-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card)}
-h1{font-size:17px;margin:0;font-weight:700}
-h2{font-size:14px;margin:0 0 12px;font-weight:700;color:var(--mute)}
-main{max-width:1000px;margin:0 auto;padding:20px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
-.wide{grid-column:1/-1}
-button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px}
-button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-input{font:inherit;width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
-#login{max-width:340px;margin:12vh auto;padding:0 20px}
-#login .card{padding:22px}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 72% 0%,var(--ambient),transparent 42%),var(--bg);color:var(--ink);font:400 14px/1.55 "Be Vietnam Pro",system-ui,sans-serif;transition:background-color .25s,color .25s}
+button,input,select{font:inherit}
+button{cursor:pointer;color:var(--ink);border:1px solid var(--line);background:var(--panel-raised);border-radius:12px;padding:9px 14px;transition:transform .18s,border-color .18s,background .18s}
+button:hover{border-color:var(--accent);transform:translateY(-1px)}
+button:active{transform:scale(.98)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+button.primary{background:linear-gradient(110deg,var(--accent),var(--accent-2));border:0;color:var(--primary-ink);font-weight:700}
+input,select{width:100%;background:var(--panel-raised);border:1px solid var(--line);border-radius:11px;padding:10px 12px;color:var(--ink)}
+label{display:block;color:var(--mute);font-size:12px;font-weight:600;margin:10px 0 5px}
+h1{font-size:21px;margin:0;font-weight:700;letter-spacing:-.4px}
+h2{font-size:14px;margin:0 0 16px;font-weight:700;color:var(--mute);letter-spacing:.2px}
+p{margin:8px 0}
+#login{max-width:390px;margin:12vh auto;padding:0 20px}
+#login .card{padding:26px}
 #err{color:var(--bad);min-height:20px;font-size:13px}
 .hidden{display:none!important}
-.temp{font-size:54px;font-weight:700;line-height:1;letter-spacing:-1px}
-.temp small{font-size:22px;font-weight:500;color:var(--mute);letter-spacing:0}
-.meta{color:var(--mute);font-size:13px;margin-top:8px}
-.dev{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.meta{color:var(--mute);font-size:12px;margin-top:7px}
+.app-header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 32px 18px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{display:grid;place-items:center;width:44px;height:44px;border-radius:15px;background:linear-gradient(135deg,var(--brand-start),var(--brand-end));color:var(--accent);font-size:22px}
+.header-right{display:flex;align-items:center;gap:12px}
+.greeting{font-size:12px;color:var(--mute)}
+.greeting strong{display:block;color:var(--ink);font-size:16px}
+.connection{display:flex;align-items:center;gap:8px}
+.status-dot{width:8px;height:8px;background:var(--good);border-radius:50%;box-shadow:0 0 12px var(--good);animation:blink 2s infinite}
+.off .status-dot{background:var(--bad);box-shadow:0 0 12px var(--bad)}
+.workspace{max-width:1500px;margin:0 auto;padding:24px;display:grid;grid-template-columns:224px minmax(0,1fr);gap:24px}
+.sidebar{align-self:start;position:sticky;top:20px;display:grid;gap:8px;padding:14px;border:1px solid var(--line);border-radius:24px;background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(18px)}
+.nav-item{display:flex;align-items:center;gap:12px;text-align:left;border:0;background:transparent;color:var(--mute);padding:12px 14px}
+.nav-item:hover,.nav-item.active{background:var(--nav-active);color:var(--accent);transform:none}
+.nav-icon{width:22px;text-align:center;font-size:17px}
+.content{min-width:0}
+.page-title{display:flex;align-items:end;justify-content:space-between;margin:2px 2px 18px}
+.page-title h2{font-size:22px;color:var(--ink);margin:0}
+.page-title p{font-size:12px;color:var(--mute);margin:4px 0 0}
+.dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.card{min-width:0;padding:20px;border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,var(--panel),var(--glass-tint));box-shadow:var(--shadow);backdrop-filter:blur(16px);transition:border-color .2s,transform .2s}
+.card:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.sensor-card{cursor:pointer;position:relative;overflow:hidden}
+.sensor-values{display:flex;gap:26px;align-items:center}
+.temp{font-size:46px;font-weight:700;line-height:1;letter-spacing:-2px}
+.temp small{font-size:17px;font-weight:500;color:var(--mute);letter-spacing:0}
+.sensor-stat{color:var(--mute);font-size:12px}
+.sensor-stat strong{display:block;color:var(--ink);font-size:25px}
+.sparkline{height:38px;width:120px;margin-left:auto}
+.sparkline svg{width:100%;height:100%;overflow:visible}
+.sparkline path{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linecap:round}
+.device-list{display:grid;gap:3px}
+.dev{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);cursor:pointer}
 .dev:first-of-type{border-top:0}
-.dev b{display:block;font-weight:500}
-.dev span{font-size:13px;color:var(--mute)}
-.dev button{min-width:92px}
-.dev button.on{background:var(--on);border-color:var(--on);color:#2b1d00;font-weight:500}
+.dev b{display:block;font-weight:600}
+.dev span{font-size:12px;color:var(--mute)}
+.dev .device-icon{display:inline-grid;place-items:center;width:35px;height:35px;border-radius:12px;background:var(--panel-raised);margin-right:10px;color:var(--mute);font-size:17px;vertical-align:middle;transition:color .25s,filter .25s,transform .3s}
+.device-icon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.dev-copy{display:flex;align-items:center}
+.dev button{position:relative;width:54px;min-width:54px;height:30px;padding:0;border:0;border-radius:30px;background:var(--switch-off);transition:background .25s,box-shadow .25s;overflow:hidden;color:transparent;font-size:0}
+.dev button.primary{background:var(--switch-off);color:transparent}
+.dev button:after{content:"";position:absolute;width:22px;height:22px;left:4px;top:4px;background:var(--knob);border-radius:50%;box-shadow:0 2px 5px var(--knob-shadow);transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+.dev button.on,.dev button.primary.on{background:linear-gradient(110deg,var(--accent),var(--accent-2));box-shadow:0 0 15px var(--accent-glow)}
+.dev button.on:after{transform:translateX(24px)}
+.dev button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.dev[data-device="light"].is-on .device-icon{color:var(--gold);filter:drop-shadow(0 0 8px var(--gold-glow));animation:light-pop .45s ease}
+.dev[data-device="fan"].is-on .device-icon{color:var(--accent);animation:fan-accelerate .8s ease-out,spin 1.3s linear .8s infinite}
+.dev[data-device="fan"].fan-slowing .device-icon{color:var(--accent);animation:spin 1.7s cubic-bezier(.2,.4,.5,1) 1}
+.dev[data-device="curtain"].is-on .device-icon{color:var(--accent-2);transform:translateY(-3px)}
+.dev[data-device="door"].is-on .device-icon{color:var(--good);transform:rotateY(25deg)}
+.dev[data-device="curtain"].is-on .curtain-left{transform:translateX(-2px)}
+.dev[data-device="curtain"].is-on .curtain-right{transform:translateX(2px)}
+.curtain-left,.curtain-right,.door-leaf,.door-locked,.door-unlocked{transition:transform .3s,opacity .2s}
+.door-unlocked{opacity:0}
+.dev[data-device="door"].is-on .door-locked{opacity:0}
+.dev[data-device="door"].is-on .door-unlocked{opacity:1}
+.card-click{cursor:pointer}
+.wide{grid-column:1/-1}
 ul{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto}
-li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
 li:first-child{border-top:0}
 li em{font-style:normal;color:var(--mute);white-space:nowrap}
 .empty{color:var(--mute);font-size:14px}
 .chart{position:relative;height:240px}
-.off{color:var(--bad)}
+.off{color:var(--bad)!important}
+.view{display:none}
+.view.active{display:block}
+.toolbar{display:flex;gap:8px;align-items:center}
+.rule-list{display:grid;gap:12px;margin:16px 0}
+.rule-card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}
+.rule-card h3{font-size:14px;margin:0 0 4px}
+.rule-card p{font-size:12px;color:var(--mute);margin:0}
+.rule-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.rule-actions input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accent)}
+.automation-view-details{margin-top:12px}
+.automation-view-details summary{display:flex;flex-wrap:wrap;gap:8px;align-items:center;cursor:pointer;color:var(--ink)}
+.automation-view-details summary .meta{margin-left:4px}
+.automation-view-details[open] summary{margin-bottom:16px}
+.automation-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}
+.firmware-rule-list{max-height:none}
+.firmware-rule-list li{color:var(--mute)}
+.firmware-rule-list li::before{content:"✓";color:var(--good);font-weight:700}
+.small-button{padding:7px 10px;font-size:12px}
+.switch-line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.switch-line input[type="checkbox"]{accent-color:var(--accent);width:20px;height:20px}
+.settings-section{margin:14px 0 24px}
+.settings-options{display:flex;flex-wrap:wrap;gap:10px}
+.settings-options label{display:flex;gap:7px;align-items:center;margin:0;padding:10px 13px;border:1px solid var(--line);border-radius:12px;color:var(--ink);cursor:pointer}
+.settings-options input{width:auto}
+.modal-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:var(--overlay);backdrop-filter:blur(8px)}
+.modal{width:min(760px,100%);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.modal-head h2{color:var(--ink);font-size:18px;margin:0}
+.modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px}
+.days{display:flex;flex-wrap:wrap;gap:7px}
+.days label{display:flex;align-items:center;gap:5px;margin:8px 0}
+.days input{width:auto}
+.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.chart-tabs{display:flex;gap:8px}
+.chart-tabs button.selected{border-color:var(--accent);color:var(--accent)}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.stat-box{padding:12px;border-radius:14px;background:var(--panel-raised);color:var(--mute);font-size:11px}
+.stat-box strong{display:block;color:var(--ink);font-size:16px}
+.toast{position:fixed;z-index:30;right:22px;bottom:22px;width:min(390px,calc(100vw - 32px));padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--panel-raised);box-shadow:var(--shadow)}
+.toast-actions{display:flex;gap:8px;margin-top:12px}
+.toast-actions button{flex:1}
+.activity-filters{display:flex;flex-wrap:wrap;gap:6px;margin:-5px 0 10px}
+.activity-filter{padding:6px 9px;border-radius:20px;font-size:11px;color:var(--mute)}
+.activity-filter.selected{background:var(--accent-halo);border-color:var(--accent);color:var(--accent)}
+.activity-filter:disabled{cursor:not-allowed;opacity:.55}
+.activity-source{display:inline-flex;align-items:center;gap:5px;margin-right:8px;color:var(--accent);font-size:11px}
+.activity-entry{display:block}
+.activity-entry b{font-weight:600}
+.activity-entry .meta{display:block;margin:2px 0 0;font-size:11px}
+.activity-time{font-size:11px!important}
+.mock-label{display:inline-block;color:var(--mute);font-size:10px;background:var(--panel-raised);border-radius:20px;padding:3px 8px}
+@keyframes blink{50%{opacity:.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fan-accelerate{from{transform:rotate(-120deg)}to{transform:rotate(360deg)}}
+@keyframes light-pop{50%{transform:scale(1.12)}}
+.device-list.is-offline{opacity:.55}
+.no-motion *, .no-motion *::before, .no-motion *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+@media(max-width:900px){.workspace{grid-template-columns:74px minmax(0,1fr);padding:18px;gap:16px}.sidebar{padding:10px}.nav-item{justify-content:center;padding:13px 8px}.nav-item .nav-label{display:none}.app-header{padding:18px 22px}}
+@media(max-width:620px){.app-header{padding:14px 16px}.header-right{gap:8px}.greeting{display:none}.workspace{display:block;padding:16px 14px 86px}.sidebar{position:fixed;z-index:10;left:10px;right:10px;bottom:10px;top:auto;display:flex;justify-content:space-around;padding:7px;border-radius:20px}.nav-item{flex:1;display:grid;justify-items:center;gap:2px;padding:7px 4px;font-size:10px}.nav-item .nav-label{display:block}.nav-icon{font-size:16px}.dashboard-grid{grid-template-columns:1fr}.wide{grid-column:auto}.card{padding:17px;border-radius:20px}.page-title h2{font-size:19px}.sensor-values{gap:18px}.temp{font-size:40px}.sparkline{width:82px}.modal-grid,.automation-config-grid{grid-template-columns:1fr}.rule-card{align-items:flex-start;flex-direction:column}.rule-actions{width:100%;justify-content:flex-end}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -58,47 +178,110 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
 </section>
 
 <div id="app" class="hidden">
-  <header>
-    <h1>Nhà thông minh</h1>
-    <div><span class="meta" id="dbStatus">Đang kết nối Firebase...</span> <span class="meta" id="who"></span> <button id="btnOut">Đăng xuất</button></div>
+  <header class="app-header">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">⌂</span><div><h1>Nhà thông minh</h1><span class="meta">Không gian sống kết nối</span></div></div>
+    <div class="header-right"><div class="greeting"><strong id="greeting">Chào buổi tối! 🌙</strong><span id="greetingSub">Đang cập nhật cảm biến...</span></div><div class="connection" id="connectionBadge"><span class="status-dot" aria-hidden="true"></span><span class="meta" id="dbStatus">Đang kết nối Firebase...</span></div><span class="meta" id="who"></span><button id="btnOut" aria-label="Đăng xuất">↗</button></div>
   </header>
-  <main>
-    <section class="card">
-      <h2>Nhiệt độ và độ ẩm</h2>
-      <div class="temp"><span id="t">--</span><small> °C</small></div>
-      <div class="meta">Độ ẩm <b id="h">--</b> %</div>
-      <div class="meta" id="tsInfo">Chưa có dữ liệu</div>
-    </section>
-
-    <section class="card">
-      <h2>Thiết bị</h2>
-      <div class="dev"><div><b>Đèn</b><span id="s-light">--</span></div><button data-dev="light">Bật / Tắt</button></div>
-      <div class="dev"><div><b>Quạt</b><span id="s-fan">--</span></div><button data-dev="fan">Bật / Tắt</button></div>
-      <div class="dev"><div><b>Rèm</b><span id="s-curtain">--</span></div><button data-dev="curtain">Mở / Đóng</button></div>
-      <div class="dev"><div><b>Cửa</b><span id="s-door">--</span></div><button class="primary" data-dev="door">Mở cửa</button></div>
-    </section>
-
-    <section class="card">
-      <h2>Lệnh giọng nói gần đây</h2>
-      <ul id="logs"><li class="empty">Chưa có lệnh nào</li></ul>
-    </section>
-
-    <section class="card wide">
-      <h2>Nhiệt độ và độ ẩm theo thời gian</h2>
-      <div class="chart"><canvas id="chTemp"></canvas></div>
-    </section>
-
-    <section class="card wide">
-      <h2>Số lệnh theo từ khóa (200 lệnh gần nhất)</h2>
-      <div class="chart"><canvas id="chKw"></canvas></div>
-    </section>
-  </main>
+  <div class="workspace">
+    <nav class="sidebar" aria-label="Điều hướng chính">
+      <button class="nav-item active" data-page="home"><span class="nav-icon">⌂</span><span class="nav-label">Tổng quan</span></button>
+      <button class="nav-item" data-page="automation"><span class="nav-icon">⟳</span><span class="nav-label">Tự động hóa</span></button>
+      <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span><span class="nav-label">Cài đặt</span></button>
+    </nav>
+    <div class="content">
+      <section class="view active" id="homeView" data-view="home">
+        <div class="page-title"><div><h2>Tổng quan</h2><p>Theo dõi và điều khiển ngôi nhà của bạn</p></div><span class="mock-label">ESP32 · Firebase</span></div>
+        <main class="dashboard-grid">
+          <section class="card sensor-card" id="sensorCard" tabindex="0" role="button" aria-label="Mở biểu đồ nhiệt độ và độ ẩm 24 giờ">
+            <h2>Nhiệt độ &amp; độ ẩm</h2><div class="sensor-values"><div class="temp"><span id="t">--</span><small> °C</small></div><div class="sensor-stat">Độ ẩm<strong><span id="h">--</span><small>%</small></strong></div><div class="sparkline" aria-hidden="true"><svg viewBox="0 0 120 38"><path d="M2 28 C15 22 21 27 32 18 S52 23 63 13 82 20 94 9 106 13 118 3"/></svg></div></div>
+            <div class="meta" id="tsInfo">Chưa có dữ liệu</div><div class="meta" id="sensorPresence">Chạm để xem lịch sử cảm biến</div>
+          </section>
+          <section class="card">
+            <h2>Thiết bị</h2>
+            <div class="device-list">
+              <div class="dev" data-device="light"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4m-6.5-7.5a7 7 0 1 1 9 0c-.8.7-1.2 1.5-1.4 2.5H9.9c-.2-1-.6-1.8-1.4-2.5Z"/></svg></span><div><b>Đèn phòng</b><span id="s-light">--</span></div></div><button type="button" data-dev="light" role="switch" aria-checked="false" aria-label="Bật hoặc tắt đèn phòng">Bật / Tắt</button></div>
+              <div class="dev" data-device="fan"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M12 10c-1-2-1-5 1-7 3 0 4 3 2 6m-1 4c2-1 5-1 7 1 0 3-3 4-6 2m-4-1c1 2 1 5-1 7-3 0-4-3-2-6m1-4c-2 1-5 1-7-1 0-3 3-4 6-2"/></svg></span><div><b>Quạt</b><span id="s-fan">--</span></div></div><button type="button" data-dev="fan" role="switch" aria-checked="false" aria-label="Bật hoặc tắt quạt">Bật / Tắt</button></div>
+              <div class="dev" data-device="curtain"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h18M5 5v15m14-15v15M5 20h14"/><path class="curtain-left" d="M6 6h5v12H6z"/><path class="curtain-right" d="M13 6h5v12h-5z"/></svg></span><div><b>Rèm cửa</b><span id="s-curtain">--</span></div></div><button type="button" data-dev="curtain" role="switch" aria-checked="false" aria-label="Mở hoặc đóng rèm">Mở / Đóng</button></div>
+              <div class="dev" data-device="door"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="door-leaf" d="M3 3h13v18H3z"/><circle cx="13" cy="12" r=".7"/><rect x="17" y="12" width="5" height="5" rx="1"/><path class="door-locked" d="M18 12V9.5a1.5 1.5 0 0 1 3 0V12"/><path class="door-unlocked" d="M19 12V9.5a1.5 1.5 0 0 1 2.7-1"/></svg></span><div><b>Cửa chính</b><span id="s-door">--</span></div></div><button class="primary" type="button" data-dev="door" role="switch" aria-checked="false" aria-label="Mở cửa chính">Mở cửa</button></div>
+              <div class="dev" data-device="yard"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.3 6.1L21 10l-5.2 3.5L16.5 20 12 16.2 7.5 20l.7-6.5L3 10l6.7-1.9L12 2Z"/></svg></span><div><b>Đèn sân</b><span id="s-yard">Mô phỏng · chưa kết nối</span></div></div><button type="button" data-ui-device="yard" role="switch" aria-checked="false" aria-label="Bật hoặc tắt đèn sân">Bật / Tắt</button></div>
+            </div>
+          </section>
+          <section class="card">
+            <h2>Lịch sử thao tác</h2>
+            <div class="activity-filters" role="group" aria-label="Lọc lịch sử thao tác">
+              <button type="button" class="activity-filter selected" data-activity-filter="all">Tất cả</button>
+              <button type="button" class="activity-filter" data-activity-filter="voice">Giọng nói</button>
+              <button type="button" class="activity-filter" data-activity-filter="web">Web</button>
+              <button type="button" class="activity-filter" data-activity-filter="app" disabled title="Chưa có lượt đọc nhật ký App từ Firebase">App · chưa đồng bộ</button>
+            </div>
+            <ul id="logs"><li class="empty">Chưa có lịch sử thao tác</li></ul>
+            <p class="meta" id="appHistoryNote">Lịch sử thao tác Web đồng bộ qua Firebase trên các thiết bị. Nhật ký App chưa đồng bộ.</p>
+          </section>
+          <section class="card"><h2>Tự động hóa ESP32</h2><p class="meta" id="firmwareAutomationSummary">Đang tải cấu hình từ thiết bị</p><button type="button" data-go-page="automation">Cấu hình tự động hóa →</button></section>
+          <section class="card wide"><h2>Số lệnh theo từ khóa (200 lệnh gần nhất)</h2><div class="chart"><canvas id="chKw"></canvas></div></section>
+        </main>
+      </section>
+      <section class="view" id="automationView" data-view="automation">
+        <div class="page-title"><div><h2>Tự động hóa</h2><p>Tạo quy tắc để ngôi nhà phản hồi đúng lúc</p></div><button type="button" id="testAutomation">Chạy thử</button></div>
+        <section class="card">
+          <div class="switch-line"><span><b>Bật tự động hóa</b><span class="meta">Quản lý trạng thái toàn bộ quy tắc</span></span><input type="checkbox" id="automationMaster" aria-label="Bật hoặc tắt toàn bộ quy tắc tự động hóa"></div>
+          <div class="rule-list" id="ruleList"></div>
+          <div class="meta" id="automationSummary"></div>
+          <button type="button" class="primary" id="addRule">＋ Thêm quy tắc</button>
+        </section>
+        <details class="card automation-view-details">
+          <summary><b>Cấu hình tự động hóa ESP32</b><span class="meta">Cài đặt thiết bị và cảm biến đang hỗ trợ</span></summary>
+          <div class="switch-line"><span><b>Tự động hóa quạt và vắng nhà</b><span class="meta">ESP32 đọc cấu hình định kỳ, tối đa khoảng 30 giây</span></span><input type="checkbox" id="firmwareAutoEnabled" aria-label="Bật tự động hóa quạt và vắng nhà"></div>
+          <form id="firmwareAutomationForm">
+            <div class="automation-config-grid">
+              <label for="firmwareFanTemp">Bật quạt khi có người và nhiệt độ đạt (°C)<input id="firmwareFanTemp" name="fanTempOn" type="number" min="20" max="45" step="0.5" required></label>
+              <label for="firmwareAbsentMinutes">Thời gian vắng trước khi tắt đèn phòng và quạt (phút)<input id="firmwareAbsentMinutes" name="noPersonMinutes" type="number" min="1" max="120" step="1" required></label>
+            </div>
+            <div class="settings-section">
+              <h2>Đèn sân theo cảm biến ánh sáng</h2>
+              <label for="firmwareGardenMode">Chế độ</label>
+              <select id="firmwareGardenMode" name="gardenMode"><option value="auto">Tự động theo cảm biến</option><option value="manual">Thủ công (tắt tự động theo cảm biến)</option></select>
+              <div class="automation-config-grid">
+                <label for="firmwareDarkBelow">Bật đèn khi mức sáng thấp hơn<input id="firmwareDarkBelow" name="darkBelow" type="number" min="0" max="99" step="1" required></label>
+                <label for="firmwareBrightAbove">Tắt đèn khi mức sáng cao hơn<input id="firmwareBrightAbove" name="brightAbove" type="number" min="1" max="100" step="1" required></label>
+              </div>
+              <p class="meta">ESP32 xác nhận điều kiện ánh sáng liên tục khoảng 30 giây. Ngưỡng tắt phải lớn hơn ngưỡng bật.</p>
+            </div>
+            <div class="form-actions"><span class="meta" id="firmwareAutomationStatus" role="status">Đang chờ cấu hình Firebase…</span><button class="primary" id="saveFirmwareAutomation" type="submit">Lưu cấu hình cho ESP32</button></div>
+          </form>
+          <section class="settings-section">
+            <h2>Quy tắc ESP32 thực thi</h2>
+            <ul class="firmware-rule-list">
+              <li><span>Khi có người và nhiệt độ đạt ngưỡng: bật quạt; khi giảm thấp hơn ngưỡng 2°C: tự tắt quạt.</span></li>
+              <li><span>Khi cảm biến xác nhận không có người đủ thời gian: tắt đèn phòng và quạt.</span></li>
+              <li><span>Khi cảm biến ánh sáng ở chế độ tự động: bật/tắt đèn sân theo ngưỡng sáng đã cấu hình.</span></li>
+            </ul>
+            <p class="meta">Các quy tắc tùy chỉnh trên trang này hiện chỉ lưu trên trình duyệt và chạy thử mô phỏng; chúng chưa được gửi tới ESP32.</p>
+          </section>
+        </details>
+      </section>
+      <section class="view" id="settingsView" data-view="settings">
+        <div class="page-title"><div><h2>Cài đặt</h2><p>Tùy chỉnh giao diện và trải nghiệm</p></div></div>
+        <section class="card">
+          <div class="settings-section"><h2>Giao diện</h2><div class="settings-options" role="radiogroup" aria-label="Chọn giao diện"><label><input type="radio" name="theme" value="light"> Sáng</label><label><input type="radio" name="theme" value="dark"> Tối</label><label><input type="radio" name="theme" value="system"> Theo hệ thống</label></div></div>
+          <div class="settings-section"><h2>Màu nhấn</h2><div class="settings-options"><label><input type="radio" name="accent" value="blue" checked> Xanh dương</label><label><input type="radio" name="accent" value="purple"> Tím</label><label><input type="radio" name="accent" value="green"> Xanh lá</label></div></div>
+          <div class="settings-section"><label class="switch-line"><span>Tắt hiệu ứng chuyển động</span><input type="checkbox" id="reduceAnimations"></label></div>
+          <div class="settings-section"><label for="fontSize">Cỡ chữ</label><select id="fontSize"><option value="14">Tiêu chuẩn</option><option value="16">Lớn</option><option value="18">Rất lớn</option></select></div>
+        </section>
+      </section>
+    </div>
+  </div>
+  <p class="meta hidden" id="deviceOffline" style="position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:5;padding:8px 14px;border:1px solid var(--line);border-radius:20px;background:var(--panel)">Thiết bị ngoại tuyến</p>
 </div>
+
+<div id="modalRoot"></div>
+<div id="toastRoot" aria-live="polite"></div>
+<div class="hidden" aria-hidden="true"><canvas id="chTemp"></canvas></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, onValue, set, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, onValue, set, update, push, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // ====== SỬA CHỖ NÀY: lấy trong Firebase Console > Project settings > Your apps > Web ======
 const firebaseConfig = {
@@ -120,6 +303,10 @@ const confirmedState = { ...state };
 const pendingCommands = {};
 let started = false, charts = {};
 let commandSequence = 0;
+let fanStopTimer;
+let firmwareAutomation = { enabled: true, fanTempOn: 30, noPersonMinutes: 2 };
+let firmwareGarden = { mode: "auto", darkBelow: 25, brightAbove: 40 };
+let automationAutoLoaded = false, automationGardenLoaded = false;
 
 function showDatabaseError(error) {
   console.error("Firebase Realtime Database:", error);
@@ -172,6 +359,25 @@ document.querySelectorAll("[data-dev]").forEach(btn => {
 
     try {
       await set(ref(db, "commands/" + d), payload);
+      try {
+        const timestamp = Date.now();
+        const deviceNames = { light: "Đèn phòng", fan: "Quạt", curtain: "Rèm cửa", door: "Cửa chính" };
+        const action = d === "door" ? "Mở" :
+          d === "curtain" ? (v === CURTAIN_OPEN ? "Mở" : "Đóng") :
+            (v ? "Bật" : "Tắt");
+        await set(push(ref(db, "logs/web")), {
+          source: "web",
+          device: d,
+          action,
+          label: `${action} · ${deviceNames[d]}`,
+          detail: "Lệnh đã gửi từ Web",
+          ts: timestamp
+        });
+      } catch (historyError) {
+        console.error("Không lưu được lịch sử thao tác Web:", historyError);
+        $("dbStatus").textContent = "Đã gửi lệnh nhưng không lưu được lịch sử Web";
+        $("dbStatus").classList.add("off");
+      }
       window.setTimeout(() => {
         if (pendingCommands[d]?.id !== command.id) return;
         delete pendingCommands[d];
@@ -200,7 +406,17 @@ function renderDevice(d) {
       ? (on ? "Đang mở" : "Đang đóng")
       : (on ? "Đang bật" : "Đang tắt");
   $("s-" + d).textContent = txt;
-  document.querySelector(`[data-dev="${d}"]`).classList.toggle("on", on);
+  const toggle = document.querySelector(`[data-dev="${d}"]`);
+  const row = toggle.closest(".dev");
+  const wasOn = row.classList.contains("is-on");
+  toggle.classList.toggle("on", on);
+  toggle.setAttribute("aria-checked", String(on));
+  row.classList.toggle("is-on", on);
+  if (d === "fan") {
+    window.clearTimeout(fanStopTimer);
+    row.classList.toggle("fan-slowing", wasOn && !on);
+    if (wasOn && !on) fanStopTimer = window.setTimeout(() => row.classList.remove("fan-slowing"), 1700);
+  }
 }
 
 // ---- Dữ liệu thời gian thực ----
@@ -250,17 +466,63 @@ function listen() {
     const rows = [];
     s.forEach(c => rows.push(c.val()));
     rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    const ul = $("logs");
-    ul.innerHTML = "";
-    if (!rows.length) { ul.innerHTML = '<li class="empty">Chưa có lệnh nào</li>'; }
-    rows.slice(0, 15).forEach(r => {
-      const li = document.createElement("li");
-      const conf = r.confidence != null ? Math.round(r.confidence * 100) + "%" : "";
-      li.innerHTML = `<span><b></b> <em>${conf}</em></span><em>${r.ts ? fmtTime(r.ts) : ""}</em>`;
-      li.querySelector("b").textContent = r.keyword || "?";
-      ul.appendChild(li);
-    });
+    window.dispatchEvent(new CustomEvent("smart-home-voice-history", { detail: rows }));
     drawKeywords(rows);
+  }, showDatabaseError);
+
+  onValue(query(ref(db, "logs/web"), limitToLast(100)), s => {
+    const rows = [];
+    s.forEach(child => {
+      const entry = child.val();
+      if (entry && entry.source === "web" && entry.label && Number.isFinite(Number(entry.ts))) {
+        rows.push({ ...entry, id: child.key });
+      }
+    });
+    window.dispatchEvent(new CustomEvent("smart-home-web-history", { detail: rows }));
+  }, showDatabaseError);
+
+  onValue(ref(db, "config/auto"), s => {
+    const value = s.val();
+    if (!value) {
+      firmwareAutomation = { enabled: true, fanTempOn: 30, noPersonMinutes: 2 };
+      automationAutoLoaded = true;
+      renderFirmwareAutomation();
+      return;
+    }
+    const enabled = value.enabled;
+    const fanTempOn = Number(value.fan_temp_on);
+    const noPersonMinutes = Number(value.no_person_minutes);
+    if (typeof enabled !== "boolean" || !Number.isFinite(fanTempOn) ||
+        !Number.isInteger(noPersonMinutes)) {
+      console.error("Cấu hình tự động hóa Firebase không hợp lệ:", value);
+      $("firmwareAutomationStatus").textContent = "Cấu hình ESP32 không hợp lệ";
+      return;
+    }
+    firmwareAutomation = { enabled, fanTempOn, noPersonMinutes };
+    automationAutoLoaded = true;
+    renderFirmwareAutomation();
+  }, showDatabaseError);
+
+  onValue(ref(db, "config/garden"), s => {
+    const value = s.val();
+    if (!value) {
+      firmwareGarden = { mode: "auto", darkBelow: 25, brightAbove: 40 };
+      automationGardenLoaded = true;
+      renderFirmwareAutomation();
+      return;
+    }
+    const mode = value.mode;
+    const darkBelow = Number(value.dark_below);
+    const brightAbove = Number(value.bright_above);
+    if (!["auto", "manual"].includes(mode) || !Number.isInteger(darkBelow) ||
+        !Number.isInteger(brightAbove)) {
+      console.error("Cấu hình đèn sân Firebase không hợp lệ:", value);
+      $("firmwareAutomationStatus").textContent = "Cấu hình đèn sân không hợp lệ";
+      return;
+    }
+    firmwareGarden = { mode, darkBelow, brightAbove };
+    automationGardenLoaded = true;
+    renderFirmwareAutomation();
   }, showDatabaseError);
 
   onValue(query(ref(db, "sensors/history"), limitToLast(200)), s => {
@@ -281,41 +543,684 @@ function updateAge() {
     : "Cập nhật lúc " + fmtTime(lastSensorTs);
 }
 
+function renderFirmwareAutomation() {
+  $("firmwareAutoEnabled").checked = firmwareAutomation.enabled;
+  $("firmwareFanTemp").value = firmwareAutomation.fanTempOn;
+  $("firmwareAbsentMinutes").value = firmwareAutomation.noPersonMinutes;
+  $("firmwareGardenMode").value = firmwareGarden.mode;
+  $("firmwareDarkBelow").value = firmwareGarden.darkBelow;
+  $("firmwareBrightAbove").value = firmwareGarden.brightAbove;
+  $("firmwareDarkBelow").disabled = firmwareGarden.mode !== "auto";
+  $("firmwareBrightAbove").disabled = firmwareGarden.mode !== "auto";
+  $("firmwareAutomationSummary").textContent =
+    `${firmwareAutomation.enabled ? "Quạt/vắng nhà: đang bật" : "Quạt/vắng nhà: đang tắt"} · ` +
+    `quạt từ ${firmwareAutomation.fanTempOn}°C · vắng ${firmwareAutomation.noPersonMinutes} phút · ` +
+    `đèn sân ${firmwareGarden.mode === "auto" ? "tự động" : "thủ công"}`;
+  $("firmwareAutomationStatus").textContent =
+    automationAutoLoaded && automationGardenLoaded
+      ? "Đã đồng bộ cấu hình từ Firebase"
+      : "Đang chờ cấu hình Firebase…";
+}
+
+async function saveFirmwareAutomation() {
+  const form = $("firmwareAutomationForm");
+  if (!form.reportValidity()) return;
+  if (!automationAutoLoaded || !automationGardenLoaded) {
+    $("firmwareAutomationStatus").textContent = "Chưa tải được cấu hình hiện tại từ Firebase";
+    return;
+  }
+  const fanTempOn = Number($("firmwareFanTemp").value);
+  const noPersonMinutes = Number($("firmwareAbsentMinutes").value);
+  const darkBelow = Number($("firmwareDarkBelow").value);
+  const brightAbove = Number($("firmwareBrightAbove").value);
+  if (darkBelow >= brightAbove) {
+    $("firmwareAutomationStatus").textContent = "Ngưỡng bật đèn sân phải thấp hơn ngưỡng tắt";
+    $("firmwareBrightAbove").focus();
+    return;
+  }
+  const nextAutomation = {
+    enabled: $("firmwareAutoEnabled").checked,
+    fan_temp_on: fanTempOn,
+    no_person_minutes: noPersonMinutes
+  };
+  const nextGarden = {
+    mode: $("firmwareGardenMode").value,
+    dark_below: darkBelow,
+    bright_above: brightAbove
+  };
+  const button = $("saveFirmwareAutomation");
+  button.disabled = true;
+  $("firmwareAutoEnabled").disabled = true;
+  $("firmwareAutomationStatus").textContent = "Đang lưu cấu hình vào Firebase…";
+  try {
+    await update(ref(db), {
+      "config/auto": nextAutomation,
+      "config/garden": nextGarden
+    });
+    firmwareAutomation = {
+      enabled: nextAutomation.enabled,
+      fanTempOn,
+      noPersonMinutes
+    };
+    firmwareGarden = {
+      mode: nextGarden.mode,
+      darkBelow,
+      brightAbove
+    };
+    renderFirmwareAutomation();
+    $("firmwareAutomationStatus").textContent =
+      "Đã lưu Firebase. ESP32 sẽ nhận cấu hình trong khoảng 30 giây.";
+  } catch (error) {
+    console.error("Không lưu được cấu hình tự động hóa cho ESP32:", error);
+    $("firmwareAutomationStatus").textContent =
+      `Lưu thất bại: ${error.message || error.code || "lỗi Firebase"}`;
+    showDatabaseError(error);
+  } finally {
+    button.disabled = false;
+    $("firmwareAutoEnabled").disabled = false;
+  }
+}
+
+$("firmwareAutomationForm").addEventListener("submit", event => {
+  event.preventDefault();
+  saveFirmwareAutomation();
+});
+$("firmwareAutoEnabled").addEventListener("change", saveFirmwareAutomation);
+
+
+
 // ---- Biểu đồ ----
 function drawTemp(pts) {
-  const labels = pts.map(p => fmtTime(p.ts));
-  const data = {
-    labels,
-    datasets: [
-      { label: "Nhiệt độ (°C)", data: pts.map(p => p.temp), borderColor: "#c4572b", backgroundColor: "#c4572b", yAxisID: "y", pointRadius: 0, tension: .3 },
-      { label: "Độ ẩm (%)", data: pts.map(p => p.hum), borderColor: "#16708a", backgroundColor: "#16708a", yAxisID: "y1", pointRadius: 0, tension: .3 }
-    ]
-  };
-  if (charts.temp) { charts.temp.data = data; charts.temp.update("none"); return; }
-  charts.temp = new Chart($("chTemp"), {
-    type: "line", data,
-    options: {
-      responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-      scales: {
-        x: { ticks: { maxTicksLimit: 8 } },
-        y: { position: "left", title: { display: true, text: "°C" } },
-        y1: { position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "%" } }
-      }
-    }
-  });
+  window.smartHomeSensorHistory = pts;
 }
 
 function drawKeywords(rows) {
   const count = {};
   rows.forEach(r => { if (r.keyword) count[r.keyword] = (count[r.keyword] || 0) + 1; });
   const labels = Object.keys(count);
-  const data = { labels, datasets: [{ label: "Số lệnh", data: labels.map(k => count[k]), backgroundColor: "#16708a" }] };
+  const data = { labels, datasets: [{ label: "Số lệnh", data: labels.map(k => count[k]), backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(), borderRadius: 8 }] };
   if (charts.kw) { charts.kw.data = data; charts.kw.update("none"); return; }
   charts.kw = new Chart($("chKw"), {
     type: "bar", data,
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    options: { responsive: true, maintainAspectRatio: false, color: getComputedStyle(document.documentElement).getPropertyValue("--chart-ink").trim(), plugins: { legend: { display: false } }, scales: { x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue("--chart-ink").trim() }, grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0, color: getComputedStyle(document.documentElement).getPropertyValue("--chart-ink").trim() }, grid: { color: getComputedStyle(document.documentElement).getPropertyValue("--chart-grid").trim() } } } }
   });
 }
+</script>
+<script>
+// Giao diện bổ sung tách biệt: chỉ lưu tùy chọn và cấu hình tự động hóa cục bộ.
+(() => {
+  const $ui = id => document.getElementById(id);
+  function readPreference(key) {
+    try { return localStorage.getItem(key); }
+    catch (error) { console.error(`Không thể đọc tùy chọn ${key}:`, error); return null; }
+  }
+  const themeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const themeChoice = readPreference("smart-home-theme") || "system";
+
+  function setTheme(choice, persist) {
+    document.documentElement.dataset.theme = choice;
+    document.querySelectorAll('input[name="theme"]').forEach(input => {
+      input.checked = input.value === choice;
+    });
+    if (persist) {
+      try { localStorage.setItem("smart-home-theme", choice); }
+      catch (error) { console.error("Không thể lưu giao diện:", error); }
+    }
+    refreshChartTheme();
+  }
+
+  function refreshChartTheme() {
+    if (!window.Chart) return;
+    const styles = getComputedStyle(document.documentElement);
+    const accent = styles.getPropertyValue("--accent").trim();
+    const bad = styles.getPropertyValue("--bad").trim();
+    const ink = styles.getPropertyValue("--chart-ink").trim();
+    const grid = styles.getPropertyValue("--chart-grid").trim();
+    ["chTemp", "chKw", "detailChart"].forEach(id => {
+      const chart = Chart.getChart(id);
+      if (!chart) return;
+      chart.options.color = ink;
+      Object.values(chart.options.scales || {}).forEach(scale => {
+        if (scale.ticks) scale.ticks.color = ink;
+        if (scale.title) scale.title.color = ink;
+        if (scale.grid) scale.grid.color = grid;
+      });
+      chart.data.datasets.forEach(dataset => {
+        const humidity = dataset.label && dataset.label.includes("ẩm");
+        const temperature = dataset.label && dataset.label.includes("Nhiệt");
+        if (chart.canvas.id === "chKw" || humidity) dataset.borderColor = dataset.backgroundColor = accent;
+        if (temperature) dataset.borderColor = dataset.backgroundColor = bad;
+      });
+      chart.update("none");
+    });
+  }
+
+  setTheme(themeChoice, false);
+  const connectionObserver = new MutationObserver(() => {
+    $ui("connectionBadge").classList.toggle("off", $ui("dbStatus").classList.contains("off"));
+  });
+  connectionObserver.observe($ui("dbStatus"), { attributes: true, attributeFilter: ["class"] });
+  $ui("connectionBadge").classList.toggle("off", $ui("dbStatus").classList.contains("off"));
+  document.querySelectorAll('input[name="theme"]').forEach(input => {
+    input.addEventListener("change", () => setTheme(input.value, true));
+  });
+  themeQuery.addEventListener("change", () => {
+    if ((readPreference("smart-home-theme") || "system") === "system") refreshChartTheme();
+  });
+  document.querySelectorAll('input[name="accent"]').forEach(input => {
+    input.addEventListener("change", () => {
+      const accents = { blue: ["#37b8ff", "#42e2de"], purple: ["#a78bfa", "#e879f9"], green: ["#34d399", "#8be36b"] };
+      const colors = accents[input.value];
+      document.documentElement.style.setProperty("--accent", colors[0]);
+      document.documentElement.style.setProperty("--accent-2", colors[1]);
+      try { localStorage.setItem("smart-home-accent", input.value); }
+      catch (error) { console.error("Không thể lưu màu nhấn:", error); }
+      refreshChartTheme();
+    });
+  });
+  const savedAccent = readPreference("smart-home-accent");
+  const accentInput = document.querySelector(`input[name="accent"][value="${["blue", "purple", "green"].includes(savedAccent) ? savedAccent : "blue"}"]`);
+  if (accentInput && savedAccent) { accentInput.checked = true; accentInput.dispatchEvent(new Event("change")); }
+  const savedFontSize = readPreference("smart-home-font-size");
+  if (savedFontSize && $ui("fontSize")) {
+    $ui("fontSize").value = savedFontSize;
+    document.documentElement.style.fontSize = savedFontSize + "px";
+  }
+  $ui("fontSize").addEventListener("change", event => {
+    document.documentElement.style.fontSize = event.target.value + "px";
+    try { localStorage.setItem("smart-home-font-size", event.target.value); }
+    catch (error) { console.error("Không thể lưu cỡ chữ:", error); }
+  });
+  $ui("reduceAnimations").addEventListener("change", event => {
+    document.documentElement.classList.toggle("no-motion", event.target.checked);
+    try { localStorage.setItem("smart-home-no-motion", String(event.target.checked)); }
+    catch (error) { console.error("Không thể lưu tùy chọn chuyển động:", error); }
+  });
+  if (readPreference("smart-home-no-motion") === "true") {
+    $ui("reduceAnimations").checked = true;
+    document.documentElement.classList.add("no-motion");
+  }
+
+  const greetingPeriods = [
+    { start: 5, end: 10, text: "Chào buổi sáng!", icon: "☀️" },
+    { start: 10, end: 13, text: "Chào buổi trưa!", icon: "🌤️" },
+    { start: 13, end: 19, text: "Chào buổi chiều!", icon: "🌇" },
+    { start: 19, end: 29, text: "Chào buổi tối!", icon: "🌙" }
+  ];
+  function updateGreeting() {
+    const hour = new Date().getHours();
+    const period = greetingPeriods.find(item => hour >= item.start && hour < item.end) || greetingPeriods[3];
+    $ui("greeting").textContent = period.text + " " + period.icon;
+    const temp = $ui("t").textContent;
+    const humidity = $ui("h").textContent;
+    $ui("greetingSub").textContent = temp !== "--"
+      ? `${temp}°C · ${humidity}% độ ẩm · Trạng thái hiện diện chưa có dữ liệu`
+      : "Đang cập nhật cảm biến · Trạng thái hiện diện chưa có dữ liệu";
+  }
+  updateGreeting();
+  window.setInterval(updateGreeting, 60000);
+  window.setInterval(() => {
+    const offline = $ui("tsInfo").classList.contains("off") || $ui("t").textContent === "--";
+    $ui("deviceOffline").classList.toggle("hidden", !offline);
+    document.querySelector(".device-list").classList.toggle("is-offline", offline);
+  }, 5000);
+
+  document.querySelectorAll(".dev").forEach(row => {
+    row.addEventListener("click", event => {
+      if (event.target.closest("button")) return;
+      const toggle = row.querySelector("[data-dev]");
+      if (toggle) toggle.click();
+    });
+  });
+  document.querySelectorAll("[data-ui-device]").forEach(toggle => {
+    toggle.addEventListener("click", () => {
+      // TODO: nối dữ liệu thật — đèn sân chưa có luồng lệnh trong giao diện web.
+      const enabled = toggle.getAttribute("aria-checked") !== "true";
+      toggle.setAttribute("aria-checked", String(enabled));
+      toggle.classList.toggle("on", enabled);
+      toggle.closest(".dev").classList.toggle("is-on", enabled);
+      $ui("s-yard").textContent = enabled ? "Đang bật · mô phỏng" : "Đang tắt · mô phỏng";
+    });
+  });
+
+  document.querySelectorAll("[data-page], [data-go-page]").forEach(button => {
+    button.addEventListener("click", () => showPage(button.dataset.page || button.dataset.goPage));
+  });
+  function showPage(page) {
+    document.querySelectorAll("[data-view]").forEach(view => view.classList.toggle("active", view.dataset.view === page));
+    document.querySelectorAll("[data-page]").forEach(button => button.classList.toggle("active", button.dataset.page === page));
+  }
+
+  let activityFilter = "all";
+  let voiceHistory = [];
+  let webActivity = [];
+  function renderActivity() {
+    const list = $ui("logs");
+    const voiceEntries = voiceHistory.map(entry => ({
+      source: "voice",
+      label: entry.keyword || "Lệnh giọng nói",
+      detail: entry.executed === false ? "Không thực thi" :
+        entry.confidence == null ? "" : `Độ tin cậy ${Math.round(entry.confidence * 100)}%`,
+      ts: Number(entry.ts || 0) * 1000
+    })).filter(entry => Number.isFinite(entry.ts) && entry.ts > 0);
+    const entries = [...voiceEntries, ...webActivity]
+      .filter(entry => activityFilter === "all" || entry.source === activityFilter)
+      .sort((first, second) => second.ts - first.ts)
+      .slice(0, 30);
+    list.replaceChildren();
+    if (!entries.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty";
+      empty.textContent = activityFilter === "web" ? "Chưa có lịch sử thao tác Web" : "Chưa có lịch sử thao tác";
+      list.append(empty);
+      return;
+    }
+    entries.forEach(entry => {
+      const item = document.createElement("li");
+      const description = document.createElement("span");
+      description.className = "activity-entry";
+      const source = document.createElement("span");
+      source.className = "activity-source";
+      source.textContent = entry.source === "web" ? "Web" : "Giọng nói";
+      const label = document.createElement("b");
+      label.textContent = entry.label;
+      description.append(source, label);
+      if (entry.detail) {
+        const detail = document.createElement("span");
+        detail.className = "meta";
+        detail.textContent = entry.detail;
+        description.append(detail);
+      }
+      const timestamp = document.createElement("time");
+      timestamp.className = "activity-time";
+      timestamp.dateTime = new Date(entry.ts).toISOString();
+      timestamp.textContent = new Date(entry.ts).toLocaleString("vi-VN", {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit"
+      });
+      item.append(description, timestamp);
+      list.append(item);
+    });
+  }
+  document.querySelectorAll("[data-activity-filter]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      activityFilter = button.dataset.activityFilter;
+      document.querySelectorAll("[data-activity-filter]").forEach(filter =>
+        filter.classList.toggle("selected", filter === button));
+      renderActivity();
+    });
+  });
+  window.addEventListener("smart-home-voice-history", event => {
+    voiceHistory = Array.isArray(event.detail) ? event.detail : [];
+    renderActivity();
+  });
+  window.addEventListener("smart-home-web-history", event => {
+    webActivity = Array.isArray(event.detail) ? event.detail : [];
+    renderActivity();
+  });
+  renderActivity();
+
+  // TODO: nối dữ liệu thật
+  // Dữ liệu quy tắc chỉ ở localStorage để tiện chuyển sang Firebase sau này.
+  const automationStore = (() => {
+    const key = "smart-home-automation-v1";
+    const samples = [
+      { id: "sample-heat-alert", name: "Cảnh báo nhiệt độ cao", condition: "temp_high", threshold: 35, actions: [{ type: "notify" }], mode: "auto", enabled: false, lastRan: null },
+      { id: "sample-fan-hot", name: "Làm mát khi trời nóng", condition: "temp_high", threshold: 30, actions: [{ type: "device", device: "fan", value: "on" }], mode: "ask", wait: 3, timeout: "auto", enabled: true, lastRan: null },
+      { id: "sample-no-motion", name: "Tiết kiệm khi vắng nhà", condition: "no_motion", threshold: 15, actions: [{ type: "device", device: "light", value: "off" }, { type: "device", device: "fan", value: "off" }], mode: "auto", enabled: false, lastRan: null },
+      { id: "sample-dark", name: "Chiếu sáng sân khi trời tối", condition: "dark", actions: [{ type: "device", device: "yard", value: "on" }], mode: "auto", enabled: false, lastRan: null }
+    ];
+    function load() {
+      try {
+        const saved = localStorage.getItem(key);
+        if (!saved) return samples;
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : samples;
+      } catch (error) {
+        console.error("Không thể đọc cấu hình tự động hóa:", error);
+        return samples;
+      }
+    }
+    function save(rules) {
+      try { localStorage.setItem(key, JSON.stringify(rules)); }
+      catch (error) { console.error("Không thể lưu cấu hình tự động hóa:", error); }
+    }
+    return { load, save };
+  })();
+  let rules = automationStore.load();
+  let automationEnabled = readPreference("smart-home-automation-enabled") !== "false";
+  const conditionNames = {
+    temp_high: "Nhiệt độ cao hơn", temp_low: "Nhiệt độ thấp hơn",
+    hum_high: "Độ ẩm cao hơn", hum_low: "Độ ẩm thấp hơn",
+    no_motion: "Không có chuyển động trong", motion: "Phát hiện chuyển động",
+    dark: "Trời tối", time: "Trong khung giờ"
+  };
+  const deviceNames = { light: "Đèn phòng", fan: "Quạt", yard: "Đèn sân", curtain: "Rèm cửa", door: "Cửa" };
+  function describeRule(rule) {
+    let condition = conditionNames[rule.condition] || "Điều kiện";
+    if (["temp_high", "temp_low"].includes(rule.condition)) condition += ` ${rule.threshold} °C`;
+    if (["hum_high", "hum_low"].includes(rule.condition)) condition += ` ${rule.threshold} %`;
+    if (rule.condition === "no_motion") condition += ` ${rule.threshold} phút`;
+    if (rule.condition === "time") condition += ` ${rule.from || "00:00"}–${rule.to || "23:59"}`;
+    const actions = (rule.actions || []).map(action => action.type === "notify"
+      ? "Gửi thông báo"
+      : `${action.value === "on" ? "Bật" : "Tắt"} ${deviceNames[action.device] || action.device}`).join(" · ");
+    return `NẾU ${condition} → ${actions || "Chưa chọn hành động"} · ${rule.mode === "ask" ? "Hỏi tôi trước" : "Tự động làm luôn"}`;
+  }
+  function renderRules() {
+    const list = $ui("ruleList");
+    list.replaceChildren();
+    rules.forEach(rule => {
+      const card = document.createElement("article");
+      card.className = "rule-card";
+      const details = document.createElement("div");
+      const title = document.createElement("h3");
+      title.textContent = rule.name || "Quy tắc mới";
+      const desc = document.createElement("p");
+      desc.textContent = describeRule(rule);
+      const status = document.createElement("p");
+      status.textContent = rule.lastRan ? `Đã chạy lúc ${new Date(rule.lastRan).toLocaleString("vi-VN")}` : "Đang chờ";
+      details.append(title, desc, status);
+      const actions = document.createElement("div");
+      actions.className = "rule-actions";
+      const enabled = document.createElement("input");
+      enabled.type = "checkbox";
+      enabled.checked = !!rule.enabled;
+      enabled.setAttribute("aria-label", `Bật quy tắc ${rule.name}`);
+      enabled.addEventListener("change", () => updateRule(rule.id, item => { item.enabled = enabled.checked; }));
+      const edit = document.createElement("button");
+      edit.type = "button"; edit.className = "small-button"; edit.textContent = "Sửa";
+      edit.addEventListener("click", () => openRuleForm(rule));
+      const remove = document.createElement("button");
+      remove.type = "button"; remove.className = "small-button"; remove.textContent = "Xóa";
+      remove.setAttribute("aria-label", `Xóa quy tắc ${rule.name}`);
+      remove.addEventListener("click", () => { rules = rules.filter(item => item.id !== rule.id); persistRules(); });
+      actions.append(enabled, edit, remove);
+      card.append(details, actions);
+      list.append(card);
+    });
+    $ui("automationSummary").textContent = `${rules.filter(rule => rule.enabled).length} quy tắc đang bật`;
+    $ui("automationMaster").checked = automationEnabled;
+  }
+  function persistRules() { automationStore.save(rules); renderRules(); }
+  function updateRule(id, callback) {
+    const rule = rules.find(item => item.id === id);
+    if (rule) callback(rule);
+    persistRules();
+  }
+  function setAutomationEnabled(enabled) {
+    automationEnabled = enabled;
+    try { localStorage.setItem("smart-home-automation-enabled", String(enabled)); }
+    catch (error) { console.error("Không thể lưu trạng thái tự động hóa:", error); }
+    renderRules();
+  }
+  $ui("automationMaster").addEventListener("change", event => setAutomationEnabled(event.target.checked));
+  renderRules();
+
+  function showToast(message, askRule) {
+    const root = $ui("toastRoot");
+    root.replaceChildren();
+    const toast = document.createElement("section");
+    toast.className = "toast";
+    const text = document.createElement("div");
+    text.textContent = message;
+    toast.append(text);
+    if (askRule) {
+      const countdown = document.createElement("p");
+      const controls = document.createElement("div");
+      controls.className = "toast-actions";
+      const accept = document.createElement("button");
+      accept.className = "primary"; accept.textContent = "Đồng ý";
+      const skip = document.createElement("button");
+      skip.textContent = "Bỏ qua";
+      let remaining = Math.max(1, Number(askRule.wait) || 3) * 60;
+      const renderCountdown = () => { countdown.textContent = `Thời gian chờ: ${Math.ceil(remaining / 60)} phút`; };
+      renderCountdown();
+      const timer = window.setInterval(() => {
+        remaining -= 1;
+        renderCountdown();
+        if (remaining <= 0) {
+          window.clearInterval(timer);
+          root.replaceChildren();
+          showToast(askRule.timeout === "auto" ? "Hết thời gian: mô phỏng tự thực hiện hành động." : "Hết thời gian: không thực hiện hành động.");
+        }
+      }, 1000);
+      const close = () => { window.clearInterval(timer); root.replaceChildren(); };
+      accept.addEventListener("click", () => { close(); showToast("Đã đồng ý · đây là mô phỏng, chưa gửi lệnh thiết bị."); });
+      skip.addEventListener("click", () => { close(); showToast("Đã bỏ qua hành động mô phỏng."); });
+      controls.append(accept, skip);
+      toast.append(countdown, controls);
+    } else {
+      window.setTimeout(() => { if (toast.isConnected) toast.remove(); }, 5000);
+    }
+    root.append(toast);
+  }
+  $ui("testAutomation").addEventListener("click", () => {
+    if (!automationEnabled) { showToast("Tự động hóa đang tắt."); return; }
+    const rule = rules.find(item => item.enabled);
+    if (!rule) { showToast("Chưa có quy tắc nào đang bật."); return; }
+    updateRule(rule.id, item => { item.lastRan = Date.now(); });
+    if (rule.mode === "ask") showToast(`Mô phỏng: ${rule.name}. Chấp thuận để tiếp tục.`, rule);
+    else showToast(`Chạy thử: ${rule.name} · không gửi lệnh thiết bị.`);
+  });
+
+  function openRuleForm(rule) {
+    const editing = !!rule;
+    const initial = rule || { name: "", condition: "temp_high", threshold: 30, actions: [{ type: "notify" }], mode: "auto", wait: 3, timeout: "auto", enabled: true };
+    const root = $ui("modalRoot");
+    root.innerHTML = `<div class="modal-backdrop" role="presentation"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="ruleFormTitle"><div class="modal-head"><h2 id="ruleFormTitle">${editing ? "Sửa quy tắc" : "Thêm quy tắc"}</h2><button type="button" data-close-modal aria-label="Đóng">✕</button></div><form id="ruleForm"><label>Tên quy tắc<input name="name" required maxlength="80" value="${escapeAttribute(initial.name)}"></label><div class="modal-grid"><div><label>ĐIỀU KIỆN · NẾU</label><select name="condition"><option value="temp_high">Nhiệt độ cao hơn X °C</option><option value="temp_low">Nhiệt độ thấp hơn X °C</option><option value="hum_high">Độ ẩm cao hơn X %</option><option value="hum_low">Độ ẩm thấp hơn X %</option><option value="no_motion">Không có chuyển động trong X phút</option><option value="motion">Phát hiện chuyển động</option><option value="dark">Trời tối (cảm biến / thời gian)</option><option value="time">Trong khung giờ cụ thể</option></select></div><div class="condition-value"><label>Ngưỡng / thời lượng</label><input name="threshold" type="number" min="0" step="any"></div><div class="time-field"><label>Từ giờ</label><input name="from" type="time"></div><div class="time-field"><label>Đến giờ</label><input name="to" type="time"></div><div class="time-field"><label>Ngày trong tuần</label><div class="days">${["T2","T3","T4","T5","T6","T7","CN"].map((day,index)=>`<label><input type="checkbox" name="days" value="${index}">${day}</label>`).join("")}</div></div></div><div class="settings-section"><label>HÀNH ĐỘNG · THÌ</label><div id="actionRows"></div><button type="button" class="small-button" id="addAction">＋ Thêm hành động</button></div><div class="modal-grid"><div><label>CÁCH THỰC HIỆN</label><select name="mode"><option value="auto">Tự động làm luôn</option><option value="ask">Hỏi tôi trước</option></select></div><div class="ask-field"><label>Thời gian chờ (phút)</label><select name="wait"><option>1</option><option>3</option><option>5</option><option>10</option></select></div><div class="ask-field"><label>Hết thời gian</label><select name="timeout"><option value="auto">Tự thực hiện</option><option value="none">Không làm gì</option></select></div></div><div class="form-actions"><button type="button" data-close-modal>Hủy</button><button class="primary" type="submit">Lưu quy tắc</button></div></form></section></div>`;
+    const form = $ui("ruleForm");
+    form.elements.name.value = initial.name || "";
+    form.elements.condition.value = initial.condition;
+    form.elements.threshold.value = initial.threshold ?? 30;
+    form.elements.from.value = initial.from || "18:00";
+    form.elements.to.value = initial.to || "22:00";
+    form.elements.mode.value = initial.mode || "auto";
+    form.elements.wait.value = String(initial.wait || 3);
+    form.elements.timeout.value = initial.timeout || "auto";
+    (initial.days || []).forEach(day => {
+      const input = form.querySelector(`input[name="days"][value="${day}"]`);
+      if (input) input.checked = true;
+    });
+    const actionRows = $ui("actionRows");
+    (initial.actions || []).forEach(action => addActionRow(action));
+    function addActionRow(action = { type: "notify", device: "light", value: "on" }) {
+      const row = document.createElement("div");
+      row.className = "modal-grid action-row";
+      const kind = document.createElement("select");
+      kind.innerHTML = '<option value="notify">Gửi thông báo</option><option value="device">Điều khiển thiết bị</option>';
+      kind.value = action.type;
+      const target = document.createElement("select");
+      target.innerHTML = '<option value="light">Đèn phòng</option><option value="fan">Quạt</option><option value="yard">Đèn sân</option><option value="curtain">Rèm cửa</option><option value="door">Cửa</option>';
+      target.value = action.device || "light";
+      const value = document.createElement("select");
+      value.innerHTML = '<option value="on">Bật / Mở</option><option value="off">Tắt / Đóng</option>';
+      value.value = action.value || "on";
+      const remove = document.createElement("button");
+      remove.type = "button"; remove.className = "small-button"; remove.textContent = "Xóa";
+      const sync = () => {
+        target.classList.toggle("hidden", kind.value === "notify");
+        value.classList.toggle("hidden", kind.value === "notify");
+      };
+      kind.addEventListener("change", sync);
+      remove.addEventListener("click", () => row.remove());
+      row.append(kind, target, value, remove);
+      actionRows.append(row);
+      sync();
+    }
+    $ui("addAction").addEventListener("click", () => addActionRow({ type: "device", device: "light", value: "on" }));
+    const condition = form.elements.condition;
+    const updateFields = () => {
+      const valueNeeded = ["temp_high", "temp_low", "hum_high", "hum_low", "no_motion"].includes(condition.value);
+      form.querySelector(".condition-value").classList.toggle("hidden", !valueNeeded);
+      form.querySelectorAll(".time-field").forEach(field => field.classList.toggle("hidden", condition.value !== "time"));
+      form.querySelectorAll(".ask-field").forEach(field => field.classList.toggle("hidden", form.elements.mode.value !== "ask"));
+    };
+    condition.addEventListener("change", updateFields);
+    form.elements.mode.addEventListener("change", updateFields);
+    updateFields();
+    root.querySelectorAll("[data-close-modal]").forEach(button => button.addEventListener("click", () => root.replaceChildren()));
+    root.querySelector(".modal-backdrop").addEventListener("click", event => {
+      if (event.target === event.currentTarget) root.replaceChildren();
+    });
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      const values = new FormData(form);
+      const next = {
+        id: initial.id || `rule-${Date.now()}`,
+        name: String(values.get("name")).trim(),
+        condition: String(values.get("condition")),
+        threshold: Number(values.get("threshold") || 0),
+        from: String(values.get("from") || ""),
+        to: String(values.get("to") || ""),
+        days: values.getAll("days").map(Number),
+        actions: [...actionRows.querySelectorAll(".action-row")].map(row => ({
+          type: row.children[0].value,
+          device: row.children[1].value,
+          value: row.children[2].value
+        })),
+        mode: String(values.get("mode")),
+        wait: Number(values.get("wait") || 3),
+        timeout: String(values.get("timeout")),
+        enabled: initial.enabled !== false,
+        lastRan: initial.lastRan || null
+      };
+      const conflict = rules.find(item => item.id !== next.id && areContradictory(item, next));
+      if (conflict) showToast(`Cảnh báo: “${conflict.name}” có hành động trái ngược trong cùng điều kiện.`);
+      const index = rules.findIndex(item => item.id === next.id);
+      if (index < 0) rules.push(next); else rules[index] = next;
+      root.replaceChildren();
+      persistRules();
+    });
+    form.elements.name.focus();
+  }
+  function escapeAttribute(value) {
+    return String(value || "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+  }
+  function conditionsCanOverlap(first, second) {
+    const metrics = { temp_high: ["temp", "high"], temp_low: ["temp", "low"], hum_high: ["hum", "high"], hum_low: ["hum", "low"] };
+    const firstMetric = metrics[first.condition];
+    const secondMetric = metrics[second.condition];
+    if (firstMetric && secondMetric) {
+      if (firstMetric[0] !== secondMetric[0]) return false;
+      if (firstMetric[1] === secondMetric[1]) return true;
+      const high = firstMetric[1] === "high" ? first : second;
+      const low = firstMetric[1] === "low" ? first : second;
+      return Number(high.threshold) < Number(low.threshold);
+    }
+    if (first.condition !== second.condition) return false;
+    if (first.condition !== "time") return true;
+    const startA = Number((first.from || "00:00").replace(":", ""));
+    const endA = Number((first.to || "23:59").replace(":", ""));
+    const startB = Number((second.from || "00:00").replace(":", ""));
+    const endB = Number((second.to || "23:59").replace(":", ""));
+    const daysA = first.days && first.days.length ? first.days : [0, 1, 2, 3, 4, 5, 6];
+    const daysB = second.days && second.days.length ? second.days : [0, 1, 2, 3, 4, 5, 6];
+    return daysA.some(day => daysB.includes(day)) && startA <= endB && startB <= endA;
+  }
+  function areContradictory(first, second) {
+    if (!conditionsCanOverlap(first, second)) return false;
+    return (first.actions || []).some(a => (second.actions || []).some(b =>
+      a.type === "device" && b.type === "device" && a.device === b.device && a.value !== b.value));
+  }
+  $ui("addRule").addEventListener("click", () => openRuleForm());
+
+  function generateMockSensorHistory(range) {
+    // TODO: nối dữ liệu thật
+    const points = [];
+    const count = range === "week" ? 28 : 24;
+    const interval = range === "week" ? 6 * 60 * 60 * 1000 : 60 * 60 * 1000;
+    for (let index = count - 1; index >= 0; index -= 1) {
+      const time = Date.now() - index * interval;
+      const wave = Math.sin((count - index) / (range === "week" ? 4 : 3));
+      points.push({
+        time,
+        label: new Date(time).toLocaleString("vi-VN", range === "week" ? { day: "2-digit", month: "2-digit", hour: "2-digit" } : { hour: "2-digit", minute: "2-digit" }),
+        fullLabel: new Date(time).toLocaleString("vi-VN"),
+        temp: Number((27 + wave * 3 + Math.sin(index * .6) * .7).toFixed(1)),
+        hum: Math.round(67 - wave * 11 + Math.cos(index * .4) * 4)
+      });
+    }
+    return points;
+  }
+  let detailChart;
+  function renderSensorDetail(range = "day") {
+    const now = Date.now();
+    const realPoints = range === "day" && Array.isArray(window.smartHomeSensorHistory)
+      ? window.smartHomeSensorHistory
+        .filter(point => Number.isFinite(Number(point.ts)) &&
+          Number(point.ts) * 1000 <= now &&
+          now - Number(point.ts) * 1000 <= 24 * 60 * 60 * 1000 &&
+          Number.isFinite(Number(point.temp)) && Number.isFinite(Number(point.hum)))
+        .map(point => {
+          const time = Number(point.ts) * 1000;
+          return {
+            time,
+            label: new Date(time).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+            fullLabel: new Date(time).toLocaleString("vi-VN"),
+            temp: Number(point.temp),
+            hum: Number(point.hum)
+          };
+        }) : [];
+    const usingRealData = realPoints.length > 0;
+    const points = usingRealData ? realPoints : generateMockSensorHistory(range);
+    if (detailChart) detailChart.destroy();
+    const styles = getComputedStyle(document.documentElement);
+    const tempColor = styles.getPropertyValue("--bad").trim();
+    const humidityColor = styles.getPropertyValue("--accent").trim();
+    const ink = styles.getPropertyValue("--chart-ink").trim();
+    const grid = styles.getPropertyValue("--chart-grid").trim();
+    const context = $ui("detailChart").getContext("2d");
+    const tempGradient = context.createLinearGradient(0, 0, 0, 260);
+    tempGradient.addColorStop(0, tempColor + "44");
+    tempGradient.addColorStop(1, tempColor + "00");
+    const humGradient = context.createLinearGradient(0, 0, 0, 260);
+    humGradient.addColorStop(0, humidityColor + "35");
+    humGradient.addColorStop(1, humidityColor + "00");
+    detailChart = new Chart(context, {
+      type: "line",
+      data: { labels: points.map(point => point.label), datasets: [
+        { label: "Nhiệt độ (°C)", data: points.map(point => point.temp), yAxisID: "y", borderColor: tempColor, backgroundColor: tempGradient, fill: true, tension: .38, pointRadius: 0 },
+        { label: "Độ ẩm (%)", data: points.map(point => point.hum), yAxisID: "y1", borderColor: humidityColor, backgroundColor: humGradient, fill: true, tension: .38, pointRadius: 0 }
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false, color: ink, interaction: { mode: "index", intersect: false },
+        plugins: { tooltip: { callbacks: { title: items => points[items[0].dataIndex].fullLabel } } },
+        scales: {
+          x: { ticks: { color: ink, maxTicksLimit: 8 }, grid: { color: grid } },
+          y: { position: "left", title: { display: true, text: "°C", color: ink }, ticks: { color: ink }, grid: { color: grid } },
+          y1: { position: "right", min: 0, max: 100, title: { display: true, text: "%", color: ink }, ticks: { color: ink }, grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+    const temps = points.map(point => point.temp);
+    const hums = points.map(point => point.hum);
+    const average = values => (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1);
+    $ui("detailStats").innerHTML = `<div class="stat-box">Cao nhất<strong>${Math.max(...temps).toFixed(1)}°C · ${Math.max(...hums)}%</strong></div><div class="stat-box">Thấp nhất<strong>${Math.min(...temps).toFixed(1)}°C · ${Math.min(...hums)}%</strong></div><div class="stat-box">Trung bình<strong>${average(temps)}°C · ${average(hums)}%</strong></div>`;
+    $ui("detailMockLabel").textContent = range === "week"
+      ? "7 ngày · dữ liệu mô phỏng"
+      : usingRealData ? "24 giờ · Firebase" : "24 giờ · dữ liệu mô phỏng";
+    refreshChartTheme();
+  }
+  function openSensorModal() {
+    const root = $ui("modalRoot");
+    root.innerHTML = `<div class="modal-backdrop" role="presentation"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="sensorModalTitle"><div class="modal-head"><h2 id="sensorModalTitle">Lịch sử nhiệt độ &amp; độ ẩm</h2><button type="button" data-close-modal aria-label="Đóng">✕</button></div><div class="chart-tabs"><button type="button" class="selected" data-range="day">24 giờ</button><button type="button" data-range="week">7 ngày</button><span class="mock-label" id="detailMockLabel">Dữ liệu mô phỏng</span></div><div class="chart" style="height:320px;margin-top:16px"><canvas id="detailChart"></canvas></div><div class="stats-row" id="detailStats"></div></section></div>`;
+    root.querySelectorAll("[data-close-modal]").forEach(button => button.addEventListener("click", () => { root.replaceChildren(); if (detailChart) { detailChart.destroy(); detailChart = null; } }));
+    root.querySelector(".modal-backdrop").addEventListener("click", event => {
+      if (event.target === event.currentTarget) { root.replaceChildren(); if (detailChart) { detailChart.destroy(); detailChart = null; } }
+    });
+    root.querySelectorAll("[data-range]").forEach(button => button.addEventListener("click", () => {
+      root.querySelectorAll("[data-range]").forEach(item => item.classList.toggle("selected", item === button));
+      renderSensorDetail(button.dataset.range);
+    }));
+    renderSensorDetail();
+  }
+  $ui("sensorCard").addEventListener("click", openSensorModal);
+  $ui("sensorCard").addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openSensorModal(); }
+  });
+})();
 </script>
 </body>
 </html>
