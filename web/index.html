@@ -158,6 +158,11 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fan-accelerate{from{transform:rotate(-120deg)}to{transform:rotate(360deg)}}
 @keyframes light-pop{50%{transform:scale(1.12)}}
+.passcode-item{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel-raised);margin-bottom:8px}
+.passcode-item b{font-size:14px;display:block}
+.passcode-item span{font-size:12px;color:var(--mute)}
+.passcode-del{background:transparent;border:1px solid var(--bad);color:var(--bad);padding:6px 14px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;transition:background .2s,color .2s}
+.passcode-del:hover{background:var(--bad);color:#fff}
 .device-list.is-offline{opacity:.55}
 .no-motion *, .no-motion *::before, .no-motion *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 @media(max-width:900px){.workspace{grid-template-columns:74px minmax(0,1fr);padding:18px;gap:16px}.sidebar{padding:10px}.nav-item{justify-content:center;padding:13px 8px}.nav-item .nav-label{display:none}.app-header{padding:18px 22px}}
@@ -268,6 +273,19 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
           <div class="settings-section"><h2>Màu nhấn</h2><div class="settings-options"><label><input type="radio" name="accent" value="blue" checked> Xanh dương</label><label><input type="radio" name="accent" value="purple"> Tím</label><label><input type="radio" name="accent" value="green"> Xanh lá</label></div></div>
           <div class="settings-section"><label class="switch-line"><span>Tắt hiệu ứng chuyển động</span><input type="checkbox" id="reduceAnimations"></label></div>
           <div class="settings-section"><label for="fontSize">Cỡ chữ</label><select id="fontSize"><option value="14">Tiêu chuẩn</option><option value="16">Lớn</option><option value="18">Rất lớn</option></select></div>
+        </section>
+        <section class="card" style="margin-top:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div>
+              <h2 style="margin:0 0 4px;">Mật khẩu mở cửa (Keypad)</h2>
+              <p class="meta" style="margin:0;">Mã số 4–8 chữ số dùng trên bàn phím số ESP32</p>
+            </div>
+            <button type="button" class="primary" id="btnOpenAddPasscode" style="padding:8px 14px;border-radius:12px;font-size:13px;font-weight:600;">＋ Thêm mật khẩu</button>
+          </div>
+          <div id="passcodeList" class="passcode-list">
+            <p class="meta">Đang tải danh sách mật khẩu...</p>
+          </div>
+          <p class="meta" style="margin-top:12px;font-size:12px;">Mật khẩu được lưu trữ an toàn bằng hàm băm SHA-256 trong bộ nhớ NVS của ESP32.</p>
         </section>
       </section>
     </div>
@@ -1480,6 +1498,128 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
   $ui("sensorCard").addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openSensorModal(); }
   });
+
+  // ---- Quản lý mật khẩu mở cửa (Keypad) ----
+  let currentPasscodes = {};
+
+  function renderPasscodes(data) {
+    currentPasscodes = data || {};
+    const list = $ui("passcodeList");
+    if (!list) return;
+    const ids = Object.keys(currentPasscodes);
+    if (ids.length === 0) {
+      list.innerHTML = `<p class="meta">Chưa có mật khẩu nào được lưu.</p>`;
+      return;
+    }
+    list.innerHTML = ids.map(id => {
+      const item = currentPasscodes[id] || {};
+      const name = item.name || id;
+      const dateStr = item.created_ts ? new Date(item.created_ts).toLocaleString("vi-VN") : "";
+      return `<div class="passcode-item">
+        <div>
+          <b>${escapeAttribute(name)}</b>
+          <span>ID: ${escapeAttribute(id)}${dateStr ? " · " + dateStr : ""}</span>
+        </div>
+        <button type="button" class="passcode-del" data-del-passcode="${escapeAttribute(id)}" data-passcode-name="${escapeAttribute(name)}" aria-label="Xóa mật khẩu ${escapeAttribute(name)}">Xóa</button>
+      </div>`;
+    }).join("");
+
+    list.querySelectorAll("[data-del-passcode]").forEach(btn => {
+      btn.onclick = async () => {
+        const targetId = btn.dataset.delPasscode;
+        const targetName = btn.dataset.passcodeName;
+        if (Object.keys(currentPasscodes).length <= 1) {
+          alert("Không thể xóa mật khẩu duy nhất còn lại! ESP32 yêu cầu phải giữ lại ít nhất một mật khẩu mở cửa.");
+          return;
+        }
+        if (!confirm(`Bạn có chắc muốn xóa mật khẩu “${targetName}”?`)) return;
+        const opId = "del_" + Date.now().toString(36);
+        btn.disabled = true;
+        btn.textContent = "Đang xóa...";
+        try {
+          await set(ref(db, "door/pending/" + opId), {
+            op: "delete",
+            target: targetId
+          });
+          showToast(`Đã gửi yêu cầu xóa mã “${targetName}”. ESP32 đang xử lý...`);
+        } catch (err) {
+          alert("Lỗi khi gửi yêu cầu xóa: " + err.message);
+          btn.disabled = false;
+          btn.textContent = "Xóa";
+        }
+      };
+    });
+  }
+
+  try {
+    onValue(ref(db, "door/passcodes"), s => {
+      renderPasscodes(s.val() || {});
+    });
+  } catch (e) {
+    console.error("Lỗi lắng nghe /door/passcodes:", e);
+  }
+
+  const btnAddPass = $ui("btnOpenAddPasscode");
+  if (btnAddPass) {
+    btnAddPass.onclick = () => {
+      const root = $ui("modalRoot");
+      root.innerHTML = `
+        <div class="modal-backdrop" role="presentation">
+          <section class="modal" role="dialog" aria-modal="true" aria-labelledby="passcodeModalTitle">
+            <div class="modal-head">
+              <h2 id="passcodeModalTitle">Thêm mật khẩu mở cửa</h2>
+              <button type="button" data-close-modal aria-label="Đóng">✕</button>
+            </div>
+            <form id="passcodeForm">
+              <label>Tên / Người dùng
+                <input name="name" required maxlength="30" placeholder="Ví dụ: Bố, Mẹ, Khách, Phòng chính...">
+              </label>
+              <label style="margin-top:12px;">Mật mã số (4 đến 8 chữ số)
+                <input name="code" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required placeholder="Nhập 4–8 chữ số (0-9)">
+              </label>
+              <p class="meta" style="font-size:12px;margin:8px 0 16px;">
+                Mật mã sẽ được gửi xuống ESP32 để băm mã hóa SHA-256 lưu trong chip, Firebase không lưu trữ mật mã gốc.
+              </p>
+              <div class="form-actions">
+                <button type="button" data-close-modal>Hủy</button>
+                <button class="primary" type="submit">Lưu mật khẩu</button>
+              </div>
+            </form>
+          </section>
+        </div>`;
+
+      root.querySelectorAll("[data-close-modal]").forEach(b => b.onclick = () => root.replaceChildren());
+      root.querySelector(".modal-backdrop").onclick = e => { if (e.target === e.currentTarget) root.replaceChildren(); };
+
+      const form = root.querySelector("#passcodeForm");
+      form.onsubmit = async e => {
+        e.preventDefault();
+        const name = form.elements.name.value.trim();
+        const code = form.elements.code.value.trim();
+        if (!name) { alert("Vui lòng nhập tên người dùng!"); return; }
+        if (!/^\d{4,8}$/.test(code)) { alert("Mật mã phải gồm từ 4 đến 8 chữ số (0-9)!"); return; }
+
+        const submitBtn = form.querySelector("button[type=submit]");
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Đang gửi...";
+
+        const opId = "add_" + Date.now().toString(36);
+        try {
+          await set(ref(db, "door/pending/" + opId), {
+            op: "add",
+            name: name,
+            code: code
+          });
+          root.replaceChildren();
+          showToast(`Đã gửi yêu cầu thêm mã “${name}”. ESP32 đang lưu vào bộ nhớ...`);
+        } catch (err) {
+          alert("Lỗi khi thêm mã: " + err.message);
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Lưu mật khẩu";
+        }
+      };
+    };
+  }
 })();
 </script>
 </body>

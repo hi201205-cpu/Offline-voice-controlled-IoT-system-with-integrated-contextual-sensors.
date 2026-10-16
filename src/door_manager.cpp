@@ -61,6 +61,64 @@ uint32_t s_doorMotionEndsAtMs = 0;
 bool s_doorMotionMeasuresLatency = false;
 uint32_t s_doorMotionDesiredReceivedMs = 0;
 
+enum BuzzerMode {
+    BUZZER_MODE_IDLE,
+    BUZZER_MODE_KEY,
+    BUZZER_MODE_SUCCESS,
+    BUZZER_MODE_ERROR
+};
+BuzzerMode s_buzzerMode = BUZZER_MODE_IDLE;
+uint32_t s_buzzerStepTimerMs = 0;
+uint8_t s_buzzerStep = 0;
+
+void buzzer_trigger(BuzzerMode mode) {
+    if ((s_buzzerMode == BUZZER_MODE_SUCCESS || s_buzzerMode == BUZZER_MODE_ERROR) &&
+        mode == BUZZER_MODE_KEY) {
+        return;
+    }
+    s_buzzerMode = mode;
+    s_buzzerStep = 0;
+    s_buzzerStepTimerMs = millis();
+    digitalWrite(PIN_BUZZER, (mode == BUZZER_MODE_IDLE) ? LOW : HIGH);
+}
+
+void buzzer_update() {
+    if (s_buzzerMode == BUZZER_MODE_IDLE) return;
+    uint32_t elapsed = millis() - s_buzzerStepTimerMs;
+    switch (s_buzzerMode) {
+        case BUZZER_MODE_KEY:
+            if (elapsed >= 50) {
+                digitalWrite(PIN_BUZZER, LOW);
+                s_buzzerMode = BUZZER_MODE_IDLE;
+            }
+            break;
+        case BUZZER_MODE_SUCCESS:
+            if (elapsed >= 400) {
+                digitalWrite(PIN_BUZZER, LOW);
+                s_buzzerMode = BUZZER_MODE_IDLE;
+            }
+            break;
+        case BUZZER_MODE_ERROR:
+            // 3 fast beeps: ON (step 0), OFF (step 1), ON (step 2), OFF (step 3), ON (step 4), OFF (step 5 -> IDLE)
+            // Each state 60ms
+            if (elapsed >= 60) {
+                s_buzzerStepTimerMs = millis();
+                s_buzzerStep++;
+                if (s_buzzerStep >= 5) {
+                    digitalWrite(PIN_BUZZER, LOW);
+                    s_buzzerMode = BUZZER_MODE_IDLE;
+                } else {
+                    digitalWrite(PIN_BUZZER, (s_buzzerStep % 2 == 0) ? HIGH : LOW);
+                }
+            }
+            break;
+        default:
+            s_buzzerMode = BUZZER_MODE_IDLE;
+            digitalWrite(PIN_BUZZER, LOW);
+            break;
+    }
+}
+
 bool lock_nvs() {
     return s_nvsMutex != nullptr &&
            xSemaphoreTake(s_nvsMutex, pdMS_TO_TICKS(20)) == pdTRUE;
@@ -249,6 +307,7 @@ void open_door(const char* source, const char* who) {
 
 void process_key(char key) {
     if (key == '*') {
+        buzzer_trigger(BUZZER_MODE_KEY);
         memset(s_enteredCode, 0, sizeof(s_enteredCode));
         s_enteredLength = 0;
         s_enteredOverflow = false;
@@ -259,6 +318,7 @@ void process_key(char key) {
         s_enteredCode[s_enteredLength] = '\0';
         if (s_lockoutActive &&
             static_cast<int32_t>(millis() - s_lockoutUntilMs) < 0) {
+            buzzer_trigger(BUZZER_MODE_ERROR);
             memset(s_enteredCode, 0, sizeof(s_enteredCode));
             s_enteredLength = 0;
             return;
@@ -272,9 +332,11 @@ void process_key(char key) {
                                    &nvsUnavailable);
         if (nvsUnavailable) return;
         if (matched) {
+            buzzer_trigger(BUZZER_MODE_SUCCESS);
             s_wrongAttempts = 0;
             open_door("keypad", who);
         } else {
+            buzzer_trigger(BUZZER_MODE_ERROR);
             if (++s_wrongAttempts >= DOOR_MAX_WRONG_ATTEMPTS) {
                 s_wrongAttempts = 0;
                 s_lockoutUntilMs = millis() + DOOR_LOCKOUT_MS;
@@ -292,6 +354,7 @@ void process_key(char key) {
         return;
     }
     if (key >= '0' && key <= '9') {
+        buzzer_trigger(BUZZER_MODE_KEY);
         if (s_enteredLength < 8) s_enteredCode[s_enteredLength++] = key;
         else s_enteredOverflow = true;
     }
@@ -407,9 +470,12 @@ void doorInit() {
         pinMode(kColumnPins[column], INPUT_PULLUP);
     }
     pinMode(PIN_DOOR_BUTTON, INPUT_PULLUP);
+    pinMode(PIN_BUZZER, OUTPUT);
+    digitalWrite(PIN_BUZZER, LOW);
 }
 
 void doorUpdate() {
+    buzzer_update();
     process_remote_command();
 
     uint32_t now = millis();
