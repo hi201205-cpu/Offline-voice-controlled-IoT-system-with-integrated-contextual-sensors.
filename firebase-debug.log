@@ -1,0 +1,298 @@
+[debug] [2026-10-16T09:39:02.893Z] ----------------------------------------------------------------------
+[debug] [2026-10-16T09:39:02.896Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\DELL\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-10-16T09:39:02.896Z] CLI Version:   15.32.1
+[debug] [2026-10-16T09:39:02.896Z] Platform:      win32
+[debug] [2026-10-16T09:39:02.896Z] Node Version:  v24.21.0
+[debug] [2026-10-16T09:39:02.896Z] Detected Agent: antigravity
+[debug] [2026-10-16T09:39:02.897Z] Time:          Fri Oct 16 2026 16:39:02 GMT+0700 (Giờ Đông Dương)
+[debug] [2026-10-16T09:39:02.897Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-16T09:39:05.368Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-16T09:39:05.368Z] > authorizing via signed-in user (haihomhinh20@gmail.com)
+[debug] [2026-10-16T09:39:05.369Z] [iam] checking project do-an-2-f791a for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-10-16T09:39:05.392Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:05.392Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:05.393Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions [none]
+[debug] [2026-10-16T09:39:05.394Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions  x-goog-user-project=do-an-2-f791a
+[debug] [2026-10-16T09:39:05.395Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-16T09:39:07.020Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions 200
+[debug] [2026-10-16T09:39:07.020Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-16T09:39:07.021Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:07.022Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:07.022Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/do-an-2-f791a [none]
+[debug] [2026-10-16T09:39:07.439Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/do-an-2-f791a 200
+[debug] [2026-10-16T09:39:07.440Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/do-an-2-f791a {"projectId":"do-an-2-f791a","projectNumber":"828571400201","displayName":"Do an 2","name":"projects/do-an-2-f791a","resources":{"hostingSite":"do-an-2-f791a","realtimeDatabaseInstance":"do-an-2-f791a-default-rtdb"},"state":"ACTIVE","labels":{"firebase":"enabled"},"etag":"1_59998f91-d2b3-4efd-951c-aac74a2ffe0b"}
+[info] 
+[info] === Deploying to 'do-an-2-f791a'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-10-16T09:39:07.457Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:07.458Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:07.458Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/do-an-2-f791a/sites/do-an-2-f791a [none]
+[debug] [2026-10-16T09:39:08.548Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/do-an-2-f791a/sites/do-an-2-f791a 200
+[debug] [2026-10-16T09:39:08.549Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/do-an-2-f791a/sites/do-an-2-f791a {"name":"projects/do-an-2-f791a/sites/do-an-2-f791a","defaultUrl":"https://do-an-2-f791a.web.app","appId":"1:828571400201:web:2733d35bba30c268ef20d8","type":"DEFAULT_SITE"}
+[debug] [2026-10-16T09:39:08.573Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:08.573Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:08.576Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions [none]
+[debug] [2026-10-16T09:39:08.577Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-10-16T09:39:09.758Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions 200
+[debug] [2026-10-16T09:39:09.758Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions {"name":"projects/828571400201/sites/do-an-2-f791a/versions/228da4376bdcff59","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[do-an-2-f791a]: beginning deploy... 
+[info] i  hosting[do-an-2-f791a]: found 2 files in web 
+[debug] [2026-10-16T09:39:09.791Z] [hosting] uploading with 200 concurrency
+[debug] [2026-10-16T09:39:09.821Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:09.822Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:09.825Z] [hosting] hash cache [d2Vi] stored for 2 files
+[debug] [2026-10-16T09:39:09.826Z] [hosting][hash queue][FINAL] {"max":21,"min":1,"avg":11,"active":0,"complete":2,"success":2,"errored":0,"retried":0,"total":2,"elapsed":29}
+[debug] [2026-10-16T09:39:09.828Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/228da4376bdcff59:populateFiles [none]
+[debug] [2026-10-16T09:39:09.829Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/228da4376bdcff59:populateFiles {"files":{"/config.js":"2843a32b33e5803b1844bea841220ae4b1d159c2ed18d0233696d533789ee5e9","/index.html":"b6bcf4ee87456b521f94c597c156ce6368a1191636e61aa53234df223662041e"}}
+[debug] [2026-10-16T09:39:10.799Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/228da4376bdcff59:populateFiles 200
+[debug] [2026-10-16T09:39:10.799Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/228da4376bdcff59:populateFiles {"uploadRequiredHashes":["b6bcf4ee87456b521f94c597c156ce6368a1191636e61aa53234df223662041e"],"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/228da4376bdcff59/files"}
+[debug] [2026-10-16T09:39:10.800Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:10.800Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:10.800Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/228da4376bdcff59/files/b6bcf4ee87456b521f94c597c156ce6368a1191636e61aa53234df223662041e [none]
+[debug] [2026-10-16T09:39:10.800Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/228da4376bdcff59/files/b6bcf4ee87456b521f94c597c156ce6368a1191636e61aa53234df223662041e [stream]
+[debug] [2026-10-16T09:39:10.806Z] [hosting][populate queue][FINAL] {"max":980,"min":980,"avg":980,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":986}
+[debug] [2026-10-16T09:39:10.806Z] [hosting] uploads queued: 1
+[info] i  hosting: uploading new files [0/1] (0%) 
+[debug] [2026-10-16T09:39:12.480Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/228da4376bdcff59/files/b6bcf4ee87456b521f94c597c156ce6368a1191636e61aa53234df223662041e 200
+[debug] [2026-10-16T09:39:12.482Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/228da4376bdcff59/files/b6bcf4ee87456b521f94c597c156ce6368a1191636e61aa53234df223662041e [stream]
+[debug] [2026-10-16T09:39:12.483Z] [hosting][upload queue][FINAL] {"max":1684,"min":1684,"avg":1684,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":1684}
+[info] i  hosting: upload complete 
+[info] +  hosting[do-an-2-f791a]: file upload complete 
+[debug] [2026-10-16T09:39:12.485Z] [hosting] deploy completed after 2720ms
+[debug] [2026-10-16T09:39:12.486Z] [
+  {
+    "config": {
+      "public": "web",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "site": "do-an-2-f791a"
+    },
+    "version": "projects/828571400201/sites/do-an-2-f791a/versions/228da4376bdcff59"
+  }
+]
+[info] i  hosting[do-an-2-f791a]: finalizing version... 
+[debug] [2026-10-16T09:39:12.493Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:12.493Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:12.495Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/228da4376bdcff59 updateMask=status%2Cconfig
+[debug] [2026-10-16T09:39:12.495Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/228da4376bdcff59 {"status":"FINALIZED","config":{}}
+[debug] [2026-10-16T09:39:13.390Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/228da4376bdcff59 200
+[debug] [2026-10-16T09:39:13.391Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/228da4376bdcff59 {"name":"projects/828571400201/sites/do-an-2-f791a/versions/228da4376bdcff59","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T09:39:09.206327Z","createUser":{"email":"haihomhinh20@gmail.com"},"finalizeTime":"2026-10-16T09:39:13.459526Z","finalizeUser":{"email":"haihomhinh20@gmail.com"}}
+[debug] [2026-10-16T09:39:13.392Z] [hosting] finalized version for do-an-2-f791a:[object Object]
+[info] +  hosting[do-an-2-f791a]: version finalized 
+[info] i  hosting[do-an-2-f791a]: releasing new version... 
+[debug] [2026-10-16T09:39:13.395Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:13.395Z] Checked if tokens are valid: true, expires at: 1792145664560
+[debug] [2026-10-16T09:39:13.396Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases versionName=projects%2F828571400201%2Fsites%2Fdo-an-2-f791a%2Fversions%2F228da4376bdcff59
+[debug] [2026-10-16T09:39:13.397Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases {}
+[debug] [2026-10-16T09:39:14.231Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases 200
+[debug] [2026-10-16T09:39:14.231Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases {"name":"projects/828571400201/sites/do-an-2-f791a/channels/live/releases/1792143553639000","version":{"name":"projects/828571400201/sites/do-an-2-f791a/versions/228da4376bdcff59","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T09:39:09.206327Z","createUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"},"finalizeTime":"2026-10-16T09:39:13.459526Z","finalizeUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}},"type":"DEPLOY","releaseTime":"2026-10-16T09:39:13.639Z","releaseUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}}
+[debug] [2026-10-16T09:39:14.232Z] [hosting] release: {"name":"projects/828571400201/sites/do-an-2-f791a/channels/live/releases/1792143553639000","version":{"name":"projects/828571400201/sites/do-an-2-f791a/versions/228da4376bdcff59","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T09:39:09.206327Z","createUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"},"finalizeTime":"2026-10-16T09:39:13.459526Z","finalizeUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}},"type":"DEPLOY","releaseTime":"2026-10-16T09:39:13.639Z","releaseUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}}
+[info] +  hosting[do-an-2-f791a]: release complete 
+[info] 
+[info] +  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/do-an-2-f791a/overview
+[info] Hosting URL: https://do-an-2-f791a.web.app
+[debug] [2026-10-16T10:33:34.386Z] ----------------------------------------------------------------------
+[debug] [2026-10-16T10:33:34.423Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\DELL\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-10-16T10:33:34.427Z] CLI Version:   15.32.1
+[debug] [2026-10-16T10:33:34.428Z] Platform:      win32
+[debug] [2026-10-16T10:33:34.429Z] Node Version:  v24.21.0
+[debug] [2026-10-16T10:33:34.430Z] Detected Agent: antigravity
+[debug] [2026-10-16T10:33:34.431Z] Time:          Fri Oct 16 2026 17:33:34 GMT+0700 (Giờ Đông Dương)
+[debug] [2026-10-16T10:33:34.433Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-16T10:33:37.283Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-16T10:33:37.284Z] > authorizing via signed-in user (haihomhinh20@gmail.com)
+[debug] [2026-10-16T10:33:37.285Z] [iam] checking project do-an-2-f791a for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-10-16T10:33:37.350Z] Checked if tokens are valid: false, expires at: 1792145664560
+[debug] [2026-10-16T10:33:37.350Z] Checked if tokens are valid: false, expires at: 1792145664560
+[debug] [2026-10-16T10:33:37.351Z] > refreshing access token with scopes: []
+[debug] [2026-10-16T10:33:37.362Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-10-16T10:33:37.363Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-16T10:33:38.053Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-10-16T10:33:38.054Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-16T10:33:38.109Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions [none]
+[debug] [2026-10-16T10:33:38.110Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions  x-goog-user-project=do-an-2-f791a
+[debug] [2026-10-16T10:33:38.110Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-16T10:33:39.642Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions 200
+[debug] [2026-10-16T10:33:39.642Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-16T10:33:39.643Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:39.643Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:39.643Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/do-an-2-f791a [none]
+[debug] [2026-10-16T10:33:40.161Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/do-an-2-f791a 200
+[debug] [2026-10-16T10:33:40.162Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/do-an-2-f791a {"projectId":"do-an-2-f791a","projectNumber":"828571400201","displayName":"Do an 2","name":"projects/do-an-2-f791a","resources":{"hostingSite":"do-an-2-f791a","realtimeDatabaseInstance":"do-an-2-f791a-default-rtdb"},"state":"ACTIVE","labels":{"firebase":"enabled"},"etag":"1_59998f91-d2b3-4efd-951c-aac74a2ffe0b"}
+[info] 
+[info] === Deploying to 'do-an-2-f791a'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-10-16T10:33:40.170Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:40.170Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:40.171Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/do-an-2-f791a/sites/do-an-2-f791a [none]
+[debug] [2026-10-16T10:33:41.206Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/do-an-2-f791a/sites/do-an-2-f791a 200
+[debug] [2026-10-16T10:33:41.206Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/do-an-2-f791a/sites/do-an-2-f791a {"name":"projects/do-an-2-f791a/sites/do-an-2-f791a","defaultUrl":"https://do-an-2-f791a.web.app","appId":"1:828571400201:web:2733d35bba30c268ef20d8","type":"DEFAULT_SITE"}
+[debug] [2026-10-16T10:33:41.214Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:41.215Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:41.216Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions [none]
+[debug] [2026-10-16T10:33:41.216Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-10-16T10:33:42.357Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions 200
+[debug] [2026-10-16T10:33:42.357Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions {"name":"projects/828571400201/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[do-an-2-f791a]: beginning deploy... 
+[info] i  hosting[do-an-2-f791a]: found 2 files in web 
+[debug] [2026-10-16T10:33:42.384Z] [hosting] uploading with 200 concurrency
+[debug] [2026-10-16T10:33:42.412Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:42.413Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:42.416Z] [hosting] hash cache [d2Vi] stored for 2 files
+[debug] [2026-10-16T10:33:42.416Z] [hosting][hash queue][FINAL] {"max":20,"min":1,"avg":10.5,"active":0,"complete":2,"success":2,"errored":0,"retried":0,"total":2,"elapsed":25}
+[debug] [2026-10-16T10:33:42.417Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd:populateFiles [none]
+[debug] [2026-10-16T10:33:42.417Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd:populateFiles {"files":{"/config.js":"2843a32b33e5803b1844bea841220ae4b1d159c2ed18d0233696d533789ee5e9","/index.html":"43acaab131dac3bcfd5f91fafcc1d565658622800fc9bf830d86ff43ae6724be"}}
+[debug] [2026-10-16T10:33:43.341Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd:populateFiles 200
+[debug] [2026-10-16T10:33:43.341Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd:populateFiles {"uploadRequiredHashes":["43acaab131dac3bcfd5f91fafcc1d565658622800fc9bf830d86ff43ae6724be"],"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd/files"}
+[debug] [2026-10-16T10:33:43.344Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:43.344Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:43.345Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd/files/43acaab131dac3bcfd5f91fafcc1d565658622800fc9bf830d86ff43ae6724be [none]
+[debug] [2026-10-16T10:33:43.345Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd/files/43acaab131dac3bcfd5f91fafcc1d565658622800fc9bf830d86ff43ae6724be [stream]
+[debug] [2026-10-16T10:33:43.351Z] [hosting][populate queue][FINAL] {"max":932,"min":932,"avg":932,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":939}
+[debug] [2026-10-16T10:33:43.351Z] [hosting] uploads queued: 1
+[info] i  hosting: uploading new files [0/1] (0%) 
+[debug] [2026-10-16T10:33:45.174Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd/files/43acaab131dac3bcfd5f91fafcc1d565658622800fc9bf830d86ff43ae6724be 200
+[debug] [2026-10-16T10:33:45.174Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd/files/43acaab131dac3bcfd5f91fafcc1d565658622800fc9bf830d86ff43ae6724be [stream]
+[debug] [2026-10-16T10:33:45.174Z] [hosting][upload queue][FINAL] {"max":1832,"min":1832,"avg":1832,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":1832}
+[info] i  hosting: upload complete 
+[info] +  hosting[do-an-2-f791a]: file upload complete 
+[debug] [2026-10-16T10:33:45.175Z] [hosting] deploy completed after 2815ms
+[debug] [2026-10-16T10:33:45.175Z] [
+  {
+    "config": {
+      "public": "web",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "site": "do-an-2-f791a"
+    },
+    "version": "projects/828571400201/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd"
+  }
+]
+[info] i  hosting[do-an-2-f791a]: finalizing version... 
+[debug] [2026-10-16T10:33:45.176Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:45.176Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:45.176Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd updateMask=status%2Cconfig
+[debug] [2026-10-16T10:33:45.176Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd {"status":"FINALIZED","config":{}}
+[debug] [2026-10-16T10:33:46.026Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd 200
+[debug] [2026-10-16T10:33:46.026Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd {"name":"projects/828571400201/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T10:33:41.961908Z","createUser":{"email":"haihomhinh20@gmail.com"},"finalizeTime":"2026-10-16T10:33:46.158196Z","finalizeUser":{"email":"haihomhinh20@gmail.com"}}
+[debug] [2026-10-16T10:33:46.026Z] [hosting] finalized version for do-an-2-f791a:[object Object]
+[info] +  hosting[do-an-2-f791a]: version finalized 
+[info] i  hosting[do-an-2-f791a]: releasing new version... 
+[debug] [2026-10-16T10:33:46.027Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:46.027Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:33:46.029Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases versionName=projects%2F828571400201%2Fsites%2Fdo-an-2-f791a%2Fversions%2Fb19e6428b6bdb5dd
+[debug] [2026-10-16T10:33:46.029Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases {}
+[debug] [2026-10-16T10:33:46.973Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases 200
+[debug] [2026-10-16T10:33:46.973Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases {"name":"projects/828571400201/sites/do-an-2-f791a/channels/live/releases/1792146826402000","version":{"name":"projects/828571400201/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T10:33:41.961908Z","createUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"},"finalizeTime":"2026-10-16T10:33:46.158196Z","finalizeUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}},"type":"DEPLOY","releaseTime":"2026-10-16T10:33:46.402Z","releaseUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}}
+[debug] [2026-10-16T10:33:46.973Z] [hosting] release: {"name":"projects/828571400201/sites/do-an-2-f791a/channels/live/releases/1792146826402000","version":{"name":"projects/828571400201/sites/do-an-2-f791a/versions/b19e6428b6bdb5dd","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T10:33:41.961908Z","createUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"},"finalizeTime":"2026-10-16T10:33:46.158196Z","finalizeUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}},"type":"DEPLOY","releaseTime":"2026-10-16T10:33:46.402Z","releaseUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}}
+[info] +  hosting[do-an-2-f791a]: release complete 
+[info] 
+[info] +  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/do-an-2-f791a/overview
+[info] Hosting URL: https://do-an-2-f791a.web.app
+[debug] [2026-10-16T10:53:21.007Z] ----------------------------------------------------------------------
+[debug] [2026-10-16T10:53:21.011Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\DELL\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-10-16T10:53:21.011Z] CLI Version:   15.32.1
+[debug] [2026-10-16T10:53:21.011Z] Platform:      win32
+[debug] [2026-10-16T10:53:21.011Z] Node Version:  v24.21.0
+[debug] [2026-10-16T10:53:21.012Z] Detected Agent: antigravity
+[debug] [2026-10-16T10:53:21.012Z] Time:          Fri Oct 16 2026 17:53:21 GMT+0700 (Giờ Đông Dương)
+[debug] [2026-10-16T10:53:21.012Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-16T10:53:24.776Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-16T10:53:24.777Z] > authorizing via signed-in user (haihomhinh20@gmail.com)
+[debug] [2026-10-16T10:53:24.777Z] [iam] checking project do-an-2-f791a for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-10-16T10:53:24.809Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:24.810Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:24.816Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions [none]
+[debug] [2026-10-16T10:53:24.818Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions  x-goog-user-project=do-an-2-f791a
+[debug] [2026-10-16T10:53:24.818Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-16T10:53:26.681Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions 200
+[debug] [2026-10-16T10:53:26.682Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/do-an-2-f791a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-16T10:53:26.685Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:26.685Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:26.687Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/do-an-2-f791a [none]
+[debug] [2026-10-16T10:53:27.335Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/do-an-2-f791a 200
+[debug] [2026-10-16T10:53:27.335Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/do-an-2-f791a {"projectId":"do-an-2-f791a","projectNumber":"828571400201","displayName":"Do an 2","name":"projects/do-an-2-f791a","resources":{"hostingSite":"do-an-2-f791a","realtimeDatabaseInstance":"do-an-2-f791a-default-rtdb"},"state":"ACTIVE","labels":{"firebase":"enabled"},"etag":"1_59998f91-d2b3-4efd-951c-aac74a2ffe0b"}
+[info] 
+[info] === Deploying to 'do-an-2-f791a'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-10-16T10:53:27.342Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:27.343Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:27.343Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/do-an-2-f791a/sites/do-an-2-f791a [none]
+[debug] [2026-10-16T10:53:29.153Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/do-an-2-f791a/sites/do-an-2-f791a 200
+[debug] [2026-10-16T10:53:29.153Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/do-an-2-f791a/sites/do-an-2-f791a {"name":"projects/do-an-2-f791a/sites/do-an-2-f791a","defaultUrl":"https://do-an-2-f791a.web.app","appId":"1:828571400201:web:2733d35bba30c268ef20d8","type":"DEFAULT_SITE"}
+[debug] [2026-10-16T10:53:29.160Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:29.160Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:29.161Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions [none]
+[debug] [2026-10-16T10:53:29.161Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-10-16T10:53:30.396Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions 200
+[debug] [2026-10-16T10:53:30.396Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions {"name":"projects/828571400201/sites/do-an-2-f791a/versions/c8989ea86532f7de","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[do-an-2-f791a]: beginning deploy... 
+[info] i  hosting[do-an-2-f791a]: found 2 files in web 
+[debug] [2026-10-16T10:53:30.412Z] [hosting] uploading with 200 concurrency
+[debug] [2026-10-16T10:53:30.426Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:30.426Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:30.427Z] [hosting] hash cache [d2Vi] stored for 2 files
+[debug] [2026-10-16T10:53:30.428Z] [hosting][hash queue][FINAL] {"max":10,"min":0,"avg":5,"active":0,"complete":2,"success":2,"errored":0,"retried":0,"total":2,"elapsed":13}
+[debug] [2026-10-16T10:53:30.428Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/c8989ea86532f7de:populateFiles [none]
+[debug] [2026-10-16T10:53:30.428Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/c8989ea86532f7de:populateFiles {"files":{"/config.js":"2843a32b33e5803b1844bea841220ae4b1d159c2ed18d0233696d533789ee5e9","/index.html":"b6bcf4ee87456b521f94c597c156ce6368a1191636e61aa53234df223662041e"}}
+[debug] [2026-10-16T10:53:31.431Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/c8989ea86532f7de:populateFiles 200
+[debug] [2026-10-16T10:53:31.432Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/828571400201/sites/do-an-2-f791a/versions/c8989ea86532f7de:populateFiles {"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/do-an-2-f791a/versions/c8989ea86532f7de/files"}
+[debug] [2026-10-16T10:53:31.433Z] [hosting][populate queue][FINAL] {"max":1007,"min":1007,"avg":1007,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":1008}
+[debug] [2026-10-16T10:53:31.434Z] [hosting] uploads queued: 0
+[debug] [2026-10-16T10:53:31.434Z] [hosting][upload queue][FINAL] {"max":0,"min":9999999999,"avg":0,"active":0,"complete":0,"success":0,"errored":0,"retried":0,"total":0,"elapsed":1792148011434}
+[info] i  hosting: upload complete 
+[info] +  hosting[do-an-2-f791a]: file upload complete 
+[debug] [2026-10-16T10:53:31.437Z] [hosting] deploy completed after 1037ms
+[debug] [2026-10-16T10:53:31.437Z] [
+  {
+    "config": {
+      "public": "web",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "site": "do-an-2-f791a"
+    },
+    "version": "projects/828571400201/sites/do-an-2-f791a/versions/c8989ea86532f7de"
+  }
+]
+[info] i  hosting[do-an-2-f791a]: finalizing version... 
+[debug] [2026-10-16T10:53:31.442Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:31.442Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:31.443Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/c8989ea86532f7de updateMask=status%2Cconfig
+[debug] [2026-10-16T10:53:31.443Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/c8989ea86532f7de {"status":"FINALIZED","config":{}}
+[debug] [2026-10-16T10:53:32.470Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/c8989ea86532f7de 200
+[debug] [2026-10-16T10:53:32.471Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/versions/c8989ea86532f7de {"name":"projects/828571400201/sites/do-an-2-f791a/versions/c8989ea86532f7de","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T10:53:29.966282Z","createUser":{"email":"haihomhinh20@gmail.com"},"finalizeTime":"2026-10-16T10:53:32.598222Z","finalizeUser":{"email":"haihomhinh20@gmail.com"}}
+[debug] [2026-10-16T10:53:32.471Z] [hosting] finalized version for do-an-2-f791a:[object Object]
+[info] +  hosting[do-an-2-f791a]: version finalized 
+[info] i  hosting[do-an-2-f791a]: releasing new version... 
+[debug] [2026-10-16T10:53:32.473Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:32.474Z] Checked if tokens are valid: true, expires at: 1792150417055
+[debug] [2026-10-16T10:53:32.475Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases versionName=projects%2F828571400201%2Fsites%2Fdo-an-2-f791a%2Fversions%2Fc8989ea86532f7de
+[debug] [2026-10-16T10:53:32.475Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases {}
+[debug] [2026-10-16T10:53:33.362Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases 200
+[debug] [2026-10-16T10:53:33.362Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/do-an-2-f791a/channels/live/releases {"name":"projects/828571400201/sites/do-an-2-f791a/channels/live/releases/1792148012829000","version":{"name":"projects/828571400201/sites/do-an-2-f791a/versions/c8989ea86532f7de","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T10:53:29.966282Z","createUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"},"finalizeTime":"2026-10-16T10:53:32.598222Z","finalizeUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}},"type":"DEPLOY","releaseTime":"2026-10-16T10:53:32.829Z","releaseUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}}
+[debug] [2026-10-16T10:53:33.363Z] [hosting] release: {"name":"projects/828571400201/sites/do-an-2-f791a/channels/live/releases/1792148012829000","version":{"name":"projects/828571400201/sites/do-an-2-f791a/versions/c8989ea86532f7de","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T10:53:29.966282Z","createUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"},"finalizeTime":"2026-10-16T10:53:32.598222Z","finalizeUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}},"type":"DEPLOY","releaseTime":"2026-10-16T10:53:32.829Z","releaseUser":{"email":"haihomhinh20@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocLado_L9yTuL36yg59BYxmEvWP9YXg4Ghteyih9V_Nus1LGGWHi"}}
+[info] +  hosting[do-an-2-f791a]: release complete 
+[info] 
+[info] +  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/do-an-2-f791a/overview
+[info] Hosting URL: https://do-an-2-f791a.web.app

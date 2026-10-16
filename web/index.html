@@ -256,7 +256,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               <li><span>Khi cảm biến xác nhận không có người đủ thời gian: tắt đèn phòng và quạt.</span></li>
               <li><span>Khi cảm biến ánh sáng ở chế độ tự động: bật/tắt đèn sân theo ngưỡng sáng đã cấu hình.</span></li>
             </ul>
-            <p class="meta">Các quy tắc tùy chỉnh trên trang này hiện chỉ lưu trên trình duyệt và chạy thử mô phỏng; chúng chưa được gửi tới ESP32.</p>
+            <p class="meta">Các quy tắc tùy chỉnh được đồng bộ trực tiếp với ESP32 qua Firebase RTDB (/automation/*).</p>
           </section>
         </details>
       </section>
@@ -297,6 +297,8 @@ const CURTAIN_OPEN = "open", CURTAIN_CLOSE = "close";
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
+window.db = db;
+window.auth = auth;
 const $ = id => document.getElementById(id);
 const state = { light: false, fan: false, curtain: CURTAIN_CLOSE, door: false };
 const confirmedState = { ...state };
@@ -646,9 +648,14 @@ function drawKeywords(rows) {
   });
 }
 </script>
-<script>
-// Giao diện bổ sung tách biệt: chỉ lưu tùy chọn và cấu hình tự động hóa cục bộ.
+<script type="module">
+import { getApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// Giao diện bổ sung: tùy chọn, biểu đồ và tự động hóa kết nối Firebase.
 (() => {
+  const app = getApp();
+  const db = window.db || getDatabase(app);
   const $ui = id => document.getElementById(id);
   function readPreference(key) {
     try { return localStorage.getItem(key); }
@@ -861,8 +868,6 @@ function drawKeywords(rows) {
   });
   renderActivity();
 
-  // TODO: nối dữ liệu thật
-  // Dữ liệu quy tắc chỉ ở localStorage để tiện chuyển sang Firebase sau này.
   const automationStore = (() => {
     const key = "smart-home-automation-v1";
     const samples = [
@@ -886,10 +891,103 @@ function drawKeywords(rows) {
       try { localStorage.setItem(key, JSON.stringify(rules)); }
       catch (error) { console.error("Không thể lưu cấu hình tự động hóa:", error); }
     }
-    return { load, save };
+    return { load, save, samples };
   })();
+
   let rules = automationStore.load();
+  let ruleStatuses = {};
   let automationEnabled = readPreference("smart-home-automation-enabled") !== "false";
+  let fbAutomationLoaded = false;
+  let activePendingPromptId = null;
+
+  // Đồng bộ master switch từ Firebase (/automation/enabled)
+  try {
+    onValue(ref(db, "automation/enabled"), s => {
+      const val = s.val();
+      if (val !== null && val !== undefined) {
+        automationEnabled = val === true;
+        try { localStorage.setItem("smart-home-automation-enabled", String(automationEnabled)); } catch(e) {}
+        renderRules();
+      }
+    });
+  } catch (e) {
+    console.error("Lỗi kết nối /automation/enabled:", e);
+  }
+
+  // Đồng bộ danh sách quy tắc từ Firebase (/automation/rules)
+  try {
+    onValue(ref(db, "automation/rules"), s => {
+      const val = s.val();
+      if (val !== null && val !== undefined) {
+        let remoteRules = [];
+        if (Array.isArray(val)) {
+          remoteRules = val.filter(Boolean);
+        } else if (typeof val === "object") {
+          remoteRules = Object.keys(val).map(k => ({ ...val[k], id: val[k].id || k }));
+        }
+        rules = remoteRules;
+        automationStore.save(rules);
+        renderRules();
+      } else if (fbAutomationLoaded) {
+        rules = [];
+        automationStore.save(rules);
+        renderRules();
+      } else {
+        persistRules();
+        set(ref(db, "automation/enabled"), automationEnabled);
+      }
+      fbAutomationLoaded = true;
+    });
+  } catch (e) {
+    console.error("Lỗi kết nối /automation/rules:", e);
+  }
+
+  // Lắng nghe trạng thái thực thi từ ESP32 (/automation/status)
+  try {
+    onValue(ref(db, "automation/status"), s => {
+      ruleStatuses = s.val() || {};
+      renderRules();
+    });
+  } catch (e) {
+    console.error("Lỗi kết nối /automation/status:", e);
+  }
+
+  // Lắng nghe yêu cầu xác nhận "Hỏi tôi trước" từ ESP32 (/automation/pending)
+  try {
+    onValue(ref(db, "automation/pending"), s => {
+      const pendingData = s.val();
+      if (!pendingData) {
+        if (activePendingPromptId) {
+          activePendingPromptId = null;
+          const toastRoot = $ui("toastRoot");
+          if (toastRoot.dataset.pendingPrompt) {
+            toastRoot.replaceChildren();
+            delete toastRoot.dataset.pendingPrompt;
+          }
+        }
+        return;
+      }
+      const ruleIds = Object.keys(pendingData);
+      let foundUnanswered = false;
+      for (const ruleId of ruleIds) {
+        const item = pendingData[ruleId];
+        if (item && !item.answer) {
+          foundUnanswered = true;
+          if (activePendingPromptId !== ruleId) {
+            activePendingPromptId = ruleId;
+            showPendingConfirmationToast(ruleId, item);
+          }
+          break;
+        }
+      }
+      if (!foundUnanswered && activePendingPromptId) {
+        activePendingPromptId = null;
+      }
+    });
+  } catch (e) {
+    console.error("Lỗi kết nối /automation/pending:", e);
+  }
+
   const conditionNames = {
     temp_high: "Nhiệt độ cao hơn", temp_low: "Nhiệt độ thấp hơn",
     hum_high: "Độ ẩm cao hơn", hum_low: "Độ ẩm thấp hơn",
@@ -920,7 +1018,26 @@ function drawKeywords(rows) {
       const desc = document.createElement("p");
       desc.textContent = describeRule(rule);
       const status = document.createElement("p");
-      status.textContent = rule.lastRan ? `Đã chạy lúc ${new Date(rule.lastRan).toLocaleString("vi-VN")}` : "Đang chờ";
+      const stat = ruleStatuses[rule.id];
+      if (stat) {
+        if (stat.state === "pending_confirm") {
+          status.textContent = "Đang chờ bạn xác nhận...";
+          status.style.color = "var(--gold)";
+        } else if (stat.state === "ran") {
+          const t = stat.lastRunAt ? new Date(stat.lastRunAt > 1e11 ? stat.lastRunAt : stat.lastRunAt * 1000).toLocaleString("vi-VN") : "";
+          status.textContent = `Đã chạy lúc ${t}${stat.lastResult ? ` · ${stat.lastResult}` : ""}`;
+          status.style.color = "var(--good)";
+        } else {
+          status.textContent = rule.lastRan ? `Đã chạy lúc ${new Date(rule.lastRan).toLocaleString("vi-VN")}` : "Đang chờ";
+          status.style.color = "var(--mute)";
+        }
+      } else if (rule.lastRan) {
+        status.textContent = `Đã chạy lúc ${new Date(rule.lastRan).toLocaleString("vi-VN")}`;
+        status.style.color = "var(--mute)";
+      } else {
+        status.textContent = "Đang chờ";
+        status.style.color = "var(--mute)";
+      }
       details.append(title, desc, status);
       const actions = document.createElement("div");
       actions.className = "rule-actions";
@@ -932,18 +1049,43 @@ function drawKeywords(rows) {
       const edit = document.createElement("button");
       edit.type = "button"; edit.className = "small-button"; edit.textContent = "Sửa";
       edit.addEventListener("click", () => openRuleForm(rule));
-      const remove = document.createElement("button");
-      remove.type = "button"; remove.className = "small-button"; remove.textContent = "Xóa";
-      remove.setAttribute("aria-label", `Xóa quy tắc ${rule.name}`);
-      remove.addEventListener("click", () => { rules = rules.filter(item => item.id !== rule.id); persistRules(); });
-      actions.append(enabled, edit, remove);
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button"; removeBtn.className = "small-button"; removeBtn.textContent = "Xóa";
+      removeBtn.setAttribute("aria-label", `Xóa quy tắc ${rule.name}`);
+      removeBtn.addEventListener("click", () => { rules = rules.filter(item => item.id !== rule.id); persistRules(); });
+      actions.append(enabled, edit, removeBtn);
       card.append(details, actions);
       list.append(card);
     });
     $ui("automationSummary").textContent = `${rules.filter(rule => rule.enabled).length} quy tắc đang bật`;
     $ui("automationMaster").checked = automationEnabled;
   }
-  function persistRules() { automationStore.save(rules); renderRules(); }
+  function persistRules() {
+    automationStore.save(rules);
+    renderRules();
+    try {
+      const cleanRules = rules.map(r => {
+        const item = { ...r };
+        delete item.lastRan;
+        if (item.condition !== "time") {
+          delete item.from;
+          delete item.to;
+          delete item.days;
+        }
+        if (!["temp_high", "temp_low", "hum_high", "hum_low", "no_motion"].includes(item.condition)) {
+          delete item.threshold;
+        }
+        if (item.mode !== "ask") {
+          delete item.wait;
+          delete item.timeout;
+        }
+        return item;
+      });
+      set(ref(db, "automation/rules"), cleanRules);
+    } catch (e) {
+      console.error("Không thể lưu quy tắc lên Firebase:", e);
+    }
+  }
   function updateRule(id, callback) {
     const rule = rules.find(item => item.id === id);
     if (rule) callback(rule);
@@ -954,55 +1096,155 @@ function drawKeywords(rows) {
     try { localStorage.setItem("smart-home-automation-enabled", String(enabled)); }
     catch (error) { console.error("Không thể lưu trạng thái tự động hóa:", error); }
     renderRules();
+    try {
+      set(ref(db, "automation/enabled"), enabled);
+    } catch (e) {
+      console.error("Không thể lưu trạng thái tự động hóa lên Firebase:", e);
+    }
   }
   $ui("automationMaster").addEventListener("change", event => setAutomationEnabled(event.target.checked));
   renderRules();
 
-  function showToast(message, askRule) {
+  function showToast(message) {
     const root = $ui("toastRoot");
+    if (root.dataset.pendingPrompt) return;
     root.replaceChildren();
     const toast = document.createElement("section");
     toast.className = "toast";
     const text = document.createElement("div");
     text.textContent = message;
     toast.append(text);
-    if (askRule) {
-      const countdown = document.createElement("p");
-      const controls = document.createElement("div");
-      controls.className = "toast-actions";
-      const accept = document.createElement("button");
-      accept.className = "primary"; accept.textContent = "Đồng ý";
-      const skip = document.createElement("button");
-      skip.textContent = "Bỏ qua";
-      let remaining = Math.max(1, Number(askRule.wait) || 3) * 60;
-      const renderCountdown = () => { countdown.textContent = `Thời gian chờ: ${Math.ceil(remaining / 60)} phút`; };
-      renderCountdown();
-      const timer = window.setInterval(() => {
-        remaining -= 1;
-        renderCountdown();
-        if (remaining <= 0) {
-          window.clearInterval(timer);
-          root.replaceChildren();
-          showToast(askRule.timeout === "auto" ? "Hết thời gian: mô phỏng tự thực hiện hành động." : "Hết thời gian: không thực hiện hành động.");
-        }
-      }, 1000);
-      const close = () => { window.clearInterval(timer); root.replaceChildren(); };
-      accept.addEventListener("click", () => { close(); showToast("Đã đồng ý · đây là mô phỏng, chưa gửi lệnh thiết bị."); });
-      skip.addEventListener("click", () => { close(); showToast("Đã bỏ qua hành động mô phỏng."); });
-      controls.append(accept, skip);
-      toast.append(countdown, controls);
-    } else {
-      window.setTimeout(() => { if (toast.isConnected) toast.remove(); }, 5000);
-    }
+    window.setTimeout(() => { if (toast.isConnected) toast.remove(); }, 5000);
     root.append(toast);
   }
-  $ui("testAutomation").addEventListener("click", () => {
+
+  function showPendingConfirmationToast(ruleId, item) {
+    const root = $ui("toastRoot");
+    root.replaceChildren();
+    root.dataset.pendingPrompt = ruleId;
+    const toast = document.createElement("section");
+    toast.className = "toast";
+
+    const title = document.createElement("div");
+    const name = item.ruleName || (rules.find(r => r.id === ruleId)?.name) || "Quy tắc tự động";
+    title.innerHTML = `<strong>Tự động hóa cần xác nhận</strong><p style="margin:4px 0 0;font-size:13px">Quy tắc “${escapeAttribute(name)}” đang chờ bạn duyệt.</p>`;
+    toast.append(title);
+
+    const countdown = document.createElement("p");
+    countdown.className = "meta";
+
+    const controls = document.createElement("div");
+    controls.className = "toast-actions";
+
+    const accept = document.createElement("button");
+    accept.className = "primary";
+    accept.textContent = "Đồng ý";
+
+    const skip = document.createElement("button");
+    skip.textContent = "Bỏ qua";
+
+    const expiresAtMs = item.expiresAt ? (item.expiresAt > 1e11 ? item.expiresAt : item.expiresAt * 1000) : (Date.now() + 180000);
+
+    const updateCountdown = () => {
+      const secLeft = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
+      const min = Math.floor(secLeft / 60);
+      const sec = secLeft % 60;
+      countdown.textContent = `Thời gian chờ: ${min}:${sec < 10 ? "0" : ""}${sec} (Hết giờ: ${item.timeoutAction === "auto" ? "Tự thực hiện" : "Bỏ qua"})`;
+      if (secLeft <= 0) {
+        window.clearInterval(timer);
+        root.replaceChildren();
+        delete root.dataset.pendingPrompt;
+        showToast(item.timeoutAction === "auto" ? "Hết thời gian chờ: ESP32 sẽ tự thực hiện." : "Hết thời gian chờ: Đã bỏ qua hành động.");
+      }
+    };
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+
+    const closeToast = () => {
+      window.clearInterval(timer);
+      root.replaceChildren();
+      delete root.dataset.pendingPrompt;
+    };
+
+    accept.addEventListener("click", async () => {
+      closeToast();
+      try {
+        await set(ref(db, `automation/pending/${ruleId}/answer`), "agree");
+        showToast(`Đã đồng ý: Lệnh thực hiện “${name}” đã được gửi.`);
+      } catch (err) {
+        console.error("Lỗi gửi xác nhận:", err);
+      }
+    });
+
+    skip.addEventListener("click", async () => {
+      closeToast();
+      try {
+        await set(ref(db, `automation/pending/${ruleId}/answer`), "skip");
+        showToast(`Đã bỏ qua quy tắc “${name}”.`);
+      } catch (err) {
+        console.error("Lỗi gửi từ chối:", err);
+      }
+    });
+
+    controls.append(accept, skip);
+    toast.append(countdown, controls);
+    root.append(toast);
+  }
+
+  $ui("testAutomation").addEventListener("click", async () => {
     if (!automationEnabled) { showToast("Tự động hóa đang tắt."); return; }
     const rule = rules.find(item => item.enabled);
     if (!rule) { showToast("Chưa có quy tắc nào đang bật."); return; }
+
+    showToast(`Đang chạy thử quy tắc: ${rule.name}...`);
+
+    if (rule.actions && rule.actions.length > 0) {
+      for (const action of rule.actions) {
+        if (action.type === "device") {
+          const d = action.device;
+          const val = action.value;
+          const targetKey = d === "yard" ? "garden" : d;
+          try {
+            if (d === "door") {
+              await set(ref(db, "commands/door"), { action: "open", ts: Date.now(), src: "web" });
+            } else if (d === "curtain") {
+              await set(ref(db, "commands/curtain"), { value: val === "on" ? "open" : "close" });
+            } else {
+              await set(ref(db, "commands/" + targetKey), { value: val === "on" });
+              if (d === "yard") {
+                await set(ref(db, "commands/yard"), { value: val === "on" });
+              }
+            }
+
+            try {
+              const devLabel = deviceNames[d] || d;
+              const actLabel = val === "on" ? "Bật" : "Tắt";
+              await set(push(ref(db, "logs/web")), {
+                source: "web",
+                device: d,
+                action: actLabel,
+                label: `${actLabel} · ${devLabel}`,
+                detail: `Chạy thử quy tắc: ${rule.name}`,
+                ts: Date.now()
+              });
+            } catch (e) {}
+          } catch (err) {
+            console.error("Lỗi gửi lệnh chạy thử:", err);
+          }
+        }
+      }
+    }
+
     updateRule(rule.id, item => { item.lastRan = Date.now(); });
-    if (rule.mode === "ask") showToast(`Mô phỏng: ${rule.name}. Chấp thuận để tiếp tục.`, rule);
-    else showToast(`Chạy thử: ${rule.name} · không gửi lệnh thiết bị.`);
+    try {
+      await set(ref(db, `automation/status/${rule.id}`), {
+        state: "ran",
+        lastRunAt: Math.floor(Date.now() / 1000),
+        lastResult: "Chạy thử từ Web"
+      });
+    } catch (e) {}
+
+    showToast(`Chạy thử thành công: Đã gửi lệnh thực thi quy tắc “${rule.name}” tới thiết bị.`);
   });
 
   function openRuleForm(rule) {
@@ -1067,25 +1309,36 @@ function drawKeywords(rows) {
     form.addEventListener("submit", event => {
       event.preventDefault();
       const values = new FormData(form);
+      const cond = String(values.get("condition"));
+      const isTime = cond === "time";
+      const isThresh = ["temp_high", "temp_low", "hum_high", "hum_low", "no_motion"].includes(cond);
+      const isAsk = String(values.get("mode")) === "ask";
+
       const next = {
         id: initial.id || `rule-${Date.now()}`,
         name: String(values.get("name")).trim(),
-        condition: String(values.get("condition")),
-        threshold: Number(values.get("threshold") || 0),
-        from: String(values.get("from") || ""),
-        to: String(values.get("to") || ""),
-        days: values.getAll("days").map(Number),
+        condition: cond,
         actions: [...actionRows.querySelectorAll(".action-row")].map(row => ({
           type: row.children[0].value,
           device: row.children[1].value,
           value: row.children[2].value
         })),
         mode: String(values.get("mode")),
-        wait: Number(values.get("wait") || 3),
-        timeout: String(values.get("timeout")),
         enabled: initial.enabled !== false,
         lastRan: initial.lastRan || null
       };
+
+      if (isThresh) next.threshold = Number(values.get("threshold") || 0);
+      if (isTime) {
+        next.from = String(values.get("from") || "");
+        next.to = String(values.get("to") || "");
+        next.days = values.getAll("days").map(Number);
+      }
+      if (isAsk) {
+        next.wait = Number(values.get("wait") || 3);
+        next.timeout = String(values.get("timeout") || "auto");
+      }
+
       const conflict = rules.find(item => item.id !== next.id && areContradictory(item, next));
       if (conflict) showToast(`Cảnh báo: “${conflict.name}” có hành động trái ngược trong cùng điều kiện.`);
       const index = rules.findIndex(item => item.id === next.id);

@@ -355,6 +355,14 @@ void process_remote_command() {
 }
 }  // namespace
 
+bool doorControl(bool open, const char* source) {
+    bool changed = set_door_state(open);
+    if (changed) {
+        log_door_event(open ? "open" : "close", source ? source : "automation", "", true, "");
+    }
+    return changed;
+}
+
 void doorInit() {
     pinMode(PIN_DOOR_LIMIT_OPEN, INPUT_PULLUP);
     pinMode(PIN_DOOR_LIMIT_CLOSED, INPUT_PULLUP);

@@ -50,3 +50,9 @@ void firebase_queue_device_state(bool light, bool fan, bool garden,
                                  uint32_t desiredReceivedMs = 0);
 void firebase_queue_auto_log(const char* action, const char* reason,
                              float temperature, uint8_t lightLevel);
+void firebase_queue_automation_status(const char* ruleId, const char* state,
+                                      time_t lastRunAt, const char* lastResult);
+void firebase_queue_automation_pending(const char* ruleId, const char* ruleName,
+                                       time_t createdAt, time_t expiresAt,
+                                       const char* timeoutAction);
+void firebase_queue_automation_pending_cleanup(const char* ruleId);

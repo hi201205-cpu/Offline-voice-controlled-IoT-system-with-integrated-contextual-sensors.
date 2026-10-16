@@ -35,12 +35,16 @@ struct FbUpdateMsg {
     bool          isAutoLog;
     bool          isDoorEvent;
     bool          isDoorResult;
+    bool          isAutoStatus;
+    bool          isAutoPending;
+    bool          isAutoPendingCleanup;
     int           label;
     bool          relay1;
     bool          relay2;
     float         temperature;
     float         humidity;
     time_t        timestamp;
+    time_t        expiresAt;
     bool          clearRemoteCmd;
     CommandSource source;
     bool          garden;
@@ -59,6 +63,11 @@ struct FbUpdateMsg {
     char          reason[64];
     char          eventSource[12];
     char          who[81];
+    char          ruleId[RULE_ID_LEN];
+    char          ruleName[RULE_NAME_LEN];
+    char          statusState[20];
+    char          lastResult[64];
+    char          timeoutAction[16];
 };
 
 struct VoiceLogRecord {
@@ -127,12 +136,7 @@ static uint32_t      s_lastConfigReadMs    = 0;
 static uint32_t      s_lastPendingReadMs   = 0;
 static uint32_t      s_lastPasscodeSyncMs  = 0;
 static bool          s_passcodeMetadataNeedsSync = true;
-static AutomationConfig s_cachedAutomationConfig = {
-    AUTO_DEFAULT_ENABLED, AUTO_DEFAULT_FAN_TEMP_ON, AUTO_DEFAULT_NO_PERSON_MIN
-};
-static GardenConfig s_cachedGardenConfig = {
-    false, GARDEN_DEFAULT_DARK_BELOW, GARDEN_DEFAULT_BRIGHT_ABOVE
-};
+static uint32_t      s_lastAutoPendingReadMs = 0;
 
 static const char* LABEL_NAMES[] = {
     "bat_den", "bat_het", "bat_quat", "noise",
@@ -197,6 +201,7 @@ static void firebase_do_voice_log(const VoiceLogRecord& record);
 static bool firebase_sync_device_state();
 static void firebase_apply_device_command(const DeviceCommand& command);
 static void firebase_load_automation_config();
+static void firebase_poll_automation_pending();
 static void firebase_poll_door_pending();
 static void firebase_sync_passcode_metadata();
 static void firebase_do_extension_event(const FbUpdateMsg& msg);
@@ -535,7 +540,8 @@ static void firebase_do_update(const FbUpdateMsg& msg) {
         return;
     }
 
-    if (msg.isAutoLog || msg.isDoorEvent || msg.isDoorResult) {
+    if (msg.isAutoLog || msg.isDoorEvent || msg.isDoorResult ||
+        msg.isAutoStatus || msg.isAutoPending || msg.isAutoPendingCleanup) {
         firebase_do_extension_event(msg);
         return;
     }
@@ -792,95 +798,237 @@ static bool json_number(FirebaseJson& json, const char* key, double& value) {
     return true;
 }
 
+static AutoConditionType parse_condition_type(const String& condStr) {
+    if (condStr == "temp_high") return COND_TEMP_HIGH;
+    if (condStr == "temp_low") return COND_TEMP_LOW;
+    if (condStr == "hum_high") return COND_HUM_HIGH;
+    if (condStr == "hum_low") return COND_HUM_LOW;
+    if (condStr == "no_motion") return COND_NO_MOTION;
+    if (condStr == "motion") return COND_MOTION;
+    if (condStr == "dark") return COND_DARK;
+    if (condStr == "time") return COND_TIME;
+    return COND_NONE;
+}
+
+static AutoTargetDevice parse_target_device(const String& devStr) {
+    if (devStr == "light") return DEV_LIGHT;
+    if (devStr == "fan") return DEV_FAN;
+    if (devStr == "yard") return DEV_YARD;
+    if (devStr == "curtain") return DEV_CURTAIN;
+    if (devStr == "door") return DEV_DOOR;
+    return DEV_NONE;
+}
+
+static uint16_t parse_time_minutes(const String& timeStr) {
+    int colon = timeStr.indexOf(':');
+    if (colon < 0) return 0;
+    int h = timeStr.substring(0, colon).toInt();
+    int m = timeStr.substring(colon + 1).toInt();
+    if (h < 0) h = 0; if (h > 23) h = 23;
+    if (m < 0) m = 0; if (m > 59) m = 59;
+    return static_cast<uint16_t>(h * 60 + m);
+}
+
+static bool parse_single_auto_rule(FirebaseJson& item, const char* fallbackId, AutoRule& r) {
+    memset(&r, 0, sizeof(r));
+
+    String idStr, nameStr, condStr, fromStr, toStr, modeStr, timeoutStr;
+    double thresh = 0, waitMin = 3;
+    FirebaseJsonData data;
+
+    if (json_string(item, "id", idStr) && idStr.length() > 0) {
+        snprintf(r.id, sizeof(r.id), "%s", idStr.c_str());
+    } else if (fallbackId && strlen(fallbackId) > 0) {
+        snprintf(r.id, sizeof(r.id), "%s", fallbackId);
+    } else {
+        return false;
+    }
+
+    if (json_string(item, "name", nameStr)) {
+        snprintf(r.name, sizeof(r.name), "%s", nameStr.c_str());
+    }
+
+    if (json_string(item, "condition", condStr)) {
+        r.condition = parse_condition_type(condStr);
+    }
+
+    if (json_number(item, "threshold", thresh)) {
+        r.threshold = static_cast<float>(thresh);
+    }
+
+    if (json_string(item, "from", fromStr)) {
+        r.fromMinutes = parse_time_minutes(fromStr);
+    }
+    if (json_string(item, "to", toStr)) {
+        r.toMinutes = parse_time_minutes(toStr);
+    }
+
+    // Parse days array
+    r.daysMask = 0;
+    if (item.get(data, "days") && data.success && data.type == "array") {
+        FirebaseJsonArray daysArr;
+        daysArr.setJsonArrayData(data.stringValue);
+        for (size_t d = 0; d < daysArr.size(); ++d) {
+            FirebaseJsonData dayVal;
+            if (daysArr.get(dayVal, d) && dayVal.success) {
+                int dayNum = dayVal.intValue;
+                if (dayNum >= 0 && dayNum <= 6) {
+                    r.daysMask |= (1 << dayNum);
+                }
+            }
+        }
+    } else {
+        r.daysMask = 0x7F; // Mặc định tất cả các ngày
+    }
+
+    // Parse actions
+    r.actionCount = 0;
+    if (item.get(data, "actions") && data.success && data.type == "array") {
+        FirebaseJsonArray actArr;
+        actArr.setJsonArrayData(data.stringValue);
+        for (size_t a = 0; a < actArr.size() && r.actionCount < MAX_ACTIONS_PER_RULE; ++a) {
+            FirebaseJsonData actItem;
+            if (actArr.get(actItem, a) && actItem.success && actItem.type == "object") {
+                FirebaseJson actJson;
+                actJson.setJsonData(actItem.stringValue);
+                String actType, actDev, actVal;
+                json_string(actJson, "type", actType);
+                json_string(actJson, "device", actDev);
+                json_string(actJson, "value", actVal);
+
+                AutoAction& action = r.actions[r.actionCount];
+                if (actType == "notify") {
+                    action.type = ACTION_TYPE_NOTIFY;
+                    action.device = DEV_NONE;
+                    action.value = true;
+                    r.actionCount++;
+                } else if (actType == "device") {
+                    action.type = ACTION_TYPE_DEVICE;
+                    action.device = parse_target_device(actDev);
+                    action.value = (actVal == "on" || actVal == "open" || actVal == "true");
+                    if (action.device != DEV_NONE) {
+                        r.actionCount++;
+                    }
+                }
+            }
+        }
+    }
+
+    // Mode: auto vs ask
+    if (json_string(item, "mode", modeStr)) {
+        r.mode = (modeStr == "ask") ? MODE_ASK : MODE_AUTO;
+    }
+
+    if (json_number(item, "wait", waitMin)) {
+        r.waitMinutes = static_cast<uint16_t>(waitMin);
+        if (r.waitMinutes == 0) r.waitMinutes = 3;
+    } else {
+        r.waitMinutes = 3;
+    }
+
+    if (json_string(item, "timeout", timeoutStr)) {
+        r.timeout = (timeoutStr == "none") ? TIMEOUT_NONE : TIMEOUT_AUTO;
+    } else {
+        r.timeout = TIMEOUT_AUTO;
+    }
+
+    if (item.get(data, "enabled") && data.success) {
+        r.enabled = data.boolValue;
+    } else {
+        r.enabled = true;
+    }
+
+    return true;
+}
+
 static void firebase_load_automation_config() {
     if (!Firebase.ready()) return;
 
-    GardenConfig garden = s_cachedGardenConfig;
-    bool gardenExists = FB_TIMED("getJSON config/garden",
-                                 Firebase.getJSON(s_fbWrite, "/config/garden"));
-    if (!gardenExists) {
-        LOG("[FB] Read /config/garden failed: %s\n",
-            s_fbWrite.errorReason().c_str());
-    } else if (s_fbWrite.dataType() == "null") {
-        garden = {false, GARDEN_DEFAULT_DARK_BELOW,
-                  GARDEN_DEFAULT_BRIGHT_ABOVE};
-        FirebaseJson defaults;
-        defaults.set("mode", GARDEN_DEFAULT_MODE);
-        defaults.set("dark_below", GARDEN_DEFAULT_DARK_BELOW);
-        defaults.set("bright_above", GARDEN_DEFAULT_BRIGHT_ABOVE);
-        if (!FB_TIMED("setJSON config/garden",
-                      Firebase.setJSON(s_fbWrite, "/config/garden", defaults))) {
-            LOG("[FB] Write /config/garden default failed: %s\n",
-                s_fbWrite.errorReason().c_str());
+    // 1. Đồng bộ Master switch: /automation/enabled
+    if (FB_TIMED("getBool /automation/enabled",
+                 Firebase.getBool(s_fbWrite, "/automation/enabled"))) {
+        if (s_fbWrite.dataType() == "boolean") {
+            bool masterEnabled = s_fbWrite.boolData();
+            automationSetMasterEnabled(masterEnabled);
         }
-    } else {
-        FirebaseJson json = s_fbWrite.to<FirebaseJson>();
-        String mode;
-        double darkBelow = -1;
-        double brightAbove = -1;
-        bool valid = json_string(json, "mode", mode) &&
-                     json_number(json, "dark_below", darkBelow) &&
-                     json_number(json, "bright_above", brightAbove);
-        mode.toLowerCase();
-        if (valid && (mode == "auto" || mode == "manual") &&
-            darkBelow >= 0 && darkBelow <= 100 &&
-            brightAbove >= 0 && brightAbove <= 100 &&
-            darkBelow < brightAbove) {
-            garden.manual = mode == "manual";
-            garden.darkBelow = static_cast<uint8_t>(darkBelow);
-            garden.brightAbove = static_cast<uint8_t>(brightAbove);
-        } else {
-            LOG("[FB] Invalid /config/garden; keeping latest valid config\n");
-        }
-    }
-    if (gardenExists) {
-        s_cachedGardenConfig = garden;
-        automationSetGardenConfig(garden);
     }
 
-    AutomationConfig automation = s_cachedAutomationConfig;
-    bool autoExists = FB_TIMED("getJSON config/auto",
-                               Firebase.getJSON(s_fbWrite, "/config/auto"));
-    if (!autoExists) {
-        LOG("[FB] Read /config/auto failed: %s\n",
-            s_fbWrite.errorReason().c_str());
-    } else if (s_fbWrite.dataType() == "null") {
-        automation = {AUTO_DEFAULT_ENABLED, AUTO_DEFAULT_FAN_TEMP_ON,
-                      AUTO_DEFAULT_NO_PERSON_MIN};
-        FirebaseJson defaults;
-        defaults.set("enabled", AUTO_DEFAULT_ENABLED);
-        defaults.set("fan_temp_on", AUTO_DEFAULT_FAN_TEMP_ON);
-        defaults.set("no_person_minutes", AUTO_DEFAULT_NO_PERSON_MIN);
-        if (!FB_TIMED("setJSON config/auto",
-                      Firebase.setJSON(s_fbWrite, "/config/auto", defaults))) {
-            LOG("[FB] Write /config/auto default failed: %s\n",
-                s_fbWrite.errorReason().c_str());
-        }
-    } else {
-        FirebaseJson json = s_fbWrite.to<FirebaseJson>();
-        FirebaseJsonData enabledData;
-        double fanTemp = 0;
-        double noPersonMinutes = 0;
-        bool valid = json.get(enabledData, "enabled") &&
-                     enabledData.success &&
-                     json_number(json, "fan_temp_on", fanTemp) &&
-                     json_number(json, "no_person_minutes", noPersonMinutes);
-        if (valid && fanTemp >= 20 && fanTemp <= 45 &&
-            noPersonMinutes >= 1 && noPersonMinutes <= 120 &&
-            floor(noPersonMinutes) == noPersonMinutes) {
-            automation.enabled = enabledData.boolValue;
-            automation.fanTempOn = static_cast<float>(fanTemp);
-            automation.noPersonMinutes =
-                static_cast<uint16_t>(noPersonMinutes);
-        } else {
-            LOG("[FB] Invalid /config/auto; keeping latest valid config\n");
+    // 2. Đồng bộ danh sách Rules: /automation/rules
+    if (FB_TIMED("getJSON /automation/rules",
+                 Firebase.getJSON(s_fbWrite, "/automation/rules"))) {
+        AutoRule parsedRules[MAX_AUTOMATION_RULES] = {};
+        uint8_t ruleCount = 0;
+
+        if (s_fbWrite.dataType() == "array") {
+            FirebaseJsonArray arr = s_fbWrite.to<FirebaseJsonArray>();
+            for (size_t i = 0; i < arr.size() && ruleCount < MAX_AUTOMATION_RULES; ++i) {
+                FirebaseJsonData itemData;
+                if (arr.get(itemData, i) && itemData.success && itemData.type == "object") {
+                    FirebaseJson item;
+                    item.setJsonData(itemData.stringValue);
+                    char fallbackId[16];
+                    snprintf(fallbackId, sizeof(fallbackId), "rule-%d", (int)i);
+                    if (parse_single_auto_rule(item, fallbackId, parsedRules[ruleCount])) {
+                        ruleCount++;
+                    }
+                }
+            }
+            automationSetRules(parsedRules, ruleCount);
+        } else if (s_fbWrite.dataType() == "json") {
+            FirebaseJson json = s_fbWrite.to<FirebaseJson>();
+            size_t len = json.iteratorBegin();
+            for (size_t i = 0; i < len && ruleCount < MAX_AUTOMATION_RULES; ++i) {
+                int type = 0;
+                String key;
+                String value;
+                json.iteratorGet(i, type, key, value);
+
+                if (type == FirebaseJson::JSON_OBJECT) {
+                    FirebaseJson item;
+                    item.setJsonData(value);
+                    if (parse_single_auto_rule(item, key.c_str(), parsedRules[ruleCount])) {
+                        ruleCount++;
+                    }
+                }
+            }
+            json.iteratorEnd();
+            automationSetRules(parsedRules, ruleCount);
+        } else if (s_fbWrite.dataType() == "null") {
+            // Không có quy tắc nào trên Firebase
+            automationSetRules(nullptr, 0);
         }
     }
-    if (autoExists) {
-        s_cachedAutomationConfig = automation;
-        automationSetConfig(automation);
-    }
+
     s_lastConfigReadMs = millis();
+}
+
+static void firebase_poll_automation_pending() {
+    if (!Firebase.ready()) return;
+
+    if (FB_TIMED("getJSON /automation/pending",
+                 Firebase.getJSON(s_fbWrite, "/automation/pending"))) {
+        if (s_fbWrite.dataType() == "json") {
+            FirebaseJson json = s_fbWrite.to<FirebaseJson>();
+            size_t count = json.iteratorBegin();
+            for (size_t i = 0; i < count; ++i) {
+                int type = 0;
+                String key;
+                String value;
+                json.iteratorGet(i, type, key, value);
+
+                if (type == FirebaseJson::JSON_OBJECT) {
+                    FirebaseJson item;
+                    item.setJsonData(value);
+                    String answer;
+                    if (json_string(item, "answer", answer) && answer.length() > 0) {
+                        LOG("[AUTO] Nhan phan hoi pending ruleId=%s: %s\n", key.c_str(), answer.c_str());
+                        automationHandlePendingAnswer(key.c_str(), answer.c_str());
+                    }
+                }
+            }
+            json.iteratorEnd();
+        }
+    }
 }
 
 static bool firebase_write_passcode_metadata(const char* id, const char* name) {
@@ -1100,6 +1248,44 @@ static void firebase_do_extension_event(const FbUpdateMsg& msg) {
             LOG("[DOOR] Command delete failed: %s\n",
                 s_fbWrite.errorReason().c_str());
         }
+    }
+
+    if (msg.isAutoStatus) {
+        char statusPath[128];
+        snprintf(statusPath, sizeof(statusPath), "/automation/status/%s", msg.ruleId);
+        FirebaseJson statusJson;
+        statusJson.set("state", msg.statusState);
+        if (msg.timestamp > 0) {
+            statusJson.set("lastRunAt", static_cast<uint32_t>(msg.timestamp));
+        }
+        if (msg.lastResult[0]) {
+            statusJson.set("lastResult", msg.lastResult);
+        }
+        FB_TIMED("setJSON /automation/status",
+                 Firebase.setJSON(s_fbWrite, statusPath, statusJson));
+        return;
+    }
+
+    if (msg.isAutoPending) {
+        char pendingPath[128];
+        snprintf(pendingPath, sizeof(pendingPath), "/automation/pending/%s", msg.ruleId);
+        FirebaseJson pendingJson;
+        pendingJson.set("ruleId", msg.ruleId);
+        pendingJson.set("ruleName", msg.ruleName);
+        pendingJson.set("createdAt", static_cast<uint32_t>(msg.timestamp));
+        pendingJson.set("expiresAt", static_cast<uint32_t>(msg.expiresAt));
+        pendingJson.set("timeout", msg.timeoutAction);
+        FB_TIMED("setJSON /automation/pending",
+                 Firebase.setJSON(s_fbWrite, pendingPath, pendingJson));
+        return;
+    }
+
+    if (msg.isAutoPendingCleanup) {
+        char pendingPath[128];
+        snprintf(pendingPath, sizeof(pendingPath), "/automation/pending/%s", msg.ruleId);
+        FB_TIMED("deleteNode /automation/pending",
+                 Firebase.deleteNode(s_fbWrite, pendingPath));
+        return;
     }
 
     if (!msg.isAutoLog && !msg.isDoorEvent) return;
@@ -1415,6 +1601,10 @@ static void firebase_task(void* pvParam) {
             if (now - s_lastConfigReadMs >= AUTO_CONFIG_REFRESH_MS) {
                 firebase_load_automation_config();
             }
+            if (now - s_lastAutoPendingReadMs >= 2000UL) {
+                s_lastAutoPendingReadMs = now;
+                firebase_poll_automation_pending();
+            }
             if (now - s_lastPendingReadMs >= 3000UL) {
                 s_lastPendingReadMs = now;
                 firebase_poll_door_pending();
@@ -1718,4 +1908,40 @@ bool firebase_queue_voice_log(int label, float confidence, bool executed, time_t
     }
 
     return true;
+}
+
+void firebase_queue_automation_status(const char* ruleId, const char* state,
+                                      time_t lastRunAt, const char* lastResult) {
+    if (!ruleId || !state) return;
+    FbUpdateMsg msg = {};
+    msg.isAutoStatus = true;
+    snprintf(msg.ruleId, sizeof(msg.ruleId), "%s", ruleId);
+    snprintf(msg.statusState, sizeof(msg.statusState), "%s", state);
+    msg.timestamp = lastRunAt;
+    if (lastResult) {
+        snprintf(msg.lastResult, sizeof(msg.lastResult), "%s", lastResult);
+    }
+    firebase_enqueue_update(msg);
+}
+
+void firebase_queue_automation_pending(const char* ruleId, const char* ruleName,
+                                       time_t createdAt, time_t expiresAt,
+                                       const char* timeoutAction) {
+    if (!ruleId) return;
+    FbUpdateMsg msg = {};
+    msg.isAutoPending = true;
+    snprintf(msg.ruleId, sizeof(msg.ruleId), "%s", ruleId);
+    if (ruleName) snprintf(msg.ruleName, sizeof(msg.ruleName), "%s", ruleName);
+    msg.timestamp = createdAt;
+    msg.expiresAt = expiresAt;
+    if (timeoutAction) snprintf(msg.timeoutAction, sizeof(msg.timeoutAction), "%s", timeoutAction);
+    firebase_enqueue_update(msg);
+}
+
+void firebase_queue_automation_pending_cleanup(const char* ruleId) {
+    if (!ruleId) return;
+    FbUpdateMsg msg = {};
+    msg.isAutoPendingCleanup = true;
+    snprintf(msg.ruleId, sizeof(msg.ruleId), "%s", ruleId);
+    firebase_enqueue_update(msg);
 }

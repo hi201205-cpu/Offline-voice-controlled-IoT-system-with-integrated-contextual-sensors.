@@ -6,83 +6,384 @@
 #include "config.h"
 #include "firebase_manager.h"
 #include "led_relay.h"
+#include "door_manager.h"
 #include "sensors.h"
 
-static portMUX_TYPE s_configMux = portMUX_INITIALIZER_UNLOCKED;
-static AutomationConfig s_autoConfig = {
-    AUTO_DEFAULT_ENABLED, AUTO_DEFAULT_FAN_TEMP_ON, AUTO_DEFAULT_NO_PERSON_MIN
-};
-static GardenConfig s_gardenConfig = {
-    false, GARDEN_DEFAULT_DARK_BELOW, GARDEN_DEFAULT_BRIGHT_ABOVE
-};
-static uint32_t s_manualHoldUntil[3] = {};
-static bool s_manualHoldActive[3] = {};
-static bool s_autoOwnsFan = false;
-static bool s_gardenOn = false;
-static PresenceState s_presence = PRESENCE_ABSENT;
-static uint32_t s_presenceLossStartedMs = 0;
-static bool s_presenceLossTimerStarted = false;
-static bool s_absentLightPending = false;
-static bool s_absentFanPending = false;
-static time_t s_lastMotionTimestamp = 0;
-static uint32_t s_darkStartedMs = 0;
-static uint32_t s_brightStartedMs = 0;
+// Mutex bảo vệ danh sách quy tắc khi đồng bộ giữa Core 0 (Firebase) và Core 1 (Loop)
+static portMUX_TYPE s_autoMux = portMUX_INITIALIZER_UNLOCKED;
 
-static bool is_manual_hold(uint8_t relay, uint32_t now) {
-    if (relay < 1 || relay > 2 || !s_manualHoldActive[relay]) return false;
-    if (static_cast<int32_t>(now - s_manualHoldUntil[relay]) < 0) return true;
-    s_manualHoldActive[relay] = false;
-    return false;
-}
+static bool s_masterEnabled = true;
+static AutoRule s_rules[MAX_AUTOMATION_RULES] = {};
+static uint8_t s_ruleCount = 0;
+
+// Trạng thái chờ xác nhận "Hỏi tôi trước"
+static PendingConfirmation s_pendingList[MAX_AUTOMATION_RULES] = {};
+
+// Quản lý presence & thời gian chuyển động phục vụ cảm biến và quy tắc
+static PresenceState s_presence = PRESENCE_ABSENT;
+static time_t s_lastMotionTimestamp = 0;
+static bool s_gardenStateManual = false;
+
+// Cooldown tối thiểu giữa các lần kích hoạt quy tắc (tránh dội xung)
+static const uint32_t RULE_COOLDOWN_MS = 2000UL;
 
 static void publish_state() {
     firebase_queue_device_state(
-        get_relay_state(1), get_relay_state(2), s_gardenOn,
+        get_relay_state(1), get_relay_state(2), get_relay_state(3),
         door_is_open(), curtain_is_open());
 }
 
 void automationInit() {
-    s_gardenOn = get_relay_state(3);
     s_presence = PRESENCE_ABSENT;
-    s_presenceLossTimerStarted = false;
-    s_presenceLossStartedMs = millis();
+    s_lastMotionTimestamp = time(nullptr);
+    s_gardenStateManual = get_relay_state(3);
+    s_ruleCount = 0;
+    memset(s_rules, 0, sizeof(s_rules));
+    memset(s_pendingList, 0, sizeof(s_pendingList));
 }
 
-void automationSetConfig(const AutomationConfig& config) {
-    portENTER_CRITICAL(&s_configMux);
-    s_autoConfig = config;
-    portEXIT_CRITICAL(&s_configMux);
+void automationSetMasterEnabled(bool enabled) {
+    portENTER_CRITICAL(&s_autoMux);
+    s_masterEnabled = enabled;
+    portEXIT_CRITICAL(&s_autoMux);
+    LOG("[AUTO] Master switch: %s\n", enabled ? "BAT" : "TAT");
 }
 
-void automationSetGardenConfig(const GardenConfig& config) {
-    bool changed;
-    portENTER_CRITICAL(&s_configMux);
-    changed = s_gardenConfig.manual != config.manual ||
-              s_gardenConfig.darkBelow != config.darkBelow ||
-              s_gardenConfig.brightAbove != config.brightAbove;
-    s_gardenConfig = config;
-    portEXIT_CRITICAL(&s_configMux);
-    if (changed) {
-        s_darkStartedMs = 0;
-        s_brightStartedMs = 0;
+bool automationGetMasterEnabled() {
+    portENTER_CRITICAL(&s_autoMux);
+    bool enabled = s_masterEnabled;
+    portEXIT_CRITICAL(&s_autoMux);
+    return enabled;
+}
+
+void automationSetRules(const AutoRule* rules, uint8_t count) {
+    portENTER_CRITICAL(&s_autoMux);
+    if (rules == nullptr || count == 0) {
+        s_ruleCount = 0;
+        memset(s_rules, 0, sizeof(s_rules));
+    } else {
+        uint8_t newCount = (count > MAX_AUTOMATION_RULES) ? MAX_AUTOMATION_RULES : count;
+        AutoRule tempRules[MAX_AUTOMATION_RULES] = {};
+        for (uint8_t i = 0; i < newCount; ++i) {
+            tempRules[i] = rules[i];
+            for (uint8_t j = 0; j < s_ruleCount; ++j) {
+                if (strcmp(rules[i].id, s_rules[j].id) == 0) {
+                    tempRules[i].prevConditionMet = s_rules[j].prevConditionMet;
+                    tempRules[i].lastFiredMs = s_rules[j].lastFiredMs;
+                    break;
+                }
+            }
+        }
+        memcpy(s_rules, tempRules, sizeof(AutoRule) * newCount);
+        s_ruleCount = newCount;
+    }
+    portEXIT_CRITICAL(&s_autoMux);
+    LOG("[AUTO] Da cap nhat %d quy tac tu Firebase\n", s_ruleCount);
+}
+
+uint8_t automationGetRulesCount() {
+    portENTER_CRITICAL(&s_autoMux);
+    uint8_t count = s_ruleCount;
+    portEXIT_CRITICAL(&s_autoMux);
+    return count;
+}
+
+// Thực thi danh sách hành động cho thiết bị
+static void execute_actions(const AutoAction* actions, uint8_t actionCount, const char* ruleName) {
+    if (!actions || actionCount == 0) return;
+
+    for (uint8_t i = 0; i < actionCount; ++i) {
+        const AutoAction& act = actions[i];
+        if (act.type == ACTION_TYPE_NOTIFY) {
+            LOG("[AUTO] Thong bao quy tac: %s\n", ruleName ? ruleName : "");
+            continue;
+        }
+
+        if (act.type == ACTION_TYPE_DEVICE) {
+            switch (act.device) {
+                case DEV_LIGHT: // Relay 1
+                    relay_control(1, act.value, RELAY_SOURCE_AUTO);
+                    LOG("[AUTO] Den phong -> %s\n", act.value ? "BAT" : "TAT");
+                    break;
+                case DEV_FAN: // Relay 2
+                    relay_control(2, act.value, RELAY_SOURCE_AUTO);
+                    LOG("[AUTO] Quat -> %s\n", act.value ? "BAT" : "TAT");
+                    break;
+                case DEV_YARD: // Relay 3
+                    relay_control(3, act.value, RELAY_SOURCE_AUTO);
+                    LOG("[AUTO] Den san -> %s\n", act.value ? "BAT" : "TAT");
+                    break;
+                case DEV_CURTAIN: // Servo rem
+                    curtain_servo_set(act.value);
+                    LOG("[AUTO] Rem cua -> %s\n", act.value ? "MO" : "DONG");
+                    break;
+                case DEV_DOOR: // Cua chinh
+                    doorControl(act.value, "Tự động hóa");
+                    LOG("[AUTO] Cua chinh -> %s\n", act.value ? "MO" : "DONG");
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    publish_state();
+}
+
+// Xử lý phản hồi "Hỏi tôi trước"
+void automationHandlePendingAnswer(const char* ruleId, const char* answer) {
+    if (!ruleId || !answer) return;
+
+    portENTER_CRITICAL(&s_autoMux);
+    for (uint8_t i = 0; i < MAX_AUTOMATION_RULES; ++i) {
+        if (s_pendingList[i].active && strcmp(s_pendingList[i].ruleId, ruleId) == 0) {
+            if (strcmp(answer, "agree") == 0) {
+                LOG("[AUTO] Nguoi dung DONG Y rule: %s\n", s_pendingList[i].ruleName);
+                execute_actions(s_pendingList[i].actions, s_pendingList[i].actionCount, s_pendingList[i].ruleName);
+                time_t now = time(nullptr);
+                firebase_queue_automation_status(ruleId, "ran", now, "Đã thực hiện (người dùng đồng ý)");
+                firebase_queue_auto_log(s_pendingList[i].ruleName, "Nguoi dung dong y",
+                                        sensorsTemperature(), sensorsLightLevel());
+            } else if (strcmp(answer, "skip") == 0) {
+                LOG("[AUTO] Nguoi dung BO QUA rule: %s\n", s_pendingList[i].ruleName);
+                time_t now = time(nullptr);
+                firebase_queue_automation_status(ruleId, "waiting", now, "Đã bỏ qua");
+            }
+            s_pendingList[i].active = false;
+            firebase_queue_automation_pending_cleanup(ruleId);
+            break;
+        }
+    }
+    portEXIT_CRITICAL(&s_autoMux);
+}
+
+// Kiểm tra điều kiện thời gian (UTC+7)
+static bool check_time_condition(uint16_t fromMin, uint16_t toMin, uint8_t daysMask) {
+    time_t now = time(nullptr);
+    if (now <= 1700000000) return false; // Chưa đồng bộ NTP
+
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+
+    // timeinfo.tm_wday: 0 = CN, 1 = T2, ..., 6 = T7
+    // Trong Web UI: T2(index 0), T3(1), T4(2), T5(3), T6(4), T7(5), CN(6)
+    int uiDay = (timeinfo.tm_wday == 0) ? 6 : (timeinfo.tm_wday - 1);
+    if (!(daysMask & (1 << uiDay))) {
+        return false;
+    }
+
+    uint16_t currentMin = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+    if (fromMin <= toMin) {
+        return (currentMin >= fromMin && currentMin <= toMin);
+    } else {
+        // Khung giờ vắt qua nửa đêm (vd: 22:00 -> 05:00)
+        return (currentMin >= fromMin || currentMin <= toMin);
     }
 }
 
-void automationSetGardenState(bool on) {
-    bool changed = relay_control(3, on, RELAY_SOURCE_MANUAL);
-    s_gardenOn = get_relay_state(3);
-    if (changed) publish_state();
+// Đánh giá điều kiện của 1 quy tắc
+static bool evaluate_condition(const AutoRule& rule, float temp, float hum,
+                                bool motion, time_t lastMotion, uint8_t lightLevel) {
+    switch (rule.condition) {
+        case COND_TEMP_HIGH:
+            return (!isnan(temp) && temp > rule.threshold);
+        case COND_TEMP_LOW:
+            return (!isnan(temp) && temp < rule.threshold);
+        case COND_HUM_HIGH:
+            return (!isnan(hum) && hum > rule.threshold);
+        case COND_HUM_LOW:
+            return (!isnan(hum) && hum < rule.threshold);
+        case COND_MOTION:
+            return motion;
+        case COND_NO_MOTION: {
+            time_t now = time(nullptr);
+            if (now <= 1700000000 || lastMotion <= 1700000000) return false;
+            uint32_t diffSec = (now > lastMotion) ? (now - lastMotion) : 0;
+            return (diffSec >= static_cast<uint32_t>(rule.threshold * 60.0f));
+        }
+        case COND_DARK:
+            return sensorsLightValid() && (lightLevel < 25);
+        case COND_TIME:
+            return check_time_condition(rule.fromMinutes, rule.toMinutes, rule.daysMask);
+        default:
+            return false;
+    }
 }
 
+/*
+ * Xử lý xung đột (Deterministic Conflict Handling):
+ * Nếu hai quy tắc cùng kích hoạt trong cùng một chu kỳ và điều khiển cùng một thiết bị:
+ * 1. Ưu tiên An Toàn: Lệnh TẮT / ĐÓNG (false) được ưu tiên hơn lệnh BẬT / MỞ (true).
+ * 2. Ưu tiên Chỉ số: Nếu cùng giá trị hoặc không có sự khác biệt về an toàn, quy tắc đứng trước (index nhỏ hơn) được ưu tiên.
+ * Ghi log rõ ràng lý do xung đột ra Serial.
+ */
+static void resolve_conflicts(AutoAction finalActions[5], bool actionSet[5]) {
+    for (uint8_t d = 0; d < 5; ++d) {
+        actionSet[d] = false;
+    }
+}
+
+void automationUpdate() {
+    uint32_t nowMs = millis();
+    time_t nowTime = time(nullptr);
+
+    // Cập nhật trạng thái chuyển động & hiện diện
+    bool detected = sensorsPresenceDataValid() && sensorsPresenceDetected();
+    if (detected) {
+        if (s_presence != PRESENCE_PRESENT) {
+            s_presence = PRESENCE_PRESENT;
+            s_lastMotionTimestamp = nowTime;
+            sensorsRequestPush();
+        } else {
+            s_lastMotionTimestamp = nowTime;
+        }
+    } else {
+        if (s_presence == PRESENCE_PRESENT) {
+            s_presence = PRESENCE_LEAVING;
+            sensorsRequestPush();
+        }
+    }
+
+    // 1. Kiểm tra timeout cho danh sách "Hỏi tôi trước" (Pending)
+    for (uint8_t i = 0; i < MAX_AUTOMATION_RULES; ++i) {
+        if (s_pendingList[i].active) {
+            if (nowTime >= s_pendingList[i].expiresAt) {
+                LOG("[AUTO] Pending timeout cho rule: %s\n", s_pendingList[i].ruleName);
+                if (s_pendingList[i].timeout == TIMEOUT_AUTO) {
+                    LOG("[AUTO] Timeout -> Tu dong thuc hien hanh dong\n");
+                    execute_actions(s_pendingList[i].actions, s_pendingList[i].actionCount, s_pendingList[i].ruleName);
+                    firebase_queue_automation_status(s_pendingList[i].ruleId, "ran", nowTime, "Đã tự thực hiện khi hết giờ");
+                    firebase_queue_auto_log(s_pendingList[i].ruleName, "Tu dong thuc hien (timeout)",
+                                            sensorsTemperature(), sensorsLightLevel());
+                } else {
+                    LOG("[AUTO] Timeout -> Khong lam gi\n");
+                    firebase_queue_automation_status(s_pendingList[i].ruleId, "waiting", nowTime, "Hết thời gian chờ (không làm gì)");
+                }
+                s_pendingList[i].active = false;
+                firebase_queue_automation_pending_cleanup(s_pendingList[i].ruleId);
+            }
+        }
+    }
+
+    // 2. Nếu Master Switch tắt -> không chạy quy tắc nào
+    if (!automationGetMasterEnabled()) {
+        return;
+    }
+
+    float temp = sensorsTemperature();
+    float hum = sensorsHumidity();
+    uint8_t light = sensorsLightLevel();
+
+    // Mảng lưu trữ hành động hợp nhất sau xử lý xung đột
+    // 0: LIGHT, 1: FAN, 2: YARD, 3: CURTAIN, 4: DOOR
+    AutoAction mergedActions[5];
+    bool hasMergedAction[5] = {false, false, false, false, false};
+    char triggeredRuleNames[5][RULE_NAME_LEN];
+
+    portENTER_CRITICAL(&s_autoMux);
+    for (uint8_t i = 0; i < s_ruleCount; ++i) {
+        AutoRule& r = s_rules[i];
+        if (!r.enabled) {
+            r.prevConditionMet = false;
+            continue;
+        }
+
+        bool condMet = evaluate_condition(r, temp, hum, detected, s_lastMotionTimestamp, light);
+
+        // Edge-trigger: Kích hoạt khi chuyển từ false -> true và đã qua cooldown
+        if (condMet && !r.prevConditionMet && (nowMs - r.lastFiredMs >= RULE_COOLDOWN_MS)) {
+            r.lastFiredMs = nowMs;
+            LOG("[AUTO] Rule kich hoat: %s (mode=%s)\n", r.name, r.mode == MODE_ASK ? "ask" : "auto");
+
+            if (r.mode == MODE_ASK) {
+                // Tạo câu hỏi chờ xác nhận
+                uint16_t waitSec = r.waitMinutes * 60;
+                time_t expires = nowTime + waitSec;
+
+                // Lưu vào pending list của firmware
+                for (uint8_t p = 0; p < MAX_AUTOMATION_RULES; ++p) {
+                    if (!s_pendingList[p].active || strcmp(s_pendingList[p].ruleId, r.id) == 0) {
+                        s_pendingList[p].active = true;
+                        snprintf(s_pendingList[p].ruleId, sizeof(s_pendingList[p].ruleId), "%s", r.id);
+                        snprintf(s_pendingList[p].ruleName, sizeof(s_pendingList[p].ruleName), "%s", r.name);
+                        s_pendingList[p].createdAt = nowTime;
+                        s_pendingList[p].expiresAt = expires;
+                        s_pendingList[p].timeout = r.timeout;
+                        s_pendingList[p].actionCount = r.actionCount;
+                        memcpy(s_pendingList[p].actions, r.actions, sizeof(AutoAction) * r.actionCount);
+                        break;
+                    }
+                }
+
+                // Gửi lên Firebase: /automation/pending và /automation/status
+                firebase_queue_automation_pending(r.id, r.name, nowTime, expires,
+                                                  (r.timeout == TIMEOUT_AUTO) ? "auto" : "none");
+                firebase_queue_automation_status(r.id, "pending_confirm", nowTime, "Đang chờ người dùng xác nhận");
+            } else {
+                // Mode AUTO: gom hành động để kiểm tra xung đột
+                for (uint8_t a = 0; a < r.actionCount; ++a) {
+                    const AutoAction& act = r.actions[a];
+                    if (act.type == ACTION_TYPE_DEVICE) {
+                        uint8_t devIdx = 0;
+                        if (act.device == DEV_LIGHT) devIdx = 0;
+                        else if (act.device == DEV_FAN) devIdx = 1;
+                        else if (act.device == DEV_YARD) devIdx = 2;
+                        else if (act.device == DEV_CURTAIN) devIdx = 3;
+                        else if (act.device == DEV_DOOR) devIdx = 4;
+                        else continue;
+
+                        if (hasMergedAction[devIdx]) {
+                            // Xung đột: cùng điều khiển 1 thiết bị trong cùng lượt
+                            if (mergedActions[devIdx].value != act.value) {
+                                LOG("[AUTO CONFLICT] Xung dot tren thiet bi %d giua '%s' va '%s'! Uu tien lenh TAT/DONG vi an toan.\n",
+                                    act.device, triggeredRuleNames[devIdx], r.name);
+                                // Ưu tiên false (tắt/đóng) vì an toàn
+                                if (!act.value) {
+                                    mergedActions[devIdx] = act;
+                                    snprintf(triggeredRuleNames[devIdx], sizeof(triggeredRuleNames[devIdx]), "%s", r.name);
+                                }
+                            }
+                        } else {
+                            mergedActions[devIdx] = act;
+                            hasMergedAction[devIdx] = true;
+                            snprintf(triggeredRuleNames[devIdx], sizeof(triggeredRuleNames[devIdx]), "%s", r.name);
+                        }
+                    } else if (act.type == ACTION_TYPE_NOTIFY) {
+                        LOG("[AUTO] Thong bao: %s\n", r.name);
+                    }
+                }
+
+                // Cập nhật trạng thái "ran"
+                firebase_queue_automation_status(r.id, "ran", nowTime, "Đã chạy tự động");
+                firebase_queue_auto_log(r.name, "Tu dong chay", temp, light);
+            }
+        }
+
+        // Re-arm edge-trigger khi điều kiện trở về false
+        r.prevConditionMet = condMet;
+    }
+    portEXIT_CRITICAL(&s_autoMux);
+
+    // 3. Thực thi các lệnh đã giải quyết xung đột
+    for (uint8_t d = 0; d < 5; ++d) {
+        if (hasMergedAction[d]) {
+            execute_actions(&mergedActions[d], 1, triggeredRuleNames[d]);
+        }
+    }
+}
+
+// Các hàm getter giữ lại tương thích với sensors.cpp và led_relay.cpp
 void automationNotifyManualControl(uint8_t relay) {
-    if (relay < 1 || relay > 2) return;
-    s_manualHoldUntil[relay] = millis() + MANUAL_HOLD_MS;
-    s_manualHoldActive[relay] = true;
-    if (relay == 2) s_autoOwnsFan = false;
+    // Không khóa cứng, ghi nhận log
+    LOG("[AUTO] Phat hien dieu khien thu cong relay %d\n", relay);
+}
+
+void automationSetGardenState(bool on) {
+    relay_control(3, on, RELAY_SOURCE_MANUAL);
+    publish_state();
 }
 
 bool automationGardenState() {
-    return s_gardenOn;
+    return get_relay_state(3);
 }
 
 PresenceState automationPresenceState() {
@@ -102,148 +403,5 @@ time_t automationLastMotionTimestamp() {
 }
 
 uint8_t automationDarkBelow() {
-    portENTER_CRITICAL(&s_configMux);
-    uint8_t value = s_gardenConfig.darkBelow;
-    portEXIT_CRITICAL(&s_configMux);
-    return value;
+    return 25; // Ngưỡng tham khảo mặc định
 }
-
-void automationUpdate() {
-    AutomationConfig autoConfig;
-    GardenConfig gardenConfig;
-    portENTER_CRITICAL(&s_configMux);
-    autoConfig = s_autoConfig;
-    gardenConfig = s_gardenConfig;
-    portEXIT_CRITICAL(&s_configMux);
-
-    uint32_t now = millis();
-    s_gardenOn = get_relay_state(3);
-    bool detected = sensorsPresenceDataValid() && sensorsPresenceDetected();
-
-    if (detected) {
-        if (s_presence != PRESENCE_PRESENT) {
-            s_presence = PRESENCE_PRESENT;
-            s_presenceLossTimerStarted = false;
-            s_absentLightPending = false;
-            s_absentFanPending = false;
-            s_lastMotionTimestamp = time(nullptr);
-            LOG("[PRESENCE] present\n");
-            sensorsRequestPush();
-        }
-    } else if (s_presence == PRESENCE_PRESENT) {
-        s_presence = PRESENCE_LEAVING;
-        s_presenceLossStartedMs = now;
-        s_presenceLossTimerStarted = true;
-        LOG("[PRESENCE] leaving\n");
-        sensorsRequestPush();
-    } else if (s_presence == PRESENCE_ABSENT &&
-               sensorsPresenceDataValid() &&
-               !s_presenceLossTimerStarted) {
-        s_presence = PRESENCE_LEAVING;
-        s_presenceLossStartedMs = now;
-        s_presenceLossTimerStarted = true;
-        LOG("[PRESENCE] leaving\n");
-        sensorsRequestPush();
-    } else if (s_presence == PRESENCE_LEAVING &&
-               s_presenceLossTimerStarted &&
-               now - s_presenceLossStartedMs >=
-                   static_cast<uint32_t>(autoConfig.noPersonMinutes) * 60000UL) {
-        s_presence = PRESENCE_ABSENT;
-        LOG("[PRESENCE] absent\n");
-        sensorsRequestPush();
-
-        s_absentLightPending = autoConfig.enabled;
-        s_absentFanPending = autoConfig.enabled;
-    }
-
-    if (s_presence == PRESENCE_ABSENT && autoConfig.enabled) {
-        if (s_absentLightPending) {
-            if (!get_relay_state(1)) {
-                s_absentLightPending = false;
-            } else if (!is_manual_hold(1, now)) {
-                execute_command_from(LABEL_TAT_DEN, 1.0f, RELAY_SOURCE_AUTO);
-                s_absentLightPending = false;
-                LOG("AUTO: light_off (no_person)\n");
-                firebase_queue_auto_log("light_off", "no_person",
-                                        sensorsTemperature(), sensorsLightLevel());
-                publish_state();
-            }
-        }
-        if (s_absentFanPending) {
-            if (!get_relay_state(2)) {
-                s_absentFanPending = false;
-            } else if (!is_manual_hold(2, now)) {
-                execute_command_from(LABEL_TAT_QUAT, 1.0f, RELAY_SOURCE_AUTO);
-                s_absentFanPending = false;
-                s_autoOwnsFan = false;
-                LOG("AUTO: fan_off (no_person)\n");
-                firebase_queue_auto_log("fan_off", "no_person",
-                                        sensorsTemperature(), sensorsLightLevel());
-                publish_state();
-            }
-        }
-    }
-
-    float temperature = sensorsTemperature();
-    if (autoConfig.enabled && !isnan(temperature) &&
-        !is_manual_hold(2, now)) {
-        if (s_presence == PRESENCE_PRESENT &&
-            temperature >= autoConfig.fanTempOn &&
-            !get_relay_state(2)) {
-            execute_command_from(LABEL_BAT_QUAT, 1.0f, RELAY_SOURCE_AUTO);
-            s_autoOwnsFan = true;
-            LOG("AUTO: fan_on (temp_high_occupied)\n");
-            firebase_queue_auto_log("fan_on", "temp_high_occupied",
-                                    temperature, sensorsLightLevel());
-            publish_state();
-        } else if (s_autoOwnsFan &&
-                   temperature <= autoConfig.fanTempOn - 2.0f &&
-                   get_relay_state(2)) {
-            execute_command_from(LABEL_TAT_QUAT, 1.0f, RELAY_SOURCE_AUTO);
-            s_autoOwnsFan = false;
-            LOG("AUTO: fan_off (temp_low)\n");
-            firebase_queue_auto_log("fan_off", "temp_low",
-                                    temperature, sensorsLightLevel());
-            publish_state();
-        }
-    }
-
-    if (gardenConfig.manual || !sensorsLightValid()) {
-        s_darkStartedMs = 0;
-        s_brightStartedMs = 0;
-        return;
-    }
-
-    uint8_t level = sensorsLightLevel();
-    if (level < gardenConfig.darkBelow) {
-        s_brightStartedMs = 0;
-        if (s_darkStartedMs == 0) s_darkStartedMs = now;
-        if (now - s_darkStartedMs >= GARDEN_CONFIRM_MS && !s_gardenOn) {
-            if (relay_control(3, true, RELAY_SOURCE_AUTO)) {
-                s_gardenOn = true;
-                LOG("AUTO: garden_on (dark)\n");
-                firebase_queue_auto_log("garden_on", "dark",
-                                        temperature, level);
-                publish_state();
-            }
-            s_darkStartedMs = now;
-        }
-    } else if (level > gardenConfig.brightAbove) {
-        s_darkStartedMs = 0;
-        if (s_brightStartedMs == 0) s_brightStartedMs = now;
-        if (now - s_brightStartedMs >= GARDEN_CONFIRM_MS && s_gardenOn) {
-            if (relay_control(3, false, RELAY_SOURCE_AUTO)) {
-                s_gardenOn = false;
-                LOG("AUTO: garden_off (bright)\n");
-                firebase_queue_auto_log("garden_off", "bright",
-                                        temperature, level);
-                publish_state();
-            }
-            s_brightStartedMs = now;
-        }
-    } else {
-        s_darkStartedMs = 0;
-        s_brightStartedMs = 0;
-    }
-}
-

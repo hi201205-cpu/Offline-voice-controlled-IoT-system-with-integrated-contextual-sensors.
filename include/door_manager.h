@@ -15,4 +15,5 @@ bool doorPasscodeGet(size_t index, DoorPasscodeMetadata* metadata);
 bool doorPasscodeAdd(const char* id, const char* name, const char* code,
                      char* error, size_t errorSize);
 bool doorPasscodeDelete(const char* id, char* error, size_t errorSize);
+bool doorControl(bool open, const char* source = "automation");
 

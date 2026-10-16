@@ -181,6 +181,20 @@ pio device monitor
 - **DSP:** MFCC
 - **Classes:** 7 (bat_den, tat_den, bat_quat, tat_quat, bat_het, tat_het, noise)
 
+## Tự động hóa linh hoạt (Automation Rule Engine)
+
+Firmware thực thi tự động hóa độc lập dựa 100% trên các quy tắc cấu hình từ giao diện Web thông qua Firebase RTDB:
+- `/automation/enabled`: Công tắc tổng (Master switch). Khi tắt, không quy tắc nào được thực thi.
+- `/automation/rules`: Danh sách các quy tắc (tối đa 20 quy tắc lưu trong RAM).
+- `/automation/pending/<ruleId>`: Hàng đợi xác nhận cho chế độ "Hỏi tôi trước". Chờ người dùng phản hồi `agree` (đồng ý thực hiện), `skip` (bỏ qua), hoặc tự động xử lý khi hết thời gian chờ theo `timeout` (`auto` hoặc `none`).
+- `/automation/status/<ruleId>`: Báo cáo trạng thái quy tắc (`waiting`, `pending_confirm`, `ran`), thời điểm và kết quả chạy gần nhất.
+
+### Xử lý xung đột quy tắc (Deterministic Conflict Priority)
+Nếu hai quy tắc cùng lúc thỏa mãn điều kiện và điều khiển cùng một thiết bị sang hai trạng thái trái ngược nhau trong cùng một chu kỳ quét:
+1. **Ưu tiên An Toàn (Safety First):** Lệnh **TẮT / ĐÓNG** (`off`/`close`) luôn được ưu tiên hơn lệnh **BẬT / MỞ** (`on`/`open`) để đảm bảo an toàn thiết bị và tiết kiệm điện năng.
+2. **Ưu tiên Thứ tự Quy tắc:** Nếu cùng trạng thái hoặc độ an toàn tương đương, quy tắc đứng trước trong danh sách (chỉ số nhỏ hơn) được ưu tiên thực thi.
+3. Toàn bộ xung đột đều được ghi log chi tiết ra Serial Monitor.
+
 ## License
 
 MIT
