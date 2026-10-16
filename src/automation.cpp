@@ -23,6 +23,8 @@ static PendingConfirmation s_pendingList[MAX_AUTOMATION_RULES] = {};
 static PresenceState s_presence = PRESENCE_ABSENT;
 static time_t s_lastMotionTimestamp = 0;
 static bool s_gardenStateManual = false;
+static uint32_t s_brightSinceMs = 0;
+static uint32_t s_gardenManualUntilMs = 0;
 
 // Cooldown tối thiểu giữa các lần kích hoạt quy tắc (tránh dội xung)
 static const uint32_t RULE_COOLDOWN_MS = 2000UL;
@@ -273,6 +275,25 @@ void automationUpdate() {
     float hum = sensorsHumidity();
     uint8_t light = sensorsLightLevel();
 
+    // Tự động tắt đèn sân khi trời sáng trở lại (ngưỡng sáng >= 60% ổn định trong 5 giây)
+    if (get_relay_state(3) && (int32_t)(nowMs - s_gardenManualUntilMs) >= 0) {
+        if (sensorsLightValid() && light >= 60) {
+            if (s_brightSinceMs == 0) {
+                s_brightSinceMs = nowMs;
+            } else if (nowMs - s_brightSinceMs >= 5000UL) {
+                relay_control(3, false, RELAY_SOURCE_AUTO);
+                publish_state();
+                LOG("[AUTO] Troi da sang (do sang=%u%% >= 60%%) -> Tu dong tat den san\n", light);
+                firebase_queue_auto_log("Tu dong tat den san", "Troi sang", temp, light);
+                s_brightSinceMs = 0;
+            }
+        } else {
+            s_brightSinceMs = 0;
+        }
+    } else {
+        s_brightSinceMs = 0;
+    }
+
     // Mảng lưu trữ hành động hợp nhất sau xử lý xung đột
     // 0: LIGHT, 1: FAN, 2: YARD, 3: CURTAIN, 4: DOOR
     AutoAction mergedActions[5];
@@ -378,6 +399,7 @@ void automationNotifyManualControl(uint8_t relay) {
 }
 
 void automationSetGardenState(bool on) {
+    s_gardenManualUntilMs = millis() + 30000UL;
     relay_control(3, on, RELAY_SOURCE_MANUAL);
     publish_state();
 }

@@ -639,6 +639,7 @@ static bool firebase_sync_device_state() {
     stateJson.set("fan", s_fanState);
     stateJson.set("curtain", s_curtainOpen ? "open" : "close");
     stateJson.set("garden", s_gardenState);
+    stateJson.set("yard", s_gardenState);
     stateJson.set("door", s_doorState);
 
     if (!FB_TIMED("setJSON devices/state",
@@ -1479,6 +1480,7 @@ static void commands_stream_callback(StreamData data) {
         enqueue_json_device_command(commands, "fan", 1);
         enqueue_json_device_command(commands, "curtain", 2);
         enqueue_json_device_command(commands, "garden", 3);
+        enqueue_json_device_command(commands, "yard", 3);
         return;
     }
 
@@ -1536,7 +1538,7 @@ static void commands_stream_callback(StreamData data) {
     if (path == "light") device = 0;
     else if (path == "fan") device = 1;
     else if (path == "curtain") device = 2;
-    else if (path == "garden") device = 3;
+    else if (path == "garden" || path == "yard") device = 3;
     else return;
 
     FirebaseJson commandJson;

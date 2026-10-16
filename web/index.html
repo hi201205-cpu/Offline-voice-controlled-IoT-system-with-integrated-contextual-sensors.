@@ -83,6 +83,7 @@ p{margin:8px 0}
 .dev button.on:after{transform:translateX(24px)}
 .dev button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .dev[data-device="light"].is-on .device-icon{color:var(--gold);filter:drop-shadow(0 0 8px var(--gold-glow));animation:light-pop .45s ease}
+.dev[data-device="yard"].is-on .device-icon{color:var(--gold);filter:drop-shadow(0 0 8px var(--gold-glow));animation:light-pop .45s ease}
 .dev[data-device="fan"].is-on .device-icon{color:var(--accent);animation:fan-accelerate .8s ease-out,spin 1.3s linear .8s infinite}
 .dev[data-device="fan"].fan-slowing .device-icon{color:var(--accent);animation:spin 1.7s cubic-bezier(.2,.4,.5,1) 1}
 .dev[data-device="curtain"].is-on .device-icon{color:var(--accent-2);transform:translateY(-3px)}
@@ -203,7 +204,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               <div class="dev" data-device="fan"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M12 10c-1-2-1-5 1-7 3 0 4 3 2 6m-1 4c2-1 5-1 7 1 0 3-3 4-6 2m-4-1c1 2 1 5-1 7-3 0-4-3-2-6m1-4c-2 1-5 1-7-1 0-3 3-4 6-2"/></svg></span><div><b>Quạt</b><span id="s-fan">--</span></div></div><button type="button" data-dev="fan" role="switch" aria-checked="false" aria-label="Bật hoặc tắt quạt">Bật / Tắt</button></div>
               <div class="dev" data-device="curtain"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h18M5 5v15m14-15v15M5 20h14"/><path class="curtain-left" d="M6 6h5v12H6z"/><path class="curtain-right" d="M13 6h5v12h-5z"/></svg></span><div><b>Rèm cửa</b><span id="s-curtain">--</span></div></div><button type="button" data-dev="curtain" role="switch" aria-checked="false" aria-label="Mở hoặc đóng rèm">Mở / Đóng</button></div>
               <div class="dev" data-device="door"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="door-leaf" d="M3 3h13v18H3z"/><circle cx="13" cy="12" r=".7"/><rect x="17" y="12" width="5" height="5" rx="1"/><path class="door-locked" d="M18 12V9.5a1.5 1.5 0 0 1 3 0V12"/><path class="door-unlocked" d="M19 12V9.5a1.5 1.5 0 0 1 2.7-1"/></svg></span><div><b>Cửa chính</b><span id="s-door">--</span></div></div><button class="primary" type="button" data-dev="door" role="switch" aria-checked="false" aria-label="Mở cửa chính">Mở cửa</button></div>
-              <div class="dev" data-device="yard"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.3 6.1L21 10l-5.2 3.5L16.5 20 12 16.2 7.5 20l.7-6.5L3 10l6.7-1.9L12 2Z"/></svg></span><div><b>Đèn sân</b><span id="s-yard">Mô phỏng · chưa kết nối</span></div></div><button type="button" data-ui-device="yard" role="switch" aria-checked="false" aria-label="Bật hoặc tắt đèn sân">Bật / Tắt</button></div>
+              <div class="dev" data-device="yard"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.3 6.1L21 10l-5.2 3.5L16.5 20 12 16.2 7.5 20l.7-6.5L3 10l6.7-1.9L12 2Z"/></svg></span><div><b>Đèn sân</b><span id="s-yard">--</span></div></div><button type="button" data-dev="yard" role="switch" aria-checked="false" aria-label="Bật hoặc tắt đèn sân">Bật / Tắt</button></div>
             </div>
           </section>
           <section class="card">
@@ -300,7 +301,7 @@ const db = getDatabase(app);
 window.db = db;
 window.auth = auth;
 const $ = id => document.getElementById(id);
-const state = { light: false, fan: false, curtain: CURTAIN_CLOSE, door: false };
+const state = { light: false, fan: false, curtain: CURTAIN_CLOSE, door: false, yard: false };
 const confirmedState = { ...state };
 const pendingCommands = {};
 let started = false, charts = {};
@@ -360,10 +361,15 @@ document.querySelectorAll("[data-dev]").forEach(btn => {
     renderDevice(d);
 
     try {
-      await set(ref(db, "commands/" + d), payload);
+      if (d === "yard") {
+        await set(ref(db, "commands/garden"), payload);
+        await set(ref(db, "commands/yard"), payload);
+      } else {
+        await set(ref(db, "commands/" + d), payload);
+      }
       try {
         const timestamp = Date.now();
-        const deviceNames = { light: "Đèn phòng", fan: "Quạt", curtain: "Rèm cửa", door: "Cửa chính" };
+        const deviceNames = { light: "Đèn phòng", fan: "Quạt", curtain: "Rèm cửa", door: "Cửa chính", yard: "Đèn sân" };
         const action = d === "door" ? "Mở" :
           d === "curtain" ? (v === CURTAIN_OPEN ? "Mở" : "Đóng") :
             (v ? "Bật" : "Tắt");
@@ -371,7 +377,7 @@ document.querySelectorAll("[data-dev]").forEach(btn => {
           source: "web",
           device: d,
           action,
-          label: `${action} · ${deviceNames[d]}`,
+          label: `${action} · ${deviceNames[d] || d}`,
           detail: "Lệnh đã gửi từ Web",
           ts: timestamp
         });
@@ -435,9 +441,10 @@ function listen() {
   onValue(ref(db, "devices/state"), s => {
     const v = s.val() || {};
     let commandAcknowledged = false;
-    ["light", "fan", "curtain", "door"].forEach(d => {
-      if (v[d] === undefined) return;
-      const incoming = d === "curtain" ? v[d] : !!v[d];
+    ["light", "fan", "curtain", "door", "yard"].forEach(d => {
+      const rawVal = d === "yard" ? (v.yard !== undefined ? v.yard : v.garden) : v[d];
+      if (rawVal === undefined) return;
+      const incoming = d === "curtain" ? rawVal : !!rawVal;
       confirmedState[d] = incoming;
       const pending = pendingCommands[d];
       if (pending && incoming !== pending.value) return;
@@ -447,7 +454,7 @@ function listen() {
       }
       state[d] = incoming;
     });
-    ["light", "fan", "curtain", "door"].forEach(renderDevice);
+    ["light", "fan", "curtain", "door", "yard"].forEach(renderDevice);
     if (commandAcknowledged) {
       $("dbStatus").textContent = "Firebase: đã kết nối";
       $("dbStatus").classList.remove("off");
