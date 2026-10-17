@@ -210,21 +210,29 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               <div class="dev" data-device="curtain"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h18M5 5v15m14-15v15M5 20h14"/><path class="curtain-left" d="M6 6h5v12H6z"/><path class="curtain-right" d="M13 6h5v12h-5z"/></svg></span><div><b>Rèm cửa</b><span id="s-curtain">--</span></div></div><button type="button" data-dev="curtain" role="switch" aria-checked="false" aria-label="Mở hoặc đóng rèm">Mở / Đóng</button></div>
               <div class="dev" data-device="door"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="door-leaf" d="M3 3h13v18H3z"/><circle cx="13" cy="12" r=".7"/><rect x="17" y="12" width="5" height="5" rx="1"/><path class="door-locked" d="M18 12V9.5a1.5 1.5 0 0 1 3 0V12"/><path class="door-unlocked" d="M19 12V9.5a1.5 1.5 0 0 1 2.7-1"/></svg></span><div><b>Cửa chính</b><span id="s-door">--</span></div></div><button class="primary" type="button" data-dev="door" role="switch" aria-checked="false" aria-label="Mở cửa chính">Mở cửa</button></div>
               <div class="dev" data-device="yard"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.3 6.1L21 10l-5.2 3.5L16.5 20 12 16.2 7.5 20l.7-6.5L3 10l6.7-1.9L12 2Z"/></svg></span><div><b>Đèn sân</b><span id="s-yard">--</span></div></div><button type="button" data-dev="yard" role="switch" aria-checked="false" aria-label="Bật hoặc tắt đèn sân">Bật / Tắt</button></div>
+              <div class="dev" data-device="voice"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3m-4 0h8"/></svg></span><div><b>Nhận diện giọng nói &amp; LED</b><span id="s-voice">--</span></div></div><button type="button" data-dev="voice" role="switch" aria-checked="true" aria-label="Bật hoặc tắt nhận diện giọng nói">Bật / Tắt</button></div>
             </div>
           </section>
           <section class="card">
             <h2>Lịch sử thao tác</h2>
             <div class="activity-filters" role="group" aria-label="Lọc lịch sử thao tác">
               <button type="button" class="activity-filter selected" data-activity-filter="all">Tất cả</button>
+              <button type="button" class="activity-filter" data-activity-filter="door">Cửa (Mô hình)</button>
               <button type="button" class="activity-filter" data-activity-filter="voice">Giọng nói</button>
+              <button type="button" class="activity-filter" data-activity-filter="auto">Tự động hóa</button>
               <button type="button" class="activity-filter" data-activity-filter="web">Web</button>
-              <button type="button" class="activity-filter" data-activity-filter="app" disabled title="Chưa có lượt đọc nhật ký App từ Firebase">App · chưa đồng bộ</button>
             </div>
             <ul id="logs"><li class="empty">Chưa có lịch sử thao tác</li></ul>
-            <p class="meta" id="appHistoryNote">Lịch sử thao tác Web đồng bộ qua Firebase trên các thiết bị. Nhật ký App chưa đồng bộ.</p>
+            <p class="meta" id="appHistoryNote">Lịch sử được đồng bộ thời gian thực từ ESP32 và Web qua Firebase.</p>
           </section>
           <section class="card"><h2>Tự động hóa ESP32</h2><p class="meta" id="firmwareAutomationSummary">Đang tải cấu hình từ thiết bị</p><button type="button" data-go-page="automation">Cấu hình tự động hóa →</button></section>
-          <section class="card wide"><h2>Số lệnh theo từ khóa (200 lệnh gần nhất)</h2><div class="chart"><canvas id="chKw"></canvas></div></section>
+          <section class="card wide">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+              <h2 style="margin:0;">Thống kê từ khóa giọng nói trong 24 giờ qua</h2>
+              <span class="mock-label" id="kwTotalBadge">0 lệnh / 24h</span>
+            </div>
+            <div class="chart"><canvas id="chKw"></canvas></div>
+          </section>
         </main>
       </section>
       <section class="view" id="automationView" data-view="automation">
@@ -319,7 +327,7 @@ const db = getDatabase(app);
 window.db = db;
 window.auth = auth;
 const $ = id => document.getElementById(id);
-const state = { light: false, fan: false, curtain: CURTAIN_CLOSE, door: false, yard: false };
+const state = { light: false, fan: false, curtain: CURTAIN_CLOSE, door: false, yard: false, voice: true };
 const confirmedState = { ...state };
 const pendingCommands = {};
 let started = false, charts = {};
@@ -387,7 +395,7 @@ document.querySelectorAll("[data-dev]").forEach(btn => {
       }
       try {
         const timestamp = Date.now();
-        const deviceNames = { light: "Đèn phòng", fan: "Quạt", curtain: "Rèm cửa", door: "Cửa chính", yard: "Đèn sân" };
+        const deviceNames = { light: "Đèn phòng", fan: "Quạt", curtain: "Rèm cửa", door: "Cửa chính", yard: "Đèn sân", voice: "Nhận diện giọng nói & LED" };
         const action = d === "door" ? "Mở" :
           d === "curtain" ? (v === CURTAIN_OPEN ? "Mở" : "Đóng") :
             (v ? "Bật" : "Tắt");
@@ -396,7 +404,7 @@ document.querySelectorAll("[data-dev]").forEach(btn => {
           device: d,
           action,
           label: `${action} · ${deviceNames[d] || d}`,
-          detail: "Lệnh đã gửi từ Web",
+          detail: d === "voice" ? (v ? "Bật nhận diện giọng nói & RGB LED" : "Tắt nhận diện giọng nói & RGB LED") : "Lệnh đã gửi từ Web",
           ts: timestamp
         });
       } catch (historyError) {
@@ -431,8 +439,10 @@ function renderDevice(d) {
     : d === "curtain"
       ? (on ? "Đang mở" : "Đang đóng")
       : (on ? "Đang bật" : "Đang tắt");
-  $("s-" + d).textContent = txt;
+  const labelEl = $("s-" + d);
+  if (labelEl) labelEl.textContent = txt;
   const toggle = document.querySelector(`[data-dev="${d}"]`);
+  if (!toggle) return;
   const row = toggle.closest(".dev");
   const wasOn = row.classList.contains("is-on");
   toggle.classList.toggle("on", on);
@@ -459,7 +469,7 @@ function listen() {
   onValue(ref(db, "devices/state"), s => {
     const v = s.val() || {};
     let commandAcknowledged = false;
-    ["light", "fan", "curtain", "door", "yard"].forEach(d => {
+    ["light", "fan", "curtain", "door", "yard", "voice"].forEach(d => {
       const rawVal = d === "yard" ? (v.yard !== undefined ? v.yard : v.garden) : v[d];
       if (rawVal === undefined) return;
       const incoming = d === "curtain" ? rawVal : !!rawVal;
@@ -472,7 +482,7 @@ function listen() {
       }
       state[d] = incoming;
     });
-    ["light", "fan", "curtain", "door", "yard"].forEach(renderDevice);
+    ["light", "fan", "curtain", "door", "yard", "voice"].forEach(renderDevice);
     if (commandAcknowledged) {
       $("dbStatus").textContent = "Firebase: đã kết nối";
       $("dbStatus").classList.remove("off");
@@ -491,8 +501,12 @@ function listen() {
 
   onValue(query(ref(db, "logs/voice"), limitToLast(200)), s => {
     const rows = [];
-    s.forEach(c => rows.push(c.val()));
-    rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    s.forEach(c => {
+      const val = c.val();
+      if (val) rows.push({ ...val, id: c.key });
+    });
+    rows.sort((a, b) => Number(b.ts || b.id || 0) - Number(a.ts || a.id || 0));
+    window.smartHomeVoiceHistory = rows;
     window.dispatchEvent(new CustomEvent("smart-home-voice-history", { detail: rows }));
     drawKeywords(rows);
   }, showDatabaseError);
@@ -501,11 +515,39 @@ function listen() {
     const rows = [];
     s.forEach(child => {
       const entry = child.val();
-      if (entry && entry.source === "web" && entry.label && Number.isFinite(Number(entry.ts))) {
+      if (entry) {
         rows.push({ ...entry, id: child.key });
       }
     });
+    rows.sort((a, b) => Number(b.ts || b.id || 0) - Number(a.ts || a.id || 0));
+    window.smartHomeWebHistory = rows;
     window.dispatchEvent(new CustomEvent("smart-home-web-history", { detail: rows }));
+  }, showDatabaseError);
+
+  onValue(query(ref(db, "logs/door"), limitToLast(100)), s => {
+    const rows = [];
+    s.forEach(child => {
+      const entry = child.val();
+      if (entry) {
+        rows.push({ ...entry, id: child.key });
+      }
+    });
+    rows.sort((a, b) => Number(b.ts || b.id || 0) - Number(a.ts || a.id || 0));
+    window.smartHomeDoorHistory = rows;
+    window.dispatchEvent(new CustomEvent("smart-home-door-history", { detail: rows }));
+  }, showDatabaseError);
+
+  onValue(query(ref(db, "logs/auto"), limitToLast(100)), s => {
+    const rows = [];
+    s.forEach(child => {
+      const entry = child.val();
+      if (entry) {
+        rows.push({ ...entry, id: child.key });
+      }
+    });
+    rows.sort((a, b) => Number(b.ts || b.id || 0) - Number(a.ts || a.id || 0));
+    window.smartHomeAutoHistory = rows;
+    window.dispatchEvent(new CustomEvent("smart-home-auto-history", { detail: rows }));
   }, showDatabaseError);
 
   onValue(ref(db, "config/auto"), s => {
@@ -662,14 +704,91 @@ function drawTemp(pts) {
 }
 
 function drawKeywords(rows) {
+  const allKeywords = [
+    { key: "bat_den", label: "Bật đèn" },
+    { key: "tat_den", label: "Tắt đèn" },
+    { key: "bat_quat", label: "Bật quạt" },
+    { key: "tat_quat", label: "Tắt quạt" },
+    { key: "bat_het", label: "Bật hết" },
+    { key: "tat_het", label: "Tắt hết" }
+  ];
+
   const count = {};
-  rows.forEach(r => { if (r.keyword) count[r.keyword] = (count[r.keyword] || 0) + 1; });
-  const labels = Object.keys(count);
-  const data = { labels, datasets: [{ label: "Số lệnh", data: labels.map(k => count[k]), backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(), borderRadius: 8 }] };
-  if (charts.kw) { charts.kw.data = data; charts.kw.update("none"); return; }
+  allKeywords.forEach(k => { count[k.key] = 0; });
+
+  const now = Date.now();
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  let total24h = 0;
+
+  rows.forEach(r => {
+    const rawTs = Number(r.ts || r.id || 0);
+    const tsMs = rawTs > 1e11 ? rawTs : (rawTs > 1e8 ? rawTs * 1000 : 0);
+    // Lọc các lệnh trong vòng 24 giờ qua (nếu có timestamp hợp lệ)
+    if (tsMs > 0 && (now - tsMs) > ONE_DAY_MS) return;
+
+    const raw = String(r.keyword || r.label || "").trim().toLowerCase();
+    if (raw && count[raw] !== undefined) {
+      count[raw]++;
+      total24h++;
+    }
+  });
+
+  const badge = $("kwTotalBadge");
+  if (badge) {
+    badge.textContent = `${total24h} lệnh / 24h`;
+  }
+
+  const labels = allKeywords.map(k => k.label);
+  const dataValues = allKeywords.map(k => count[k.key]);
+
+  const data = {
+    labels,
+    datasets: [{
+      label: "Số lần ra lệnh",
+      data: dataValues,
+      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#37b8ff",
+      borderRadius: 6,
+      maxBarThickness: 45
+    }]
+  };
+
+  if (charts.kw) {
+    charts.kw.data = data;
+    charts.kw.update();
+    return;
+  }
+
   charts.kw = new Chart($("chKw"), {
-    type: "bar", data,
-    options: { responsive: true, maintainAspectRatio: false, color: getComputedStyle(document.documentElement).getPropertyValue("--chart-ink").trim(), plugins: { legend: { display: false } }, scales: { x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue("--chart-ink").trim() }, grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0, color: getComputedStyle(document.documentElement).getPropertyValue("--chart-ink").trim() }, grid: { color: getComputedStyle(document.documentElement).getPropertyValue("--chart-grid").trim() } } } }
+    type: "bar",
+    data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      color: getComputedStyle(document.documentElement).getPropertyValue("--chart-ink").trim(),
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: context => `Đã nhận diện: ${context.parsed.y} lần`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: getComputedStyle(document.documentElement).getPropertyValue("--chart-ink").trim() },
+          grid: { display: false }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+            precision: 0,
+            color: getComputedStyle(document.documentElement).getPropertyValue("--chart-ink").trim()
+          },
+          grid: { color: getComputedStyle(document.documentElement).getPropertyValue("--chart-grid").trim() }
+        }
+      }
+    }
   });
 }
 </script>
@@ -824,36 +943,146 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
   }
 
   let activityFilter = "all";
-  let voiceHistory = [];
-  let webActivity = [];
+  let voiceHistory = Array.isArray(window.smartHomeVoiceHistory) ? window.smartHomeVoiceHistory : [];
+  let webActivity = Array.isArray(window.smartHomeWebHistory) ? window.smartHomeWebHistory : [];
+  let doorActivity = Array.isArray(window.smartHomeDoorHistory) ? window.smartHomeDoorHistory : [];
+  let autoActivity = Array.isArray(window.smartHomeAutoHistory) ? window.smartHomeAutoHistory : [];
+
+  const voiceLabelMap = {
+    "bat_den": "Bật đèn phòng",
+    "tat_den": "Tắt đèn phòng",
+    "bat_quat": "Bật quạt",
+    "tat_quat": "Tắt quạt",
+    "bat_het": "Bật tất cả thiết bị",
+    "tat_het": "Tắt tất cả thiết bị"
+  };
+
+  const parseActivityTimestamp = (entry) => {
+    const rawTs = Number(entry.ts || entry.id || 0);
+    if (!rawTs || !Number.isFinite(rawTs) || rawTs <= 0) return Date.now();
+    if (rawTs > 1e11) return rawTs;
+    if (rawTs > 1e8) return rawTs * 1000;
+    return Date.now();
+  };
+
   function renderActivity() {
     const list = $ui("logs");
-    const voiceEntries = voiceHistory.map(entry => ({
-      source: "voice",
-      label: entry.keyword || "Lệnh giọng nói",
-      detail: entry.executed === false ? "Không thực thi" :
-        entry.confidence == null ? "" : `Độ tin cậy ${Math.round(entry.confidence * 100)}%`,
-      ts: Number(entry.ts || 0) * 1000
-    })).filter(entry => Number.isFinite(entry.ts) && entry.ts > 0);
-    const entries = [...voiceEntries, ...webActivity]
+
+    // 1. Giọng nói
+    const voiceEntries = voiceHistory.map(entry => {
+      const raw = String(entry.keyword || entry.label || "").trim().toLowerCase();
+      const friendly = voiceLabelMap[raw] || entry.keyword || entry.label || "Lệnh giọng nói";
+      const ts = parseActivityTimestamp(entry);
+      const confText = (entry.confidence != null && Number.isFinite(Number(entry.confidence)))
+        ? `Độ tin cậy ${Math.round(Number(entry.confidence) * 100)}%`
+        : "";
+      const detail = entry.executed === false
+        ? (confText ? `${confText} · Không thực thi` : "Không thực thi")
+        : (confText ? `${confText} · Đã thực thi` : "Đã thực thi");
+
+      return {
+        source: "voice",
+        sourceBadge: "Giọng nói (Micro)",
+        label: friendly,
+        detail,
+        ts
+      };
+    }).filter(entry => Number.isFinite(entry.ts) && entry.ts > 0);
+
+    // 2. Thao tác cửa trên mô hình (Keypad, Nút bấm trong nhà, Cảnh báo)
+    const doorEntries = doorActivity.map(entry => {
+      let label = "Thao tác cửa";
+      let detail = "";
+      const src = entry.source || "";
+      const who = entry.who ? ` (${entry.who})` : "";
+
+      if (src === "keypad") {
+        if (entry.action === "open" || entry.accepted) {
+          label = `Mở cửa bằng bàn phím Keypad${who}`;
+          detail = `Nhập đúng mật khẩu${who} trên mô hình`;
+        } else if (entry.action === "locked") {
+          label = "Khóa bàn phím Keypad 60s";
+          detail = entry.reason || "Nhập sai mật khẩu 4 lần liên tiếp";
+        } else {
+          label = "Nhập sai mật khẩu Keypad";
+          detail = entry.reason || "Bị từ chối mở cửa";
+        }
+      } else if (src === "button") {
+        label = "Bấm nút mở cửa trong nhà";
+        detail = "Nhấn nút vật lý (GPIO 47) trên mô hình";
+      } else if (src === "remote" || src === "web") {
+        label = entry.action === "open" ? "Mở cửa từ xa" : "Đóng cửa từ xa";
+        detail = "Lệnh điều khiển từ giao diện Web";
+      } else if (src === "automation") {
+        label = entry.action === "open" ? "Tự động mở cửa" : "Tự động đóng cửa";
+        detail = entry.reason || "Kích hoạt bởi quy tắc tự động hóa";
+      } else {
+        label = entry.action === "open" ? "Mở cửa" : "Đóng cửa";
+        detail = entry.reason || `Nguồn: ${src}`;
+      }
+
+      const ts = parseActivityTimestamp(entry);
+      return {
+        source: "door",
+        sourceBadge: "Cửa (Mô hình)",
+        label,
+        detail,
+        ts
+      };
+    }).filter(entry => Number.isFinite(entry.ts) && entry.ts > 0);
+
+    // 3. Tự động hóa ESP32 (Auto rules)
+    const autoEntries = autoActivity.map(entry => {
+      const ts = parseActivityTimestamp(entry);
+      return {
+        source: "auto",
+        sourceBadge: "Tự động hóa",
+        label: entry.action || "Kích hoạt tự động hóa",
+        detail: entry.reason || "",
+        ts
+      };
+    }).filter(entry => Number.isFinite(entry.ts) && entry.ts > 0);
+
+    // 4. Web controls
+    const webEntries = webActivity.map(entry => {
+      const ts = parseActivityTimestamp(entry);
+      return {
+        source: "web",
+        sourceBadge: "Web",
+        label: entry.label || "Điều khiển Web",
+        detail: entry.detail || "Thao tác trên giao diện Web",
+        ts
+      };
+    }).filter(entry => Number.isFinite(entry.ts) && entry.ts > 0);
+
+    const allEntries = [...doorEntries, ...voiceEntries, ...autoEntries, ...webEntries];
+    const entries = allEntries
       .filter(entry => activityFilter === "all" || entry.source === activityFilter)
       .sort((first, second) => second.ts - first.ts)
-      .slice(0, 30);
+      .slice(0, 50);
+
     list.replaceChildren();
     if (!entries.length) {
       const empty = document.createElement("li");
       empty.className = "empty";
-      empty.textContent = activityFilter === "web" ? "Chưa có lịch sử thao tác Web" : "Chưa có lịch sử thao tác";
+      const filterNames = {
+        door: "Chưa có lịch sử thao tác Cửa / Keypad",
+        voice: "Chưa có lịch sử lệnh giọng nói",
+        auto: "Chưa có lịch sử tự động hóa",
+        web: "Chưa có lịch sử thao tác Web"
+      };
+      empty.textContent = filterNames[activityFilter] || "Chưa có lịch sử thao tác";
       list.append(empty);
       return;
     }
+
     entries.forEach(entry => {
       const item = document.createElement("li");
       const description = document.createElement("span");
       description.className = "activity-entry";
       const source = document.createElement("span");
       source.className = "activity-source";
-      source.textContent = entry.source === "web" ? "Web" : "Giọng nói";
+      source.textContent = entry.sourceBadge || entry.source;
       const label = document.createElement("b");
       label.textContent = entry.label;
       description.append(source, label);
@@ -874,6 +1103,7 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       list.append(item);
     });
   }
+
   document.querySelectorAll("[data-activity-filter]").forEach(button => {
     button.addEventListener("click", () => {
       if (button.disabled) return;
@@ -883,12 +1113,21 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       renderActivity();
     });
   });
+
   window.addEventListener("smart-home-voice-history", event => {
     voiceHistory = Array.isArray(event.detail) ? event.detail : [];
     renderActivity();
   });
   window.addEventListener("smart-home-web-history", event => {
     webActivity = Array.isArray(event.detail) ? event.detail : [];
+    renderActivity();
+  });
+  window.addEventListener("smart-home-door-history", event => {
+    doorActivity = Array.isArray(event.detail) ? event.detail : [];
+    renderActivity();
+  });
+  window.addEventListener("smart-home-auto-history", event => {
+    autoActivity = Array.isArray(event.detail) ? event.detail : [];
     renderActivity();
   });
   renderActivity();

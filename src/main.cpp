@@ -42,6 +42,11 @@ static const char* reset_reason_name(esp_reset_reason_t reason) {
     }
 }
 
+// Override Arduino weak symbol to guarantee 64KB stack for loopTask
+size_t getArduinoLoopTaskStackSize(void) {
+    return 65536;
+}
+
 
 // ============================================================
 //  CALLBACK — được audio_capture gọi mỗi khi có window mới
@@ -214,22 +219,29 @@ void loop() {
     automationUpdate();
     sensorsPush();
 
-    AudioState prevState = audio_get_state();
+    bool voiceActive = firebase_voice_enabled();
 
-    // ── Chạy 1 frame pipeline (20ms) ──────────────────────
-    audio_sliding_window_loop();
+    if (voiceActive) {
+        AudioState prevState = audio_get_state();
 
-    // ── Cập nhật LED theo trạng thái ──────────────────────
-    AudioState curState = audio_get_state();
+        // ── Chạy 1 frame pipeline (20ms) ──────────────────────
+        audio_sliding_window_loop();
 
-    if (curState != prevState) {
-        if (curState == AUDIO_STATE_LISTENING) {
-            LOG("🟢 VAD ON\n");
-        } else {
-            LOG("⚪ VAD OFF\n");
+        // ── Cập nhật LED theo trạng thái ──────────────────────
+        AudioState curState = audio_get_state();
+
+        if (curState != prevState) {
+            if (curState == AUDIO_STATE_LISTENING) {
+                LOG("🟢 VAD ON\n");
+            } else {
+                LOG("⚪ VAD OFF\n");
+            }
         }
+        led_relay_update(curState == AUDIO_STATE_LISTENING);
+    } else {
+        // Tắt hẳn LED RGB khi tắt nhận diện giọng nói
+        led_off();
     }
-    led_relay_update(curState == AUDIO_STATE_LISTENING);
 
 #if DEBUG_FIRMWARE_METRICS
     uint32_t now = millis();

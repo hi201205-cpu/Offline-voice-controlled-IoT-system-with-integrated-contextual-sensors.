@@ -135,32 +135,38 @@ static void execute_actions(const AutoAction* actions, uint8_t actionCount, cons
 void automationHandlePendingAnswer(const char* ruleId, const char* answer) {
     if (!ruleId || !answer) return;
 
+    PendingConfirmation item = {};
+    bool found = false;
+
     portENTER_CRITICAL(&s_autoMux);
     for (uint8_t i = 0; i < MAX_AUTOMATION_RULES; ++i) {
         if (s_pendingList[i].active && strcmp(s_pendingList[i].ruleId, ruleId) == 0) {
-            if (strcmp(answer, "agree") == 0) {
-                LOG("[AUTO] Nguoi dung DONG Y rule: %s\n", s_pendingList[i].ruleName);
-                execute_actions(s_pendingList[i].actions, s_pendingList[i].actionCount, s_pendingList[i].ruleName);
-                time_t now = time(nullptr);
-                firebase_queue_automation_status(ruleId, "ran", now, "Đã thực hiện (người dùng đồng ý)");
-                firebase_queue_auto_log(s_pendingList[i].ruleName, "Nguoi dung dong y",
-                                        sensorsTemperature(), sensorsLightLevel());
-            } else if (strcmp(answer, "skip") == 0) {
-                LOG("[AUTO] Nguoi dung BO QUA rule: %s\n", s_pendingList[i].ruleName);
-                time_t now = time(nullptr);
-                firebase_queue_automation_status(ruleId, "waiting", now, "Đã bỏ qua");
-            }
+            item = s_pendingList[i];
             s_pendingList[i].active = false;
-            firebase_queue_automation_pending_cleanup(ruleId);
+            found = true;
             break;
         }
     }
     portEXIT_CRITICAL(&s_autoMux);
+
+    if (!found) return;
+
+    time_t now = time(nullptr);
+    if (strcmp(answer, "agree") == 0) {
+        LOG("[AUTO] Nguoi dung DONG Y rule: %s\n", item.ruleName);
+        execute_actions(item.actions, item.actionCount, item.ruleName);
+        firebase_queue_automation_status(ruleId, "ran", now, "Đã thực hiện (người dùng đồng ý)");
+        firebase_queue_auto_log(item.ruleName, "Nguoi dung dong y",
+                                sensorsTemperature(), sensorsLightLevel());
+    } else if (strcmp(answer, "skip") == 0) {
+        LOG("[AUTO] Nguoi dung BO QUA rule: %s\n", item.ruleName);
+        firebase_queue_automation_status(ruleId, "waiting", now, "Đã bỏ qua");
+    }
+    firebase_queue_automation_pending_cleanup(ruleId);
 }
 
 // Kiểm tra điều kiện thời gian (UTC+7)
-static bool check_time_condition(uint16_t fromMin, uint16_t toMin, uint8_t daysMask) {
-    time_t now = time(nullptr);
+static bool check_time_condition(uint16_t fromMin, uint16_t toMin, uint8_t daysMask, time_t now) {
     if (now <= 1700000000) return false; // Chưa đồng bộ NTP
 
     struct tm timeinfo;
@@ -184,7 +190,7 @@ static bool check_time_condition(uint16_t fromMin, uint16_t toMin, uint8_t daysM
 
 // Đánh giá điều kiện của 1 quy tắc
 static bool evaluate_condition(const AutoRule& rule, float temp, float hum,
-                                bool motion, time_t lastMotion, uint8_t lightLevel) {
+                                bool motion, time_t lastMotion, uint8_t lightLevel, time_t nowTime) {
     switch (rule.condition) {
         case COND_TEMP_HIGH:
             return (!isnan(temp) && temp > rule.threshold);
@@ -197,15 +203,14 @@ static bool evaluate_condition(const AutoRule& rule, float temp, float hum,
         case COND_MOTION:
             return motion;
         case COND_NO_MOTION: {
-            time_t now = time(nullptr);
-            if (now <= 1700000000 || lastMotion <= 1700000000) return false;
-            uint32_t diffSec = (now > lastMotion) ? (now - lastMotion) : 0;
+            if (nowTime <= 1700000000 || lastMotion <= 1700000000) return false;
+            uint32_t diffSec = (nowTime > lastMotion) ? (nowTime - lastMotion) : 0;
             return (diffSec >= static_cast<uint32_t>(rule.threshold * 60.0f));
         }
         case COND_DARK:
             return sensorsLightValid() && (lightLevel < 25);
         case COND_TIME:
-            return check_time_condition(rule.fromMinutes, rule.toMinutes, rule.daysMask);
+            return check_time_condition(rule.fromMinutes, rule.toMinutes, rule.daysMask, nowTime);
         default:
             return false;
     }
@@ -300,15 +305,25 @@ void automationUpdate() {
     bool hasMergedAction[5] = {false, false, false, false, false};
     char triggeredRuleNames[5][RULE_NAME_LEN];
 
+    // Sao chép danh sách quy tắc ra cục bộ để không phải giữ critical section khi đánh giá
+    AutoRule localRules[MAX_AUTOMATION_RULES];
+    uint8_t localCount = 0;
     portENTER_CRITICAL(&s_autoMux);
-    for (uint8_t i = 0; i < s_ruleCount; ++i) {
-        AutoRule& r = s_rules[i];
+    localCount = s_ruleCount;
+    if (localCount > MAX_AUTOMATION_RULES) localCount = MAX_AUTOMATION_RULES;
+    for (uint8_t i = 0; i < localCount; ++i) {
+        localRules[i] = s_rules[i];
+    }
+    portEXIT_CRITICAL(&s_autoMux);
+
+    for (uint8_t i = 0; i < localCount; ++i) {
+        AutoRule& r = localRules[i];
         if (!r.enabled) {
             r.prevConditionMet = false;
             continue;
         }
 
-        bool condMet = evaluate_condition(r, temp, hum, detected, s_lastMotionTimestamp, light);
+        bool condMet = evaluate_condition(r, temp, hum, detected, s_lastMotionTimestamp, light, nowTime);
 
         // Edge-trigger: Kích hoạt khi chuyển từ false -> true và đã qua cooldown
         if (condMet && !r.prevConditionMet && (nowMs - r.lastFiredMs >= RULE_COOLDOWN_MS)) {
@@ -321,6 +336,7 @@ void automationUpdate() {
                 time_t expires = nowTime + waitSec;
 
                 // Lưu vào pending list của firmware
+                portENTER_CRITICAL(&s_autoMux);
                 for (uint8_t p = 0; p < MAX_AUTOMATION_RULES; ++p) {
                     if (!s_pendingList[p].active || strcmp(s_pendingList[p].ruleId, r.id) == 0) {
                         s_pendingList[p].active = true;
@@ -334,6 +350,7 @@ void automationUpdate() {
                         break;
                     }
                 }
+                portEXIT_CRITICAL(&s_autoMux);
 
                 // Gửi lên Firebase: /automation/pending và /automation/status
                 firebase_queue_automation_pending(r.id, r.name, nowTime, expires,
@@ -381,6 +398,15 @@ void automationUpdate() {
 
         // Re-arm edge-trigger khi điều kiện trở về false
         r.prevConditionMet = condMet;
+    }
+
+    // Cập nhật lại prevConditionMet và lastFiredMs vào s_rules
+    portENTER_CRITICAL(&s_autoMux);
+    for (uint8_t i = 0; i < s_ruleCount; ++i) {
+        if (i < localCount) {
+            s_rules[i].prevConditionMet = localRules[i].prevConditionMet;
+            s_rules[i].lastFiredMs = localRules[i].lastFiredMs;
+        }
     }
     portEXIT_CRITICAL(&s_autoMux);
 

@@ -34,6 +34,8 @@ bool firebase_queue_sensor_snapshot(float temperature, float humidity, bool vali
 bool firebase_queue_voice_log(int label, float confidence, bool executed, time_t timestamp);
 bool firebase_connected();
 void firebase_manager_loop();
+bool firebase_voice_enabled();
+void firebase_set_voice_enabled(bool enabled);
 bool firebase_take_door_command(char* action, size_t actionSize, int64_t* timestampMs,
                                 bool* hasTimestamp, char* source, size_t sourceSize,
                                 uint32_t* receivedAtMs = nullptr);

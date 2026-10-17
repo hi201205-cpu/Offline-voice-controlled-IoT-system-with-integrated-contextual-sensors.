@@ -1,16 +1,15 @@
 import serial
 import time
+import sys
 
 try:
-    ser = serial.Serial('COM12', 115200, timeout=1)
-    ser.dtr = True
-    ser.rts = True
-    print("Opened COM12 successfully.")
-    t_end = time.time() + 10
-    while time.time() < t_end:
-        line = ser.readline()
+    s = serial.Serial('COM12', 115200, timeout=1)
+    print("Opened COM12 successfully", flush=True)
+    t0 = time.time()
+    while time.time() - t0 < 15:
+        line = s.readline().decode('utf-8', errors='ignore').strip()
         if line:
-            print(line.decode('utf-8', errors='replace').rstrip())
-    ser.close()
+            print(f"[{time.strftime('%H:%M:%S')}] {line}", flush=True)
+    s.close()
 except Exception as e:
-    print("Error:", e)
+    print(f"Error: {e}", flush=True)

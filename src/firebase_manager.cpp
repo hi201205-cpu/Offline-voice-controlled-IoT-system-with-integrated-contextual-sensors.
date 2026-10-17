@@ -99,7 +99,7 @@ struct DoorRemoteCommand {
 #define FB_VOICE_LOG_QUEUE_DEPTH 8
 #define FB_DEVICE_COMMAND_QUEUE_DEPTH 8
 #define FB_TASK_STACK_SIZE  16384
-#define FB_TASK_PRIORITY    2
+#define FB_TASK_PRIORITY    1
 #define FB_HTTP_TIMEOUT_MS  4000
 #define FB_HEARTBEAT_MS     30000
 #define FB_REINIT_RETRY_MS  5000
@@ -112,6 +112,8 @@ static uint32_t      s_wifiAttemptCount    = 0;
 static uint32_t      s_lastHeartbeatMs     = 0;
 static uint32_t      s_lastFirebaseAttemptMs = 0;
 static bool          s_wasConnected        = false;
+static bool          s_voiceEnabled        = true;
+static bool          s_syncedVoiceEnabled  = true;
 static volatile bool s_firebaseReady       = false;
 static volatile bool s_needFirebaseReinit  = false;
 static bool          s_prevRelay1          = false;
@@ -133,6 +135,18 @@ static bool          s_syncedCurtainState = false;
 static DeviceCommand s_curtainCommandInFlight = {};
 static bool          s_curtainCommandPending = false;
 static uint32_t      s_lastConfigReadMs    = 0;
+
+bool firebase_voice_enabled() {
+    return s_voiceEnabled;
+}
+
+void firebase_set_voice_enabled(bool enabled) {
+    if (s_voiceEnabled != enabled) {
+        s_voiceEnabled = enabled;
+        s_deviceStateDirty = true;
+    }
+}
+
 static uint32_t      s_lastPendingReadMs   = 0;
 static uint32_t      s_lastPasscodeSyncMs  = 0;
 static bool          s_passcodeMetadataNeedsSync = true;
@@ -186,12 +200,6 @@ static QueueHandle_t  s_deviceCommandQueue = nullptr;
 static QueueHandle_t  s_doorCommandQueue = nullptr;
 static TaskHandle_t   s_fbTaskHandle = nullptr;
 
-// ── Persistent HTTP client ────────────────────────────────────
-// Dùng chung 1 SSL connection cho request REST trong firebase_task.
-static WiFiClientSecure* s_sslClient  = nullptr;
-static HTTPClient        s_http;
-static bool              s_httpReady  = false;
-
 // Khai báo trước các hàm nội bộ
 static void firebase_task(void* pvParam);
 static void stream_callback(StreamData data);
@@ -207,77 +215,21 @@ static void firebase_sync_passcode_metadata();
 static void firebase_do_extension_event(const FbUpdateMsg& msg);
 static bool enqueue_device_command(const DeviceCommand& command);
 
-// Khởi tạo / reset connection REST
 static void fb_http_reset() {
-    s_http.end();
-    if (s_sslClient) {
-        delete s_sslClient;
-        s_sslClient = nullptr;
-    }
-    s_httpReady = false;
-}
-
-// Gửi request REST — tự retry 1 lần nếu connection bị đứt
-static bool fb_request(const char* method, const char* path, const char* body) {
-    if (!wifi_connected()) return false;
-
-    if (!s_sslClient) {
-        s_sslClient = new WiFiClientSecure();
-        if (!s_sslClient) {
-            LOG("[FB] Khong cap phat duoc SSL client\n");
-            return false;
-        }
-        s_sslClient->setInsecure();
-    }
-
-    char url[256];
-    snprintf(url, sizeof(url), "https://%s%s.json?auth=%s",
-             FIREBASE_HOST, path, FIREBASE_AUTH);
-
-    for (int attempt = 0; attempt < 2; attempt++) {
-        s_http.begin(*s_sslClient, url);
-        s_http.setTimeout(FB_HTTP_TIMEOUT_MS);
-        s_http.setReuse(true);
-        s_http.addHeader("Content-Type", "application/json");
-
-        uint32_t requestStartedMs = millis();
-        int code = (strcmp(method, "PATCH") == 0)
-            ? s_http.sendRequest("PATCH", body)
-            : s_http.PUT(body);
-#if DEBUG_FIRMWARE_METRICS
-        LOG("[FB_TIME] REST %s %s duration=%lu ms code=%d\n", method, path,
-            static_cast<unsigned long>(millis() - requestStartedMs), code);
-#endif
-
-        s_http.end();
-
-        if (code >= 200 && code < 300) {
-            s_httpReady = true;
-            return true;
-        }
-
-        if (code < 0) {
-            LOG("[FB] Connection error %d — retry\n", code);
-            fb_http_reset();
-
-            s_sslClient = new WiFiClientSecure();
-            if (!s_sslClient) return false;
-            s_sslClient->setInsecure();
-        } else {
-            LOG("[FB] HTTP error %d\n", code);
-            return false;
-        }
-    }
-
-    return false;
 }
 
 static bool fb_patch(const char* path, const char* body) {
-    return fb_request("PATCH", path, body);
+    if (!s_firebaseReady || !wifi_connected() || !Firebase.ready()) return false;
+    FirebaseJson json;
+    json.setJsonData(body);
+    return FB_TIMED("updateNode", Firebase.updateNode(s_fbWrite, path, json));
 }
 
 static bool fb_put(const char* path, const char* body) {
-    return fb_request("PUT", path, body);
+    if (!s_firebaseReady || !wifi_connected() || !Firebase.ready()) return false;
+    FirebaseJson json;
+    json.setJsonData(body);
+    return FB_TIMED("setJSON", Firebase.setJSON(s_fbWrite, path, json));
 }
 
 static bool firebase_enqueue_update(const FbUpdateMsg& msg) {
@@ -379,6 +331,10 @@ static void firebase_do_reinit() {
         if (FB_TIMED("getBool devices/state/garden",
                      Firebase.getBool(s_fbWrite, "/devices/state/garden"))) {
             relay_control(3, s_fbWrite.boolData(), RELAY_SOURCE_SYNC);
+        }
+        if (FB_TIMED("getBool devices/state/voice",
+                     Firebase.getBool(s_fbWrite, "/devices/state/voice"))) {
+            s_voiceEnabled = s_fbWrite.boolData();
         }
     }
     s_stateRestoreAttempted = true;
@@ -632,7 +588,8 @@ static bool firebase_sync_device_state() {
         s_syncedFanState == s_fanState &&
         s_syncedGardenState == s_gardenState &&
         s_syncedDoorState == s_doorState &&
-        s_syncedCurtainState == s_curtainOpen) return true;
+        s_syncedCurtainState == s_curtainOpen &&
+        s_syncedVoiceEnabled == s_voiceEnabled) return true;
 
     FirebaseJson stateJson;
     stateJson.set("light", s_lightState);
@@ -641,6 +598,7 @@ static bool firebase_sync_device_state() {
     stateJson.set("garden", s_gardenState);
     stateJson.set("yard", s_gardenState);
     stateJson.set("door", s_doorState);
+    stateJson.set("voice", s_voiceEnabled);
 
     if (!FB_TIMED("setJSON devices/state",
                   Firebase.setJSON(s_fbWrite, "/devices/state", stateJson))) {
@@ -655,6 +613,7 @@ static bool firebase_sync_device_state() {
     s_syncedGardenState = s_gardenState;
     s_syncedDoorState = s_doorState;
     s_syncedCurtainState = s_curtainOpen;
+    s_syncedVoiceEnabled = s_voiceEnabled;
     return true;
 }
 
@@ -763,21 +722,28 @@ static void firebase_apply_device_command(const DeviceCommand& command) {
 
 static void firebase_do_voice_log(const VoiceLogRecord& record) {
     if (!s_firebaseReady || !wifi_connected() || !Firebase.ready() ||
-        record.timestamp <= 1700000000 ||
         record.label < 0 || record.label >= 7 ||
         record.label == LABEL_NOISE) {
         return;
     }
 
+    struct timeval tv = {};
+    gettimeofday(&tv, nullptr);
+    uint64_t timestampMs = static_cast<uint64_t>(tv.tv_sec) * 1000ULL +
+                           static_cast<uint64_t>(tv.tv_usec / 1000);
+    if (timestampMs < 1700000000000ULL) {
+        timestampMs = static_cast<uint64_t>(millis());
+    }
+
     FirebaseJson json;
     json.set("keyword", LABEL_NAMES[record.label]);
     json.set("confidence", record.confidence);
-    json.set("ts", static_cast<uint32_t>(record.timestamp));
     json.set("executed", record.executed);
+    json.set("ts/.sv", "timestamp");
 
-    char path[48];
-    snprintf(path, sizeof(path), "/logs/voice/%lu",
-             static_cast<unsigned long>(record.timestamp));
+    char path[64];
+    snprintf(path, sizeof(path), "/logs/voice/%llu",
+             static_cast<unsigned long long>(timestampMs));
 
     if (!FB_TIMED("setJSON voice log", Firebase.setJSON(s_fbWrite, path, json))) {
         LOG("[VOICE LOG] Firebase write failed: %s\n",
@@ -1086,6 +1052,7 @@ static void firebase_sync_passcode_metadata() {
                     LOG("[DOOR] Remove stale metadata failed: %s\n",
                         s_fbWrite.errorReason().c_str());
                 }
+                vTaskDelay(pdMS_TO_TICKS(10));
             }
         }
         remote.iteratorEnd();
@@ -1099,6 +1066,7 @@ static void firebase_sync_passcode_metadata() {
         bool exists = remote.get(value, lookup);
         if (!exists || !value.success) {
             firebase_write_passcode_metadata(local.id, local.name);
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
     s_passcodeMetadataNeedsSync = false;
@@ -1127,10 +1095,16 @@ static void firebase_poll_door_pending() {
         FirebaseJson item;
         if (!item.setJsonData(value)) continue;
         String operation;
+        if (!json_string(item, "op", operation) || operation.length() == 0) {
+            char cleanupPath[128];
+            snprintf(cleanupPath, sizeof(cleanupPath), "/door/pending/%s", id.c_str());
+            Firebase.deleteNode(s_fbWrite, cleanupPath);
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
         String name;
         String code;
         String target;
-        json_string(item, "op", operation);
         char error[96] = {};
         bool processed = false;
         if (operation == "add") {
@@ -1222,20 +1196,12 @@ static void firebase_poll_door_pending() {
         char pendingPath[128];
         snprintf(pendingPath, sizeof(pendingPath),
                  "/door/pending/%s", id.c_str());
-        if (processed) {
-            if (!FB_TIMED("deleteNode door/pending",
-                          Firebase.deleteNode(s_fbWrite, pendingPath))) {
-                LOG("[DOOR] Pending delete failed: %s\n",
-                    s_fbWrite.errorReason().c_str());
-            }
-        } else if (!FB_TIMED(
-                       "setString door/pending/error",
-                       Firebase.setString(
-                           s_fbWrite,
-                           (String(pendingPath) + "/error").c_str(), error))) {
-            LOG("[DOOR] Pending error write failed: %s\n",
-                s_fbWrite.errorReason().c_str());
+        FB_TIMED("deleteNode door/pending",
+                 Firebase.deleteNode(s_fbWrite, pendingPath));
+        if (!processed && error[0]) {
+            LOG("[DOOR] Pending op failed for %s: %s\n", id.c_str(), error);
         }
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
     pending.iteratorEnd();
 }
@@ -1334,14 +1300,16 @@ static void firebase_do_extension_event(const FbUpdateMsg& msg) {
 }
 
 // ── WiFi ─────────────────────────────────────────────────────
-// Hàm này vẫn giữ lại để tương thích, nhưng KHÔNG nên gọi trong setup().
 bool wifi_init() {
-    LOG("[WIFI] Ket noi %s...\n", WIFI_SSID);
+    WiFi.onEvent(wifi_event_callback);
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
     WiFi.setAutoReconnect(true);
-    WiFi.onEvent(wifi_event_callback);
+
+    LOG("[WIFI] Bat dau ket noi WiFi: %s ...\n", WIFI_SSID);
+    // Bắt đầu kết nối bằng thông tin config
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
     s_lastReconnectMs = millis();
     s_wifiAttemptCount = 0;
     return true;
@@ -1539,6 +1507,19 @@ static void commands_stream_callback(StreamData data) {
     else if (path == "fan") device = 1;
     else if (path == "curtain") device = 2;
     else if (path == "garden" || path == "yard") device = 3;
+    else if (path == "voice") {
+        bool val = true;
+        if (data.dataType() == "boolean") val = data.boolData();
+        else if (data.dataType() == "string") val = (data.stringData() == "true" || data.stringData() == "on");
+        else if (data.dataType() == "json") {
+            FirebaseJson j = data.to<FirebaseJson>();
+            FirebaseJsonData d;
+            if (j.get(d, "value") && d.success) val = d.boolValue;
+        }
+        firebase_set_voice_enabled(val);
+        LOG("[VOICE] Remote voice enabled changed: %s\n", val ? "ON" : "OFF");
+        return;
+    }
     else return;
 
     FirebaseJson commandJson;
@@ -1601,17 +1582,21 @@ static void firebase_task(void* pvParam) {
             uxQueueMessagesWaiting(s_fbQueue) == 0) {
             uint32_t now = millis();
             if (now - s_lastConfigReadMs >= AUTO_CONFIG_REFRESH_MS) {
+                s_lastConfigReadMs = now;
                 firebase_load_automation_config();
-            }
-            if (now - s_lastAutoPendingReadMs >= 2000UL) {
+                vTaskDelay(pdMS_TO_TICKS(50));
+            } else if (now - s_lastAutoPendingReadMs >= 2500UL) {
                 s_lastAutoPendingReadMs = now;
                 firebase_poll_automation_pending();
-            }
-            if (now - s_lastPendingReadMs >= 3000UL) {
+                vTaskDelay(pdMS_TO_TICKS(50));
+            } else if (now - s_lastPendingReadMs >= 3500UL) {
                 s_lastPendingReadMs = now;
                 firebase_poll_door_pending();
+                vTaskDelay(pdMS_TO_TICKS(50));
+            } else if (s_passcodeMetadataNeedsSync) {
+                firebase_sync_passcode_metadata();
+                vTaskDelay(pdMS_TO_TICKS(50));
             }
-            firebase_sync_passcode_metadata();
         }
 
         // 3. Heartbeat định kỳ
@@ -1881,8 +1866,7 @@ void firebase_queue_door_command_result(const char* action, const char* source,
 
 bool firebase_queue_voice_log(int label, float confidence, bool executed, time_t timestamp) {
     if (label < 0 || label >= 7 || label == LABEL_NOISE ||
-        confidence < 0.0f || confidence > 1.0f ||
-        timestamp <= 1700000000) {
+        confidence < 0.0f || confidence > 1.0f) {
         return false;
     }
 
