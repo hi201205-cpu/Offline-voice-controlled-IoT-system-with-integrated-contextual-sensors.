@@ -9,8 +9,25 @@
 #include "door_manager.h"
 #include "sensors.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 // Mutex bảo vệ danh sách quy tắc khi đồng bộ giữa Core 0 (Firebase) và Core 1 (Loop)
-static portMUX_TYPE s_autoMux = portMUX_INITIALIZER_UNLOCKED;
+// Dùng FreeRTOS Mutex thay cho portMUX_TYPE để không vô hiệu hóa ngắt, tránh kích hoạt Interrupt Watchdog (IWDT)
+static SemaphoreHandle_t s_autoMutex = nullptr;
+
+static bool auto_lock(TickType_t waitTicks = portMAX_DELAY) {
+    if (s_autoMutex == nullptr) {
+        s_autoMutex = xSemaphoreCreateMutex();
+    }
+    return (s_autoMutex != nullptr && xSemaphoreTake(s_autoMutex, waitTicks) == pdTRUE);
+}
+
+static void auto_unlock() {
+    if (s_autoMutex != nullptr) {
+        xSemaphoreGive(s_autoMutex);
+    }
+}
 
 static bool s_masterEnabled = true;
 static AutoRule s_rules[MAX_AUTOMATION_RULES] = {};
@@ -36,6 +53,9 @@ static void publish_state() {
 }
 
 void automationInit() {
+    if (s_autoMutex == nullptr) {
+        s_autoMutex = xSemaphoreCreateMutex();
+    }
     s_presence = PRESENCE_ABSENT;
     s_lastMotionTimestamp = time(nullptr);
     s_gardenStateManual = get_relay_state(3);
@@ -45,21 +65,27 @@ void automationInit() {
 }
 
 void automationSetMasterEnabled(bool enabled) {
-    portENTER_CRITICAL(&s_autoMux);
-    s_masterEnabled = enabled;
-    portEXIT_CRITICAL(&s_autoMux);
+    if (auto_lock(pdMS_TO_TICKS(100))) {
+        s_masterEnabled = enabled;
+        auto_unlock();
+    }
     LOG("[AUTO] Master switch: %s\n", enabled ? "BAT" : "TAT");
 }
 
 bool automationGetMasterEnabled() {
-    portENTER_CRITICAL(&s_autoMux);
     bool enabled = s_masterEnabled;
-    portEXIT_CRITICAL(&s_autoMux);
+    if (auto_lock(pdMS_TO_TICKS(100))) {
+        enabled = s_masterEnabled;
+        auto_unlock();
+    }
     return enabled;
 }
 
 void automationSetRules(const AutoRule* rules, uint8_t count) {
-    portENTER_CRITICAL(&s_autoMux);
+    if (!auto_lock(pdMS_TO_TICKS(500))) {
+        LOG("[AUTO] Khong lay duoc mutex de set rules\n");
+        return;
+    }
     if (rules == nullptr || count == 0) {
         s_ruleCount = 0;
         memset(s_rules, 0, sizeof(s_rules));
@@ -79,14 +105,16 @@ void automationSetRules(const AutoRule* rules, uint8_t count) {
         memcpy(s_rules, tempRules, sizeof(AutoRule) * newCount);
         s_ruleCount = newCount;
     }
-    portEXIT_CRITICAL(&s_autoMux);
+    auto_unlock();
     LOG("[AUTO] Da cap nhat %d quy tac tu Firebase\n", s_ruleCount);
 }
 
 uint8_t automationGetRulesCount() {
-    portENTER_CRITICAL(&s_autoMux);
     uint8_t count = s_ruleCount;
-    portEXIT_CRITICAL(&s_autoMux);
+    if (auto_lock(pdMS_TO_TICKS(100))) {
+        count = s_ruleCount;
+        auto_unlock();
+    }
     return count;
 }
 
@@ -138,16 +166,17 @@ void automationHandlePendingAnswer(const char* ruleId, const char* answer) {
     PendingConfirmation item = {};
     bool found = false;
 
-    portENTER_CRITICAL(&s_autoMux);
-    for (uint8_t i = 0; i < MAX_AUTOMATION_RULES; ++i) {
-        if (s_pendingList[i].active && strcmp(s_pendingList[i].ruleId, ruleId) == 0) {
-            item = s_pendingList[i];
-            s_pendingList[i].active = false;
-            found = true;
-            break;
+    if (auto_lock(pdMS_TO_TICKS(100))) {
+        for (uint8_t i = 0; i < MAX_AUTOMATION_RULES; ++i) {
+            if (s_pendingList[i].active && strcmp(s_pendingList[i].ruleId, ruleId) == 0) {
+                item = s_pendingList[i];
+                s_pendingList[i].active = false;
+                found = true;
+                break;
+            }
         }
+        auto_unlock();
     }
-    portEXIT_CRITICAL(&s_autoMux);
 
     if (!found) return;
 
@@ -305,16 +334,17 @@ void automationUpdate() {
     bool hasMergedAction[5] = {false, false, false, false, false};
     char triggeredRuleNames[5][RULE_NAME_LEN];
 
-    // Sao chép danh sách quy tắc ra cục bộ để không phải giữ critical section khi đánh giá
+    // Sao chép danh sách quy tắc ra cục bộ để không phải giữ mutex khi đánh giá
     AutoRule localRules[MAX_AUTOMATION_RULES];
     uint8_t localCount = 0;
-    portENTER_CRITICAL(&s_autoMux);
-    localCount = s_ruleCount;
-    if (localCount > MAX_AUTOMATION_RULES) localCount = MAX_AUTOMATION_RULES;
-    for (uint8_t i = 0; i < localCount; ++i) {
-        localRules[i] = s_rules[i];
+    if (auto_lock(pdMS_TO_TICKS(50))) {
+        localCount = s_ruleCount;
+        if (localCount > MAX_AUTOMATION_RULES) localCount = MAX_AUTOMATION_RULES;
+        for (uint8_t i = 0; i < localCount; ++i) {
+            localRules[i] = s_rules[i];
+        }
+        auto_unlock();
     }
-    portEXIT_CRITICAL(&s_autoMux);
 
     for (uint8_t i = 0; i < localCount; ++i) {
         AutoRule& r = localRules[i];
@@ -336,21 +366,22 @@ void automationUpdate() {
                 time_t expires = nowTime + waitSec;
 
                 // Lưu vào pending list của firmware
-                portENTER_CRITICAL(&s_autoMux);
-                for (uint8_t p = 0; p < MAX_AUTOMATION_RULES; ++p) {
-                    if (!s_pendingList[p].active || strcmp(s_pendingList[p].ruleId, r.id) == 0) {
-                        s_pendingList[p].active = true;
-                        snprintf(s_pendingList[p].ruleId, sizeof(s_pendingList[p].ruleId), "%s", r.id);
-                        snprintf(s_pendingList[p].ruleName, sizeof(s_pendingList[p].ruleName), "%s", r.name);
-                        s_pendingList[p].createdAt = nowTime;
-                        s_pendingList[p].expiresAt = expires;
-                        s_pendingList[p].timeout = r.timeout;
-                        s_pendingList[p].actionCount = r.actionCount;
-                        memcpy(s_pendingList[p].actions, r.actions, sizeof(AutoAction) * r.actionCount);
-                        break;
+                if (auto_lock(pdMS_TO_TICKS(100))) {
+                    for (uint8_t p = 0; p < MAX_AUTOMATION_RULES; ++p) {
+                        if (!s_pendingList[p].active || strcmp(s_pendingList[p].ruleId, r.id) == 0) {
+                            s_pendingList[p].active = true;
+                            snprintf(s_pendingList[p].ruleId, sizeof(s_pendingList[p].ruleId), "%s", r.id);
+                            snprintf(s_pendingList[p].ruleName, sizeof(s_pendingList[p].ruleName), "%s", r.name);
+                            s_pendingList[p].createdAt = nowTime;
+                            s_pendingList[p].expiresAt = expires;
+                            s_pendingList[p].timeout = r.timeout;
+                            s_pendingList[p].actionCount = r.actionCount;
+                            memcpy(s_pendingList[p].actions, r.actions, sizeof(AutoAction) * r.actionCount);
+                            break;
+                        }
                     }
+                    auto_unlock();
                 }
-                portEXIT_CRITICAL(&s_autoMux);
 
                 // Gửi lên Firebase: /automation/pending và /automation/status
                 firebase_queue_automation_pending(r.id, r.name, nowTime, expires,
@@ -401,14 +432,15 @@ void automationUpdate() {
     }
 
     // Cập nhật lại prevConditionMet và lastFiredMs vào s_rules
-    portENTER_CRITICAL(&s_autoMux);
-    for (uint8_t i = 0; i < s_ruleCount; ++i) {
-        if (i < localCount) {
-            s_rules[i].prevConditionMet = localRules[i].prevConditionMet;
-            s_rules[i].lastFiredMs = localRules[i].lastFiredMs;
+    if (auto_lock(pdMS_TO_TICKS(50))) {
+        for (uint8_t i = 0; i < s_ruleCount; ++i) {
+            if (i < localCount) {
+                s_rules[i].prevConditionMet = localRules[i].prevConditionMet;
+                s_rules[i].lastFiredMs = localRules[i].lastFiredMs;
+            }
         }
+        auto_unlock();
     }
-    portEXIT_CRITICAL(&s_autoMux);
 
     // 3. Thực thi các lệnh đã giải quyết xung đột
     for (uint8_t d = 0; d < 5; ++d) {

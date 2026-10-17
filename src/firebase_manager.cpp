@@ -135,6 +135,17 @@ static bool          s_syncedCurtainState = false;
 static DeviceCommand s_curtainCommandInFlight = {};
 static bool          s_curtainCommandPending = false;
 static uint32_t      s_lastConfigReadMs    = 0;
+static char          s_pendingResetReason[96] = {};
+static uint32_t      s_pendingResetUptimeMs = 0;
+static bool          s_hasPendingResetReport = false;
+
+void firebase_record_reset_event(const char* reason, uint32_t lastUptimeMs) {
+    if (reason) {
+        snprintf(s_pendingResetReason, sizeof(s_pendingResetReason), "%s", reason);
+    }
+    s_pendingResetUptimeMs = lastUptimeMs;
+    s_hasPendingResetReport = true;
+}
 
 bool firebase_voice_enabled() {
     return s_voiceEnabled;
@@ -189,10 +200,10 @@ static void wifi_event_callback(arduino_event_id_t event,
 }
 
 static FirebaseData   s_fbCommandsStream;
-static FirebaseData   s_fbStream;
 static FirebaseData   s_fbWrite;
 static FirebaseConfig s_fbConfig;
 static FirebaseAuth   s_fbAuth;
+static bool           s_fbInitialized = false;
 
 static QueueHandle_t  s_fbQueue      = nullptr;
 static QueueHandle_t  s_voiceLogQueue = nullptr;
@@ -202,7 +213,6 @@ static TaskHandle_t   s_fbTaskHandle = nullptr;
 
 // Khai báo trước các hàm nội bộ
 static void firebase_task(void* pvParam);
-static void stream_callback(StreamData data);
 static void commands_stream_callback(StreamData data);
 static void stream_timeout_callback(bool t);
 static void firebase_do_voice_log(const VoiceLogRecord& record);
@@ -253,13 +263,18 @@ static void firebase_do_reinit() {
     s_deviceStateSynced = false;
     fb_http_reset();
 
-    s_fbConfig.database_url               = FIREBASE_HOST;
-    s_fbConfig.signer.tokens.legacy_token = FIREBASE_AUTH;
+    if (!s_fbInitialized) {
+        s_fbConfig.database_url               = FIREBASE_HOST;
+        s_fbConfig.signer.tokens.legacy_token = FIREBASE_AUTH;
+        s_fbConfig.timeout.serverResponse     = 5000;
+        s_fbConfig.timeout.socketConnection   = 5000;
 
-    Firebase.begin(&s_fbConfig, &s_fbAuth);
-    Firebase.reconnectWiFi(true);
-    s_fbStream.setResponseSize(4096);
-    s_fbCommandsStream.setResponseSize(4096);
+        Firebase.begin(&s_fbConfig, &s_fbAuth);
+        Firebase.reconnectWiFi(true);
+        s_fbCommandsStream.setResponseSize(4096);
+        s_fbWrite.setResponseSize(4096);
+        s_fbInitialized = true;
+    }
 
     uint32_t start = millis();
 #if DEBUG_FIRMWARE_METRICS
@@ -277,19 +292,7 @@ static void firebase_do_reinit() {
         static_cast<unsigned long>(millis() - readyWaitStartedMs));
 #endif
 
-    Firebase.endStream(s_fbStream);
     Firebase.endStream(s_fbCommandsStream);
-    bool remoteStreamStarted = FB_TIMED(
-        "beginStream remote_cmd",
-        Firebase.beginStream(s_fbStream, FB_PATH_REMOTE_CMD));
-    if (remoteStreamStarted) {
-        Firebase.setStreamCallback(s_fbStream, stream_callback,
-                                   stream_timeout_callback);
-    } else {
-        LOG("[FB] Legacy command stream error: %s\n",
-            s_fbStream.errorReason().c_str());
-    }
-
     bool commandsStreamStarted = FB_TIMED(
         "beginStream commands",
         Firebase.beginStream(s_fbCommandsStream, "/commands"));
@@ -300,11 +303,6 @@ static void firebase_do_reinit() {
     } else {
         LOG("[FB] Commands stream loi: %s\n",
             s_fbCommandsStream.errorReason().c_str());
-    }
-
-    if (!remoteStreamStarted || !commandsStreamStarted) {
-        Firebase.endStream(s_fbStream);
-        Firebase.endStream(s_fbCommandsStream);
         return;
     }
 
@@ -368,6 +366,17 @@ static void firebase_do_reinit() {
     s_lastConfigReadMs = millis() - AUTO_CONFIG_REFRESH_MS;
     s_passcodeMetadataNeedsSync = true;
 
+    if (s_hasPendingResetReport) {
+        char resetBody[256];
+        snprintf(resetBody, sizeof(resetBody),
+                 "{\"reason\":\"%s\",\"previous_uptime_ms\":%lu,\"ts\":{\".sv\":\"timestamp\"}}",
+                 s_pendingResetReason, static_cast<unsigned long>(s_pendingResetUptimeMs));
+        if (fb_patch("/debug/last_reset", resetBody)) {
+            s_hasPendingResetReport = false;
+            LOG("[RESET] Uploaded reset report to Firebase: reason=%s prev_uptime=%lu ms\n",
+                s_pendingResetReason, static_cast<unsigned long>(s_pendingResetUptimeMs));
+        }
+    }
 }
 
 // ── firebase_do_update ───────────────────────────────────────
@@ -506,6 +515,15 @@ static void firebase_do_update(const FbUpdateMsg& msg) {
         char devicePath[128];
         snprintf(devicePath, sizeof(devicePath), "/devices/%s", FIREBASE_DEVICE_ID);
         fb_patch(devicePath, "{\"last_seen\":{\".sv\":\"timestamp\"}}");
+
+        char healthBody[192];
+        snprintf(healthBody, sizeof(healthBody),
+                 "{\"heap_free\":%u,\"heap_min\":%u,\"uptime_s\":%lu,\"rssi\":%d,\"wifi\":%d}",
+                 static_cast<unsigned>(ESP.getFreeHeap()),
+                 static_cast<unsigned>(ESP.getMinFreeHeap()),
+                 static_cast<unsigned long>(millis() / 1000UL),
+                 WiFi.RSSI(), static_cast<int>(WiFi.status()));
+        fb_patch("/debug/health", healthBody);
         return;
     }
 
@@ -1305,8 +1323,8 @@ bool wifi_init() {
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
     WiFi.setAutoReconnect(true);
-    // Hạ công suất phát từ 20dBm xuống 17dBm để giảm dòng đỉnh, bảo vệ nguồn không sụt áp gây reset ESP32
-    WiFi.setTxPower(WIFI_POWER_17dBm);
+    // Hạ công suất phát xuống 15dBm để giảm dòng đỉnh, bảo vệ nguồn không sụt áp gây reset ESP32
+    WiFi.setTxPower(WIFI_POWER_15dBm);
 
     LOG("[WIFI] Bat dau ket noi WiFi: %s ...\n", WIFI_SSID);
     // Bắt đầu kết nối bằng thông tin config
@@ -1423,10 +1441,6 @@ static bool enqueue_json_device_command(FirebaseJson& json, const char* key,
 }
 
 // ── Stream callbacks ─────────────────────────────────────────
-static void stream_callback(StreamData data) {
-    if (data.dataType() == "null" || !data.stringData().length()) return;
-    handle_remote_command(data.stringData());
-}
 
 static void commands_stream_callback(StreamData data) {
     String path = data.dataPath();
@@ -1541,8 +1555,7 @@ static void commands_stream_callback(StreamData data) {
 
 static void stream_timeout_callback(bool timeout) {
     if (timeout) {
-        LOG("[FB] Stream timeout — se reconnect neu can\n");
-        s_needFirebaseReinit = true;
+        LOG("[FB] Commands stream keepalive timeout, resuming...\n");
     }
 }
 
@@ -1587,11 +1600,11 @@ static void firebase_task(void* pvParam) {
                 s_lastConfigReadMs = now;
                 firebase_load_automation_config();
                 vTaskDelay(pdMS_TO_TICKS(50));
-            } else if (now - s_lastAutoPendingReadMs >= 2500UL) {
+            } else if (now - s_lastAutoPendingReadMs >= 5000UL) {
                 s_lastAutoPendingReadMs = now;
                 firebase_poll_automation_pending();
                 vTaskDelay(pdMS_TO_TICKS(50));
-            } else if (now - s_lastPendingReadMs >= 3500UL) {
+            } else if (now - s_lastPendingReadMs >= 5000UL) {
                 s_lastPendingReadMs = now;
                 firebase_poll_door_pending();
                 vTaskDelay(pdMS_TO_TICKS(50));

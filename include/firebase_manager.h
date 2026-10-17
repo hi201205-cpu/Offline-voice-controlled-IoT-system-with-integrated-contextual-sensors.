@@ -25,6 +25,7 @@ bool wifi_connected();
 void firebase_manager_start();
 void firebase_init();
 void firebase_loop();
+void firebase_record_reset_event(const char* reason, uint32_t lastUptimeMs);
 void firebase_update(int label, bool relay1, bool relay2, CommandSource source);
 bool firebase_queue_sensor_data(float temperature, float humidity, time_t timestamp);
 bool firebase_queue_sensor_snapshot(float temperature, float humidity, bool valid,

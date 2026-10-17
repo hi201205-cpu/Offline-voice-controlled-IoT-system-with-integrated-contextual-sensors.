@@ -14,7 +14,7 @@
 #define DHT_TYPE DHT11
 #define SENSOR_READ_INTERVAL_MS 5000
 #define SENSOR_PUSH_INTERVAL_MS 10000
-#define SENSOR_TASK_STACK_SIZE 3072
+#define SENSOR_TASK_STACK_SIZE 4096
 #define SENSOR_TASK_PRIORITY 1
 
 #define LD2410S_BUFFER_SIZE 96
@@ -24,9 +24,25 @@
 static_assert(RAW_DARK != RAW_BRIGHT,
               "RAW_DARK and RAW_BRIGHT must be different ADC values");
 
+#include "freertos/semphr.h"
+
 static DHT s_dht(PIN_DHT, DHT_TYPE);
 static QueueHandle_t s_readQueue = nullptr;
-static portMUX_TYPE s_sensorMux = portMUX_INITIALIZER_UNLOCKED;
+static SemaphoreHandle_t s_sensorMutex = nullptr;
+
+static bool sensor_lock(TickType_t waitTicks = portMAX_DELAY) {
+    if (s_sensorMutex == nullptr) {
+        s_sensorMutex = xSemaphoreCreateMutex();
+    }
+    return (s_sensorMutex != nullptr && xSemaphoreTake(s_sensorMutex, waitTicks) == pdTRUE);
+}
+
+static void sensor_unlock() {
+    if (s_sensorMutex != nullptr) {
+        xSemaphoreGive(s_sensorMutex);
+    }
+}
+
 static float s_temperature = NAN;
 static float s_humidity = NAN;
 static bool s_hasValidReading = false;
@@ -193,11 +209,12 @@ static void sensor_task(void *parameter) {
             continue;
         }
 
-        portENTER_CRITICAL(&s_sensorMux);
-        s_temperature = temperature;
-        s_humidity = humidity;
-        s_hasValidReading = true;
-        portEXIT_CRITICAL(&s_sensorMux);
+        if (sensor_lock(pdMS_TO_TICKS(50))) {
+            s_temperature = temperature;
+            s_humidity = humidity;
+            s_hasValidReading = true;
+            sensor_unlock();
+        }
 
         LOG("Temp: %.0f C, Hum: %.0f %%\n", temperature, humidity);
     }
@@ -320,11 +337,16 @@ void sensorsPush() {
     float humidity;
     bool hasValidReading;
 
-    portENTER_CRITICAL(&s_sensorMux);
-    temperature = s_temperature;
-    humidity = s_humidity;
-    hasValidReading = s_hasValidReading;
-    portEXIT_CRITICAL(&s_sensorMux);
+    if (sensor_lock(pdMS_TO_TICKS(50))) {
+        temperature = s_temperature;
+        humidity = s_humidity;
+        hasValidReading = s_hasValidReading;
+        sensor_unlock();
+    } else {
+        temperature = s_temperature;
+        humidity = s_humidity;
+        hasValidReading = s_hasValidReading;
+    }
 
     if (!s_lightDataValid) return;
 
@@ -345,23 +367,29 @@ void sensorsPush() {
 }
 
 float sensorsTemperature() {
-    portENTER_CRITICAL(&s_sensorMux);
     float temperature = s_temperature;
-    portEXIT_CRITICAL(&s_sensorMux);
+    if (sensor_lock(pdMS_TO_TICKS(50))) {
+        temperature = s_temperature;
+        sensor_unlock();
+    }
     return temperature;
 }
 
 float sensorsHumidity() {
-    portENTER_CRITICAL(&s_sensorMux);
     float humidity = s_humidity;
-    portEXIT_CRITICAL(&s_sensorMux);
+    if (sensor_lock(pdMS_TO_TICKS(50))) {
+        humidity = s_humidity;
+        sensor_unlock();
+    }
     return humidity;
 }
 
 bool sensorsDataValid() {
-    portENTER_CRITICAL(&s_sensorMux);
     bool valid = s_hasValidReading;
-    portEXIT_CRITICAL(&s_sensorMux);
+    if (sensor_lock(pdMS_TO_TICKS(50))) {
+        valid = s_hasValidReading;
+        sensor_unlock();
+    }
     return valid;
 }
 
