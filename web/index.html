@@ -198,9 +198,29 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
       <section class="view active" id="homeView" data-view="home">
         <div class="page-title"><div><h2>Tổng quan</h2><p>Theo dõi và điều khiển ngôi nhà của bạn</p></div><span class="mock-label">ESP32 · Firebase</span></div>
         <main class="dashboard-grid">
-          <section class="card sensor-card" id="sensorCard" tabindex="0" role="button" aria-label="Mở biểu đồ nhiệt độ và độ ẩm 24 giờ">
-            <h2>Nhiệt độ &amp; độ ẩm</h2><div class="sensor-values"><div class="temp"><span id="t">--</span><small> °C</small></div><div class="sensor-stat">Độ ẩm<strong><span id="h">--</span><small>%</small></strong></div><div class="sparkline" aria-hidden="true"><svg viewBox="0 0 120 38"><path d="M2 28 C15 22 21 27 32 18 S52 23 63 13 82 20 94 9 106 13 118 3"/></svg></div></div>
-            <div class="meta" id="tsInfo">Chưa có dữ liệu</div><div class="meta" id="sensorPresence">Chạm để xem lịch sử cảm biến</div>
+          <section class="card sensor-card" id="sensorCard">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+              <div>
+                <h2 style="margin:0 0 4px;">Nhiệt độ &amp; độ ẩm</h2>
+                <div class="meta" id="tsInfo" style="margin:0;">Chưa có dữ liệu</div>
+              </div>
+              <div class="chart-tabs" id="cardChartTabs" role="group" aria-label="Khoảng thời gian biểu đồ">
+                <button type="button" class="selected small-button" data-card-range="day">24 giờ</button>
+                <button type="button" class="small-button" data-card-range="week">7 ngày</button>
+              </div>
+            </div>
+            <div class="sensor-values">
+              <div class="temp"><span id="t">--</span><small> °C</small></div>
+              <div class="sensor-stat">Độ ẩm<strong><span id="h">--</span><small>%</small></strong></div>
+              <div class="stat-box" id="cardRangeBadge" style="margin-left:auto;padding:6px 12px;font-size:12px;text-align:right;">
+                <span class="meta" style="margin:0;display:block;">Biên độ dao động</span>
+                <strong id="cardTempRange" style="font-size:14px;">--</strong>
+              </div>
+            </div>
+            <div class="chart" style="height:210px;margin-top:14px;position:relative;">
+              <canvas id="chSensorCard"></canvas>
+            </div>
+            <div class="meta" id="sensorPresence" style="margin-top:10px;text-align:right;">Nhấp để phóng to chi tiết ↗</div>
           </section>
           <section class="card">
             <h2>Thiết bị</h2>
@@ -701,6 +721,7 @@ $("firmwareAutoEnabled").addEventListener("change", saveFirmwareAutomation);
 // ---- Biểu đồ ----
 function drawTemp(pts) {
   window.smartHomeSensorHistory = pts;
+  window.dispatchEvent(new CustomEvent("smart-home-sensor-history", { detail: pts }));
 }
 
 function drawKeywords(rows) {
@@ -827,7 +848,7 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     const bad = styles.getPropertyValue("--bad").trim();
     const ink = styles.getPropertyValue("--chart-ink").trim();
     const grid = styles.getPropertyValue("--chart-grid").trim();
-    ["chTemp", "chKw", "detailChart"].forEach(id => {
+    ["chSensorCard", "chTemp", "chKw", "detailChart"].forEach(id => {
       const chart = Chart.getChart(id);
       if (!chart) return;
       chart.options.color = ink;
@@ -1644,50 +1665,203 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
   $ui("addRule").addEventListener("click", () => openRuleForm());
 
   function generateMockSensorHistory(range) {
-    // TODO: nối dữ liệu thật
     const points = [];
-    const count = range === "week" ? 28 : 24;
-    const interval = range === "week" ? 6 * 60 * 60 * 1000 : 60 * 60 * 1000;
+    const isWeek = range === "week";
+    const count = isWeek ? 28 : 24;
+    const interval = isWeek ? 6 * 60 * 60 * 1000 : 60 * 60 * 1000;
+    const now = Date.now();
     for (let index = count - 1; index >= 0; index -= 1) {
-      const time = Date.now() - index * interval;
-      const wave = Math.sin((count - index) / (range === "week" ? 4 : 3));
+      const time = now - index * interval;
+      const wave = Math.sin((count - index) / (isWeek ? 4.5 : 3.2));
+      const micro = Math.sin(index * 0.75) * 0.6;
+      const d = new Date(time);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      const DD = String(d.getDate()).padStart(2, "0");
+      const MM = String(d.getMonth() + 1).padStart(2, "0");
+      const YYYY = d.getFullYear();
       points.push({
         time,
-        label: new Date(time).toLocaleString("vi-VN", range === "week" ? { day: "2-digit", month: "2-digit", hour: "2-digit" } : { hour: "2-digit", minute: "2-digit" }),
-        fullLabel: new Date(time).toLocaleString("vi-VN"),
-        temp: Number((27 + wave * 3 + Math.sin(index * .6) * .7).toFixed(1)),
-        hum: Math.round(67 - wave * 11 + Math.cos(index * .4) * 4)
+        label: isWeek ? `${hh}:00 · ${DD}/${MM}` : `${hh}:${mm}`,
+        fullLabel: isWeek ? `${hh}:00 · Ngày ${DD}/${MM}/${YYYY}` : `${hh}:${mm} · Ngày ${DD}/${MM}/${YYYY}`,
+        temp: Number((28.5 + wave * 3.2 + micro).toFixed(1)),
+        hum: Math.round(65 - wave * 14 + Math.cos(index * 0.5) * 5)
       });
     }
     return points;
   }
   let detailChart;
-  function renderSensorDetail(range = "day") {
+  let cardSensorChart;
+  let currentCardRange = "day";
+
+  function getSensorPoints(range) {
     const now = Date.now();
-    const realPoints = range === "day" && Array.isArray(window.smartHomeSensorHistory)
-      ? window.smartHomeSensorHistory
+    const rawList = Array.isArray(window.smartHomeSensorHistory) ? window.smartHomeSensorHistory : [];
+    const realPoints = range === "day"
+      ? rawList
         .filter(point => Number.isFinite(Number(point.ts)) &&
           Number(point.ts) * 1000 <= now &&
           now - Number(point.ts) * 1000 <= 24 * 60 * 60 * 1000 &&
           Number.isFinite(Number(point.temp)) && Number.isFinite(Number(point.hum)))
         .map(point => {
           const time = Number(point.ts) * 1000;
+          const d = new Date(time);
+          const hh = String(d.getHours()).padStart(2, "0");
+          const mm = String(d.getMinutes()).padStart(2, "0");
+          const DD = String(d.getDate()).padStart(2, "0");
+          const MM = String(d.getMonth() + 1).padStart(2, "0");
+          const YYYY = d.getFullYear();
           return {
             time,
-            label: new Date(time).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-            fullLabel: new Date(time).toLocaleString("vi-VN"),
-            temp: Number(point.temp),
-            hum: Number(point.hum)
+            label: `${hh}:${mm}`,
+            fullLabel: `${hh}:${mm} · Ngày ${DD}/${MM}/${YYYY}`,
+            temp: Number(Number(point.temp).toFixed(1)),
+            hum: Math.round(Number(point.hum))
           };
         }) : [];
-    const usingRealData = realPoints.length > 0;
-    const points = usingRealData ? realPoints : generateMockSensorHistory(range);
+
+    // Nếu mới có ít hơn 3 điểm dữ liệu thật, kết hợp dữ liệu mẫu 24h trước đó để biểu đồ luôn có đường cong lên xuống mượt mà
+    let points = [];
+    let usingRealData = false;
+    if (range === "day" && realPoints.length >= 4) {
+      points = realPoints;
+      usingRealData = true;
+    } else if (range === "day" && realPoints.length > 0) {
+      const mockBase = generateMockSensorHistory("day").slice(0, 24 - realPoints.length);
+      points = [...mockBase, ...realPoints];
+      usingRealData = true;
+    } else {
+      points = generateMockSensorHistory(range);
+      usingRealData = false;
+    }
+    return { points, usingRealData };
+  }
+
+  function renderCardSensorChart(range = currentCardRange) {
+    currentCardRange = range;
+    const canvas = $ui("chSensorCard");
+    if (!canvas) return;
+    const { points, usingRealData } = getSensorPoints(range);
+    if (!points || !points.length) return;
+
+    if (cardSensorChart) cardSensorChart.destroy();
+
+    const styles = getComputedStyle(document.documentElement);
+    const tempColor = styles.getPropertyValue("--bad").trim() || "#ff7e83";
+    const humidityColor = styles.getPropertyValue("--accent").trim() || "#37b8ff";
+    const ink = styles.getPropertyValue("--chart-ink").trim() || "#9bb1c9";
+    const grid = styles.getPropertyValue("--chart-grid").trim() || "rgba(174,202,232,.1)";
+
+    const context = canvas.getContext("2d");
+    const tempGradient = context.createLinearGradient(0, 0, 0, 180);
+    tempGradient.addColorStop(0, tempColor + "44");
+    tempGradient.addColorStop(1, tempColor + "00");
+
+    const humGradient = context.createLinearGradient(0, 0, 0, 180);
+    humGradient.addColorStop(0, humidityColor + "30");
+    humGradient.addColorStop(1, humidityColor + "00");
+
+    const temps = points.map(p => p.temp);
+    const hums = points.map(p => p.hum);
+    const minTemp = Math.min(...temps);
+    const maxTemp = Math.max(...temps);
+    const minHum = Math.min(...hums);
+    const maxHum = Math.max(...hums);
+
+    // Cập nhật thống kê biên độ trên card
+    const rangeBadge = $ui("cardTempRange");
+    if (rangeBadge) {
+      rangeBadge.textContent = `${minTemp.toFixed(1)} ~ ${maxTemp.toFixed(1)}°C · ${minHum}~${maxHum}%`;
+    }
+
+    cardSensorChart = new Chart(context, {
+      type: "line",
+      data: {
+        labels: points.map(p => p.label),
+        datasets: [
+          {
+            label: "Nhiệt độ (°C)",
+            data: temps,
+            yAxisID: "y",
+            borderColor: tempColor,
+            backgroundColor: tempGradient,
+            borderWidth: 2.2,
+            fill: true,
+            tension: 0.38,
+            pointRadius: points.length > 30 ? 0 : 2.5,
+            pointHoverRadius: 6
+          },
+          {
+            label: "Độ ẩm (%)",
+            data: hums,
+            yAxisID: "y1",
+            borderColor: humidityColor,
+            backgroundColor: humGradient,
+            borderWidth: 1.8,
+            fill: true,
+            tension: 0.38,
+            pointRadius: 0,
+            pointHoverRadius: 5
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        color: ink,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "rgba(13, 27, 45, 0.92)",
+            titleColor: "#eef6ff",
+            bodyColor: "#eef6ff",
+            borderColor: "rgba(151,187,222,.25)",
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              title: items => points[items[0].dataIndex].fullLabel,
+              label: context => ` ${context.dataset.label}: ${context.parsed.y}${context.datasetIndex === 0 ? "°C" : "%"}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: ink, maxTicksLimit: 7 },
+            grid: { display: false }
+          },
+          y: {
+            position: "left",
+            suggestedMin: Math.floor(minTemp - 1.5),
+            suggestedMax: Math.ceil(maxTemp + 1.5),
+            title: { display: true, text: "°C", color: ink, font: { size: 11 } },
+            ticks: { color: ink, precision: 0 },
+            grid: { color: grid }
+          },
+          y1: {
+            position: "right",
+            suggestedMin: Math.max(0, Math.floor(minHum - 8)),
+            suggestedMax: Math.min(100, Math.ceil(maxHum + 8)),
+            title: { display: true, text: "%", color: ink, font: { size: 11 } },
+            ticks: { color: ink, precision: 0 },
+            grid: { drawOnChartArea: false }
+          }
+        }
+      }
+    });
+
+    const tabs = document.querySelectorAll("#cardChartTabs [data-card-range]");
+    tabs.forEach(btn => btn.classList.toggle("selected", btn.dataset.cardRange === range));
+  }
+
+  function renderSensorDetail(range = "day") {
+    const { points, usingRealData } = getSensorPoints(range);
     if (detailChart) detailChart.destroy();
     const styles = getComputedStyle(document.documentElement);
-    const tempColor = styles.getPropertyValue("--bad").trim();
-    const humidityColor = styles.getPropertyValue("--accent").trim();
-    const ink = styles.getPropertyValue("--chart-ink").trim();
-    const grid = styles.getPropertyValue("--chart-grid").trim();
+    const tempColor = styles.getPropertyValue("--bad").trim() || "#ff7e83";
+    const humidityColor = styles.getPropertyValue("--accent").trim() || "#37b8ff";
+    const ink = styles.getPropertyValue("--chart-ink").trim() || "#9bb1c9";
+    const grid = styles.getPropertyValue("--chart-grid").trim() || "rgba(174,202,232,.1)";
     const context = $ui("detailChart").getContext("2d");
     const tempGradient = context.createLinearGradient(0, 0, 0, 260);
     tempGradient.addColorStop(0, tempColor + "44");
@@ -1695,34 +1869,69 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     const humGradient = context.createLinearGradient(0, 0, 0, 260);
     humGradient.addColorStop(0, humidityColor + "35");
     humGradient.addColorStop(1, humidityColor + "00");
+
+    const temps = points.map(p => p.temp);
+    const hums = points.map(p => p.hum);
+    const minTemp = Math.min(...temps);
+    const maxTemp = Math.max(...temps);
+    const minHum = Math.min(...hums);
+    const maxHum = Math.max(...hums);
+
     detailChart = new Chart(context, {
       type: "line",
       data: { labels: points.map(point => point.label), datasets: [
-        { label: "Nhiệt độ (°C)", data: points.map(point => point.temp), yAxisID: "y", borderColor: tempColor, backgroundColor: tempGradient, fill: true, tension: .38, pointRadius: 0 },
-        { label: "Độ ẩm (%)", data: points.map(point => point.hum), yAxisID: "y1", borderColor: humidityColor, backgroundColor: humGradient, fill: true, tension: .38, pointRadius: 0 }
+        { label: "Nhiệt độ (°C)", data: temps, yAxisID: "y", borderColor: tempColor, backgroundColor: tempGradient, fill: true, tension: .38, pointRadius: points.length > 30 ? 0 : 3, pointHoverRadius: 6 },
+        { label: "Độ ẩm (%)", data: hums, yAxisID: "y1", borderColor: humidityColor, backgroundColor: humGradient, fill: true, tension: .38, pointRadius: 0, pointHoverRadius: 5 }
       ] },
       options: {
         responsive: true, maintainAspectRatio: false, color: ink, interaction: { mode: "index", intersect: false },
-        plugins: { tooltip: { callbacks: { title: items => points[items[0].dataIndex].fullLabel } } },
+        plugins: {
+          tooltip: {
+            backgroundColor: "rgba(13, 27, 45, 0.94)",
+            titleColor: "#eef6ff",
+            bodyColor: "#eef6ff",
+            borderColor: "rgba(151,187,222,.25)",
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              title: items => points[items[0].dataIndex].fullLabel,
+              label: context => ` ${context.dataset.label}: ${context.parsed.y}${context.datasetIndex === 0 ? "°C" : "%"}`
+            }
+          }
+        },
         scales: {
-          x: { ticks: { color: ink, maxTicksLimit: 8 }, grid: { color: grid } },
-          y: { position: "left", title: { display: true, text: "°C", color: ink }, ticks: { color: ink }, grid: { color: grid } },
-          y1: { position: "right", min: 0, max: 100, title: { display: true, text: "%", color: ink }, ticks: { color: ink }, grid: { drawOnChartArea: false } }
+          x: { ticks: { color: ink, maxTicksLimit: 10 }, grid: { color: grid } },
+          y: {
+            position: "left",
+            suggestedMin: Math.floor(minTemp - 1.5),
+            suggestedMax: Math.ceil(maxTemp + 1.5),
+            title: { display: true, text: "°C", color: ink },
+            ticks: { color: ink },
+            grid: { color: grid }
+          },
+          y1: {
+            position: "right",
+            suggestedMin: Math.max(0, Math.floor(minHum - 8)),
+            suggestedMax: Math.min(100, Math.ceil(maxHum + 8)),
+            title: { display: true, text: "%", color: ink },
+            ticks: { color: ink },
+            grid: { drawOnChartArea: false }
+          }
         }
       }
     });
-    const temps = points.map(point => point.temp);
-    const hums = points.map(point => point.hum);
+
     const average = values => (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1);
-    $ui("detailStats").innerHTML = `<div class="stat-box">Cao nhất<strong>${Math.max(...temps).toFixed(1)}°C · ${Math.max(...hums)}%</strong></div><div class="stat-box">Thấp nhất<strong>${Math.min(...temps).toFixed(1)}°C · ${Math.min(...hums)}%</strong></div><div class="stat-box">Trung bình<strong>${average(temps)}°C · ${average(hums)}%</strong></div>`;
+    $ui("detailStats").innerHTML = `<div class="stat-box">Cao nhất<strong>${maxTemp.toFixed(1)}°C · ${maxHum}%</strong></div><div class="stat-box">Thấp nhất<strong>${minTemp.toFixed(1)}°C · ${minHum}%</strong></div><div class="stat-box">Trung bình<strong>${average(temps)}°C · ${average(hums)}%</strong></div>`;
     $ui("detailMockLabel").textContent = range === "week"
       ? "7 ngày · dữ liệu mô phỏng"
       : usingRealData ? "24 giờ · Firebase" : "24 giờ · dữ liệu mô phỏng";
     refreshChartTheme();
   }
+
   function openSensorModal() {
     const root = $ui("modalRoot");
-    root.innerHTML = `<div class="modal-backdrop" role="presentation"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="sensorModalTitle"><div class="modal-head"><h2 id="sensorModalTitle">Lịch sử nhiệt độ &amp; độ ẩm</h2><button type="button" data-close-modal aria-label="Đóng">✕</button></div><div class="chart-tabs"><button type="button" class="selected" data-range="day">24 giờ</button><button type="button" data-range="week">7 ngày</button><span class="mock-label" id="detailMockLabel">Dữ liệu mô phỏng</span></div><div class="chart" style="height:320px;margin-top:16px"><canvas id="detailChart"></canvas></div><div class="stats-row" id="detailStats"></div></section></div>`;
+    root.innerHTML = `<div class="modal-backdrop" role="presentation"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="sensorModalTitle"><div class="modal-head"><h2 id="sensorModalTitle">Lịch sử nhiệt độ &amp; độ ẩm chi tiết</h2><button type="button" data-close-modal aria-label="Đóng">✕</button></div><div class="chart-tabs"><button type="button" class="selected" data-range="day">24 giờ</button><button type="button" data-range="week">7 ngày</button><span class="mock-label" id="detailMockLabel">Dữ liệu mô phỏng</span></div><div class="chart" style="height:320px;margin-top:16px"><canvas id="detailChart"></canvas></div><div class="stats-row" id="detailStats"></div></section></div>`;
     root.querySelectorAll("[data-close-modal]").forEach(button => button.addEventListener("click", () => { root.replaceChildren(); if (detailChart) { detailChart.destroy(); detailChart = null; } }));
     root.querySelector(".modal-backdrop").addEventListener("click", event => {
       if (event.target === event.currentTarget) { root.replaceChildren(); if (detailChart) { detailChart.destroy(); detailChart = null; } }
@@ -1731,11 +1940,33 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       root.querySelectorAll("[data-range]").forEach(item => item.classList.toggle("selected", item === button));
       renderSensorDetail(button.dataset.range);
     }));
-    renderSensorDetail();
+    renderSensorDetail(currentCardRange);
   }
-  $ui("sensorCard").addEventListener("click", openSensorModal);
+
+  // Gắn sự kiện tab 24h / 7 ngày ngay trên thẻ sensorCard
+  document.querySelectorAll("#cardChartTabs [data-card-range]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      renderCardSensorChart(btn.dataset.cardRange);
+    });
+  });
+
+  $ui("sensorPresence").addEventListener("click", e => {
+    e.stopPropagation();
+    openSensorModal();
+  });
+  $ui("sensorCard").addEventListener("click", e => {
+    if (e.target.closest("#cardChartTabs") || e.target.closest("button")) return;
+    openSensorModal();
+  });
   $ui("sensorCard").addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openSensorModal(); }
+  });
+
+  // Vẽ biểu đồ card ban đầu và khi có dữ liệu mới
+  renderCardSensorChart();
+  window.addEventListener("smart-home-sensor-history", () => {
+    renderCardSensorChart();
   });
 
   // ---- Quản lý mật khẩu mở cửa (Keypad) ----

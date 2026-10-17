@@ -1305,6 +1305,8 @@ bool wifi_init() {
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
     WiFi.setAutoReconnect(true);
+    // Hạ công suất phát từ 20dBm xuống 17dBm để giảm dòng đỉnh, bảo vệ nguồn không sụt áp gây reset ESP32
+    WiFi.setTxPower(WIFI_POWER_17dBm);
 
     LOG("[WIFI] Bat dau ket noi WiFi: %s ...\n", WIFI_SSID);
     // Bắt đầu kết nối bằng thông tin config
