@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'firebase_service.dart';
+import 'auth_screen.dart';
 import 'home_screen.dart';
 
 void main() {
@@ -8,13 +10,39 @@ void main() {
   runApp(const SmartControlApp());
 }
 
-class SmartControlApp extends StatelessWidget {
+class SmartControlApp extends StatefulWidget {
   const SmartControlApp({super.key});
+
+  @override
+  State<SmartControlApp> createState() => _SmartControlAppState();
+}
+
+class _SmartControlAppState extends State<SmartControlApp> {
+  final _service = FirebaseService();
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLoggedIn = _service.isLoggedIn;
+  }
+
+  void _onLoginSuccess() {
+    setState(() {
+      _isLoggedIn = true;
+    });
+  }
+
+  void _onSignOut() {
+    setState(() {
+      _isLoggedIn = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Điều Khiển Thông Minh',
+      title: 'Smart Home IoT',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -23,7 +51,7 @@ class SmartControlApp extends StatelessWidget {
         ),
         useMaterial3: true,
         cardTheme: CardThemeData(
-          elevation: 2,
+          elevation: 1,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -34,7 +62,9 @@ class SmartControlApp extends StatelessWidget {
           scrolledUnderElevation: 1,
         ),
       ),
-      home: const HomeScreen(),
+      home: _isLoggedIn
+          ? HomeScreen(onSignOut: _onSignOut)
+          : AuthScreen(onLoginSuccess: _onLoginSuccess),
     );
   }
 }
