@@ -299,7 +299,8 @@ static void firebase_do_reinit() {
     if (commandsStreamStarted) {
         Firebase.setStreamCallback(s_fbCommandsStream,
                                    commands_stream_callback,
-                                   stream_timeout_callback);
+                                   stream_timeout_callback,
+                                   16384);
     } else {
         LOG("[FB] Commands stream loi: %s\n",
             s_fbCommandsStream.errorReason().c_str());
@@ -1493,15 +1494,14 @@ static void commands_stream_callback(StreamData data) {
                 command.timestampMs = value.doubleValue;
                 command.hasTimestamp = true;
             }
-            if (json.get(value, "src") && value.success &&
-                value.stringValue == "app") {
-                snprintf(command.source, sizeof(command.source), "app");
+            if (json.get(value, "src") && value.success && value.stringValue.length() > 0) {
+                snprintf(command.source, sizeof(command.source), "%s", value.stringValue.c_str());
             } else {
-                snprintf(command.source, sizeof(command.source), "unknown");
+                snprintf(command.source, sizeof(command.source), "web");
             }
         } else {
             snprintf(command.action, sizeof(command.action), "invalid");
-            snprintf(command.source, sizeof(command.source), "unknown");
+            snprintf(command.source, sizeof(command.source), "web");
         }
 
         if (s_doorCommandQueue == nullptr ||
@@ -1868,7 +1868,7 @@ void firebase_queue_door_command_result(const char* action, const char* source,
     if (!s_firebaseReady || !wifi_connected()) return;
     FbUpdateMsg msg = {};
     msg.isDoorResult = true;
-    msg.isDoorEvent = true;
+    msg.isDoorEvent = !accepted; // Nếu thành công thì Web/App đã ghi logs/web; không ghi đè thêm logs/door
     msg.accepted = accepted;
     snprintf(msg.action, sizeof(msg.action), "%s", action ? action : "");
     snprintf(msg.eventSource, sizeof(msg.eventSource), "%s",

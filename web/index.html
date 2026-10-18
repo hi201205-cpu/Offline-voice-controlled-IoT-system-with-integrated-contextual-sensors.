@@ -2015,47 +2015,49 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       };
     }).filter(entry => Number.isFinite(entry.ts) && entry.ts > 0);
 
-    // 2. Thao tác cửa trên mô hình (Keypad, Nút bấm trong nhà, Cảnh báo)
-    const doorEntries = doorActivity.map(entry => {
-      let label = "Thao tác cửa";
-      let detail = "";
-      const src = entry.source || "";
-      const who = entry.who ? ` (${entry.who})` : "";
+    // 2. Thao tác cửa trên mô hình (Keypad, Nút bấm trong nhà, Cảnh báo, Tự động đóng)
+    const doorEntries = doorActivity
+      .filter(entry => {
+        const src = (entry.source || "").toLowerCase();
+        return src !== "web" && src !== "app" && src !== "remote" && src !== "unknown";
+      })
+      .map(entry => {
+        let label = "Thao tác cửa";
+        let detail = "";
+        const src = (entry.source || "").toLowerCase();
+        const who = entry.who ? ` (${entry.who})` : "";
 
-      if (src === "keypad") {
-        if (entry.action === "open" || entry.accepted) {
-          label = `Mở cửa bằng bàn phím Keypad${who}`;
-          detail = `Nhập đúng mật khẩu${who} trên mô hình`;
-        } else if (entry.action === "locked") {
-          label = "Khóa bàn phím Keypad 60s";
-          detail = entry.reason || "Nhập sai mật khẩu 4 lần liên tiếp";
+        if (src === "keypad") {
+          if (entry.action === "open" || entry.accepted) {
+            label = `Mở cửa bằng bàn phím Keypad${who}`;
+            detail = `Nhập đúng mật khẩu${who} trên mô hình`;
+          } else if (entry.action === "locked") {
+            label = "Khóa bàn phím Keypad 60s";
+            detail = entry.reason || "Nhập sai mật khẩu 4 lần liên tiếp";
+          } else {
+            label = "Nhập sai mật khẩu Keypad";
+            detail = entry.reason || "Bị từ chối mở cửa";
+          }
+        } else if (src === "button") {
+          label = "Bấm nút mở cửa trong nhà";
+          detail = "Nhấn nút vật lý (GPIO 47) trên mô hình";
+        } else if (src === "automation") {
+          label = entry.action === "open" ? "Tự động mở cửa" : "Tự động đóng cửa";
+          detail = entry.reason || "Kích hoạt bởi quy tắc tự động hóa";
         } else {
-          label = "Nhập sai mật khẩu Keypad";
-          detail = entry.reason || "Bị từ chối mở cửa";
+          label = entry.action === "open" ? "Mở cửa trên mô hình" : "Đóng cửa trên mô hình";
+          detail = entry.reason || `Nguồn: ${src || "Mô hình"}`;
         }
-      } else if (src === "button") {
-        label = "Bấm nút mở cửa trong nhà";
-        detail = "Nhấn nút vật lý (GPIO 47) trên mô hình";
-      } else if (src === "remote" || src === "web") {
-        label = entry.action === "open" ? "Mở cửa từ xa" : "Đóng cửa từ xa";
-        detail = "Lệnh điều khiển từ giao diện Web";
-      } else if (src === "automation") {
-        label = entry.action === "open" ? "Tự động mở cửa" : "Tự động đóng cửa";
-        detail = entry.reason || "Kích hoạt bởi quy tắc tự động hóa";
-      } else {
-        label = entry.action === "open" ? "Mở cửa" : "Đóng cửa";
-        detail = entry.reason || `Nguồn: ${src}`;
-      }
 
-      const ts = parseActivityTimestamp(entry);
-      return {
-        source: "door",
-        sourceBadge: "Cửa (Mô hình)",
-        label,
-        detail,
-        ts
-      };
-    }).filter(entry => Number.isFinite(entry.ts) && entry.ts > 0);
+        const ts = parseActivityTimestamp(entry);
+        return {
+          source: "door",
+          sourceBadge: "Cửa (Mô hình)",
+          label,
+          detail,
+          ts
+        };
+      }).filter(entry => Number.isFinite(entry.ts) && entry.ts > 0);
 
     // 3. Tự động hóa ESP32 (Auto rules)
     const autoEntries = autoActivity.map(entry => {
