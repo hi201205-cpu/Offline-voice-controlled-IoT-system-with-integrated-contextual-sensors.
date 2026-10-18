@@ -1,32 +1,55 @@
 # ============================================================
-#  .gitignore — PlatformIO / ESP32-S3 KWS Project
+#  .gitignore — Smart Home ESP32-S3 KWS & Firebase Project
 # ============================================================
 
-# ── PlatformIO build artifacts ───────────────────────────────
+# ── PlatformIO & Embedded Build Artifacts ────────────────────
 .pio/
+.pioenvs/
+.piolibdeps/
+.clangd/
 
-# ── Firebase Hosting / Node.js ────────────────────────────────
+# ── Firebase & Node.js ───────────────────────────────────────
 .firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# ── VS Code ──────────────────────────────────────────────────
+# ── Android & Mobile (Nếu có thử nghiệm build sau này) ───────
+android/
+ios/
+capacitor.config.json
+capacitor.config.ts
+*.apk
+*.aab
+
+# ── VS Code & Editors ─────────────────────────────────────────
 .vscode/.browse.c_cpp.db*
 .vscode/c_cpp_properties.json
 .vscode/launch.json
-.vscode/ipch
+.vscode/ipch/
+*.swp
+*.swo
+*~
+.idea/
 
-# ── Thông tin nhạy cảm ───────────────────────────────────────
-# File config thật chứa WiFi password, Firebase token
-# Chỉ commit config.example.h, KHÔNG commit config.h
+# ── Python / Log tạm ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+debug.log
+
+# ── Thông tin nhạy cảm (WiFi, Firebase Secret Keys) ──────────
+# File config.h thật chứa WiFi SSID/Password và Firebase Secret
+# ĐÃ BẢO VỆ: Không bao giờ đẩy config.h lên GitHub công khai!
+# Sử dụng include/config.example.h làm mẫu cho người khác clone.
 include/config.h
 
 # ── Hệ điều hành ─────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# ── Editor / IDE khác ────────────────────────────────────────
-*.swp
-*.swo
-*~
-.idea/
