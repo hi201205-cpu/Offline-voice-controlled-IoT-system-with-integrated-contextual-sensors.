@@ -57,6 +57,11 @@ p{margin:8px 0}
 .auth-toggle-pwd{position:absolute;right:10px;background:transparent;border:0;padding:4px;color:var(--mute);display:grid;place-items:center;border-radius:6px}
 .auth-toggle-pwd:hover{color:var(--accent)}
 .auth-btn-submit{height:44px;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;margin-top:6px;cursor:pointer}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:16px 0 12px;color:var(--mute);font-size:12px}
+.auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.btn-google{width:100%;height:44px;background:var(--panel-raised);border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:all .2s ease}
+.btn-google:hover{border-color:var(--accent);background:rgba(255,255,255,.05);transform:translateY(-1px)}
+.btn-google svg{width:18px;height:18px;flex-shrink:0}
 .auth-notice{font-size:11.5px;color:var(--mute);line-height:1.45;text-align:center;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
 .auth-notice b{color:var(--accent)}
 #err{color:var(--bad);min-height:18px;font-size:12.5px;text-align:center;margin-top:4px}
@@ -296,6 +301,20 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
       </button>
     </form>
+
+    <div class="auth-divider">
+      <span>hoặc tiếp tục với</span>
+    </div>
+
+    <button type="button" class="btn-google" id="btnGoogleSignIn">
+      <svg viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+      </svg>
+      <span>Đăng nhập với Google</span>
+    </button>
 
     <div id="err" role="alert"></div>
 
@@ -542,7 +561,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, get, onValue, set, update, remove, push, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // ====== SỬA CHỖ NÀY: lấy trong Firebase Console > Project settings > Your apps > Web ======
@@ -717,6 +736,55 @@ formRegister.onsubmit = async (evt) => {
     btn.firstElementChild.textContent = "Tạo tài khoản mới";
   }
 };
+
+// ---- Xử lý Đăng nhập bằng Google ----
+const btnGoogleSignIn = $("btnGoogleSignIn");
+if (btnGoogleSignIn) {
+  btnGoogleSignIn.onclick = async () => {
+    $("err").textContent = "";
+    btnGoogleSignIn.disabled = true;
+    const originalText = btnGoogleSignIn.querySelector("span").textContent;
+    btnGoogleSignIn.querySelector("span").textContent = "Đang kết nối Google...";
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Kiểm tra xem đã có bản ghi user trong Realtime Database chưa
+      const userRef = ref(db, "users/" + user.uid);
+      const snapshot = await get(userRef);
+      if (!snapshot.exists()) {
+        const isMaster = user.email && user.email.toLowerCase() === MASTER_EMAIL.toLowerCase();
+        await set(userRef, {
+          name: user.displayName || user.email.split("@")[0],
+          email: user.email,
+          pairedHome: isMaster ? DEFAULT_HOME_CODE : null,
+          createdAt: Date.now(),
+          role: isMaster ? "master" : "member"
+        });
+        if (!isMaster) {
+          sessionStorage.setItem("justRegistered", "true");
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi đăng nhập Google:", e);
+      if (e.code === "auth/popup-closed-by-user") {
+        $("err").textContent = "Bạn đã đóng cửa sổ đăng nhập Google.";
+      } else if (e.code === "auth/popup-blocked") {
+        $("err").textContent = "Trình duyệt đã chặn cửa sổ pop-up. Vui lòng cho phép pop-up.";
+      } else if (e.code === "auth/operation-not-allowed") {
+        $("err").textContent = "Chưa bật phương thức Google trong Firebase Console > Authentication > Sign-in method.";
+      } else {
+        $("err").textContent = formatAuthError(e);
+      }
+    } finally {
+      btnGoogleSignIn.disabled = false;
+      btnGoogleSignIn.querySelector("span").textContent = originalText;
+    }
+  };
+}
 
 $("btnOut").onclick = () => signOut(auth);
 
