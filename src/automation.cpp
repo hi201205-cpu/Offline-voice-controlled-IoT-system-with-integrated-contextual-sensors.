@@ -151,6 +151,10 @@ static void execute_actions(const AutoAction* actions, uint8_t actionCount, cons
                     doorControl(act.value, "Tự động hóa");
                     LOG("[AUTO] Cua chinh -> %s\n", act.value ? "MO" : "DONG");
                     break;
+                case DEV_VOICE: // Giong noi & LED
+                    firebase_set_voice_enabled(act.value);
+                    LOG("[AUTO] Giong noi & LED -> %s\n", act.value ? "BAT" : "TAT");
+                    break;
                 default:
                     break;
             }
@@ -252,8 +256,8 @@ static bool evaluate_condition(const AutoRule& rule, float temp, float hum,
  * 2. Ưu tiên Chỉ số: Nếu cùng giá trị hoặc không có sự khác biệt về an toàn, quy tắc đứng trước (index nhỏ hơn) được ưu tiên.
  * Ghi log rõ ràng lý do xung đột ra Serial.
  */
-static void resolve_conflicts(AutoAction finalActions[5], bool actionSet[5]) {
-    for (uint8_t d = 0; d < 5; ++d) {
+static void resolve_conflicts(AutoAction finalActions[6], bool actionSet[6]) {
+    for (uint8_t d = 0; d < 6; ++d) {
         actionSet[d] = false;
     }
 }
@@ -275,6 +279,9 @@ void automationUpdate() {
     } else {
         if (s_presence == PRESENCE_PRESENT) {
             s_presence = PRESENCE_LEAVING;
+            sensorsRequestPush();
+        } else if (s_presence == PRESENCE_LEAVING && (nowTime - s_lastMotionTimestamp >= 10)) {
+            s_presence = PRESENCE_ABSENT;
             sensorsRequestPush();
         }
     }
@@ -329,10 +336,10 @@ void automationUpdate() {
     }
 
     // Mảng lưu trữ hành động hợp nhất sau xử lý xung đột
-    // 0: LIGHT, 1: FAN, 2: YARD, 3: CURTAIN, 4: DOOR
-    AutoAction mergedActions[5];
-    bool hasMergedAction[5] = {false, false, false, false, false};
-    char triggeredRuleNames[5][RULE_NAME_LEN];
+    // 0: LIGHT, 1: FAN, 2: YARD, 3: CURTAIN, 4: DOOR, 5: VOICE
+    AutoAction mergedActions[6];
+    bool hasMergedAction[6] = {false, false, false, false, false, false};
+    char triggeredRuleNames[6][RULE_NAME_LEN];
 
     // Sao chép danh sách quy tắc ra cục bộ để không phải giữ mutex khi đánh giá
     AutoRule localRules[MAX_AUTOMATION_RULES];
@@ -398,6 +405,7 @@ void automationUpdate() {
                         else if (act.device == DEV_YARD) devIdx = 2;
                         else if (act.device == DEV_CURTAIN) devIdx = 3;
                         else if (act.device == DEV_DOOR) devIdx = 4;
+                        else if (act.device == DEV_VOICE) devIdx = 5;
                         else continue;
 
                         if (hasMergedAction[devIdx]) {
@@ -443,7 +451,7 @@ void automationUpdate() {
     }
 
     // 3. Thực thi các lệnh đã giải quyết xung đột
-    for (uint8_t d = 0; d < 5; ++d) {
+    for (uint8_t d = 0; d < 6; ++d) {
         if (hasMergedAction[d]) {
             execute_actions(&mergedActions[d], 1, triggeredRuleNames[d]);
         }

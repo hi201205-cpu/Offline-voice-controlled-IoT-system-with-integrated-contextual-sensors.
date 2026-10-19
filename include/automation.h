@@ -38,7 +38,8 @@ enum AutoTargetDevice : uint8_t {
     DEV_FAN,      // Quạt (Relay 2)
     DEV_YARD,     // Đèn sân (Relay 3)
     DEV_CURTAIN,  // Rèm cửa
-    DEV_DOOR      // Cửa chính
+    DEV_DOOR,     // Cửa chính
+    DEV_VOICE     // Nhận diện giọng nói & LED
 };
 
 struct AutoAction {

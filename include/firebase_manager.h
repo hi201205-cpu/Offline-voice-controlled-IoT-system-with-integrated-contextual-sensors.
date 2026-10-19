@@ -45,6 +45,8 @@ void firebase_queue_door_command_result(const char* action, const char* source,
 void firebase_queue_door_event(const char* action, const char* source,
                                const char* who, bool accepted,
                                const char* reason);
+void firebase_set_keypad_locked(bool locked);
+
 bool firebase_take_device_command(uint8_t* device, bool* boolValue,
                                   bool* curtainOpen);
 void firebase_queue_device_state(bool light, bool fan, bool garden,

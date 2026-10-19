@@ -18,6 +18,14 @@ static bool s_curtainMotionActive = false;
 static bool s_curtainMotionTargetOpen = false;
 static uint32_t s_curtainMotionEndsAtMs = 0;
 static bool s_doorOpen = false;
+static constexpr uint8_t LED_R_LEDC_CHANNEL = 0;
+static constexpr uint8_t LED_G_LEDC_CHANNEL = 1;
+static constexpr uint8_t LED_B_LEDC_CHANNEL = 2;
+static constexpr uint32_t LED_PWM_FREQUENCY = 5000;
+static constexpr uint8_t LED_PWM_RESOLUTION = 8;
+// Độ sáng ~18% (45 / 255): Mắt nhìn vẫn sáng rõ nhưng dòng điện giảm hơn 80%, chống sụt áp nguồn 3.3V
+static constexpr uint32_t LED_BRIGHTNESS = 45;
+
 static constexpr uint8_t SERVO_LEDC_CHANNEL = 7;
 static constexpr uint8_t DOOR_SERVO_LEDC_CHANNEL = 6;
 static constexpr uint32_t SERVO_PWM_FREQUENCY = 50;
@@ -30,9 +38,15 @@ static uint32_t s_ledModeStartedMs = 0;
 // ============================================================
 
 void led_relay_init() {
-    pinMode(PIN_LED_R, OUTPUT);
-    pinMode(PIN_LED_G, OUTPUT);
-    pinMode(PIN_LED_B, OUTPUT);
+    // Khởi tạo PWM cho 3 kênh LED RGB
+    ledcSetup(LED_R_LEDC_CHANNEL, LED_PWM_FREQUENCY, LED_PWM_RESOLUTION);
+    ledcAttachPin(PIN_LED_R, LED_R_LEDC_CHANNEL);
+
+    ledcSetup(LED_G_LEDC_CHANNEL, LED_PWM_FREQUENCY, LED_PWM_RESOLUTION);
+    ledcAttachPin(PIN_LED_G, LED_G_LEDC_CHANNEL);
+
+    ledcSetup(LED_B_LEDC_CHANNEL, LED_PWM_FREQUENCY, LED_PWM_RESOLUTION);
+    ledcAttachPin(PIN_LED_B, LED_B_LEDC_CHANNEL);
 
     // Set the inactive level before enabling output to avoid an active-low pulse.
     digitalWrite(PIN_RELAY_1, RELAY_OFF);
@@ -54,7 +68,7 @@ void led_relay_init() {
 
     led_sleep();
 
-    LOG("[LED_RELAY] Init done — curtain GPIO%d, door GPIO%d\n",
+    LOG("[LED_RELAY] Init done — curtain GPIO%d, door GPIO%d, LED PWM active\n",
         PIN_CURTAIN_SERVO, PIN_DOOR_SERVO);
 }
 
@@ -63,15 +77,15 @@ void led_relay_init() {
 // ============================================================
 
 void led_off() {
-    digitalWrite(PIN_LED_R, LOW);
-    digitalWrite(PIN_LED_G, LOW);
-    digitalWrite(PIN_LED_B, LOW);
+    ledcWrite(LED_R_LEDC_CHANNEL, 0);
+    ledcWrite(LED_G_LEDC_CHANNEL, 0);
+    ledcWrite(LED_B_LEDC_CHANNEL, 0);
 }
 
 static void led_set(bool r, bool g, bool b) {
-    digitalWrite(PIN_LED_R, r ? HIGH : LOW);
-    digitalWrite(PIN_LED_G, g ? HIGH : LOW);
-    digitalWrite(PIN_LED_B, b ? HIGH : LOW);
+    ledcWrite(LED_R_LEDC_CHANNEL, r ? LED_BRIGHTNESS : 0);
+    ledcWrite(LED_G_LEDC_CHANNEL, g ? LED_BRIGHTNESS : 0);
+    ledcWrite(LED_B_LEDC_CHANNEL, b ? LED_BRIGHTNESS : 0);
 }
 
 // ============================================================
@@ -80,36 +94,44 @@ static void led_set(bool r, bool g, bool b) {
 
 void led_sleep() {
     s_ledMode = 0;
-    led_set(1, 1, 1);
+    led_set(0, 0, 0); // Chưa nói / lúc chờ: TẮT LED HOÀN TOÀN để tiết kiệm điện và chống sụt áp
 }
 
 void led_listening() {
     s_ledMode = 1;
-    led_set(0, 1, 0);
+    led_set(0, 1, 0); // Có tiếng động / phát hiện giọng nói (VAD ON): Bật xanh lá dịu
 }
 
 void led_executing() {
     s_ledMode = 2;
     s_ledModeStartedMs = millis();
-    led_set(0, 0, 1);
+    led_set(0, 0, 1); // Đang thực thi lệnh: Sáng xanh dương
 }
 
 void led_error() {
     s_ledMode = 3;
     s_ledModeStartedMs = millis();
-    led_set(1, 0, 0);
+    led_set(1, 0, 0); // Lỗi: Chớp đỏ
 }
 
 void led_relay_update(bool listening) {
     uint32_t elapsed = millis() - s_ledModeStartedMs;
     if (s_ledMode == 2 && elapsed >= 500) {
         s_ledMode = listening ? 1 : 0;
-        led_set(listening ? 0 : 1, 1, listening ? 0 : 1);
+        if (listening) {
+            led_listening();
+        } else {
+            led_sleep();
+        }
     }
     if (s_ledMode == 3) {
         if (elapsed >= 900) {
             s_ledMode = listening ? 1 : 0;
-            led_set(listening ? 0 : 1, 1, listening ? 0 : 1);
+            if (listening) {
+                led_listening();
+            } else {
+                led_sleep();
+            }
         } else {
             uint8_t phase = static_cast<uint8_t>(elapsed / 150);
             led_set((phase % 2) == 0, 0, 0);

@@ -84,6 +84,18 @@ p{margin:8px 0}
 .warning-btn{background:#ff4d4f;color:#fff;border:0;border-radius:10px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:transform .15s,background .2s}
 .warning-btn:hover{background:#d9363e;transform:translateY(-1px)}
 
+/* Banner khẩn cấp khi bàn phím nhập sai 4 lần bị khóa cứng */
+.keypad-lock-banner{background:linear-gradient(135deg,rgba(239,68,68,.22),rgba(220,38,38,.12));border:1.5px solid rgba(239,68,68,.75);border-radius:18px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;animation:lockAlertPulse 2s infinite ease-in-out;box-shadow:0 4px 20px rgba(239,68,68,.25)}
+@keyframes lockAlertPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.35);border-color:rgba(239,68,68,.8)}50%{box-shadow:0 0 24px 4px rgba(239,68,68,.55);border-color:rgba(254,202,202,1)}}
+.lock-banner-content{display:flex;align-items:center;gap:14px}
+.lock-banner-icon{font-size:28px;animation:lockSirenBounce .8s infinite alternate ease-in-out;flex-shrink:0}
+@keyframes lockSirenBounce{0%{transform:scale(1) rotate(-5deg)}100%{transform:scale(1.15) rotate(5deg)}}
+.lock-banner-content strong{color:#ef4444;font-size:13.5px;display:block;font-weight:700;letter-spacing:.3px;margin-bottom:3px}
+.lock-banner-content span{color:var(--ink);font-size:12.5px;line-height:1.45}
+.btn-unlock-keypad{background:#ef4444;color:#fff;border:0;border-radius:12px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(239,68,68,.4);transition:transform .15s,background .2s;flex-shrink:0}
+.btn-unlock-keypad:hover{background:#dc2626;transform:translateY(-1px)}
+.btn-unlock-keypad:disabled{opacity:.6;cursor:not-allowed}
+
 /* Giao diện khóa toàn màn hình khi chưa liên kết thiết bị */
 #deviceUnlinkedView{display:flex;align-items:center;justify-content:center;min-height:75vh;padding:24px 16px;text-align:center}
 .unlinked-card{max-width:540px;width:100%;padding:40px 32px;border-radius:28px;background:linear-gradient(150deg,var(--panel),rgba(17,36,58,.82));border:1px solid rgba(151,187,222,.22);box-shadow:0 24px 60px rgba(0,0,0,.45);backdrop-filter:blur(24px);animation:authPopIn .4s ease}
@@ -138,6 +150,7 @@ p{margin:8px 0}
 .dev button:after{content:"";position:absolute;width:22px;height:22px;left:4px;top:4px;background:var(--knob);border-radius:50%;box-shadow:0 2px 5px var(--knob-shadow);transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 .dev button.on,.dev button.primary.on{background:linear-gradient(110deg,var(--accent),var(--accent-2));box-shadow:0 0 15px var(--accent-glow)}
 .dev button.on:after{transform:translateX(24px)}
+.dev button:disabled, .dev button.locked-disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;filter:grayscale(1)}
 .dev button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .dev[data-device="light"].is-on .device-icon{color:var(--gold);filter:drop-shadow(0 0 8px var(--gold-glow));animation:light-pop .45s ease}
 .dev[data-device="yard"].is-on .device-icon{color:var(--gold);filter:drop-shadow(0 0 8px var(--gold-glow));animation:light-pop .45s ease}
@@ -353,6 +366,18 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
         <button type="button" id="btnGoToProfile" class="warning-btn">Cập nhật ngay ➔</button>
       </div>
 
+      <!-- Banner khẩn cấp khi bàn phím nhập sai 4 lần bị khóa cứng -->
+      <div id="keypadLockBanner" class="keypad-lock-banner hidden">
+        <div class="lock-banner-content">
+          <span class="lock-banner-icon" aria-hidden="true">🚨</span>
+          <div>
+            <strong>CẢNH BÁO AN NINH: BÀN PHÍM CỬA ĐÃ BỊ KHÓA CỨNG!</strong>
+            <span>Đã nhập sai mật khẩu 4 lần liên tiếp tại cửa. Bàn phím bên ngoài đã bị vô hiệu hóa hoàn toàn để ngăn chặn kẻ gian. Nhấn nút bên cạnh để mở khóa bàn phím.</span>
+          </div>
+        </div>
+        <button type="button" id="btnUnlockKeypad" class="btn-unlock-keypad">🔓 Mở khóa bàn phím</button>
+      </div>
+
       <!-- Màn hình yêu cầu liên kết thiết bị cho tài khoản mới (Khóa toàn bộ chức năng) -->
       <section class="view hidden" id="deviceUnlinkedView">
         <div class="unlinked-card">
@@ -398,6 +423,14 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
             <div class="sensor-values">
               <div class="temp"><span id="t">--</span><small> °C</small></div>
               <div class="sensor-stat">Độ ẩm<strong><span id="h">--</span><small>%</small></strong></div>
+              <div class="sensor-stat" id="motionStatBox">
+                Chuyển động
+                <strong id="motionStatus" style="font-size:13px;display:flex;align-items:center;gap:6px;margin-top:2px;">
+                  <span id="motionDot" style="width:8px;height:8px;border-radius:50%;background:var(--mute, #94a3b8);display:inline-block;transition:background .3s, box-shadow .3s;"></span>
+                  <span id="motionText">Không có</span>
+                </strong>
+                <span id="motionTime" class="meta" style="font-size:11px;margin:2px 0 0;display:block;">Chưa phát hiện</span>
+              </div>
               <div class="stat-box" id="cardRangeBadge" style="margin-left:auto;padding:6px 12px;font-size:12px;text-align:right;">
                 <span class="meta" style="margin:0;display:block;">Biên độ dao động</span>
                 <strong id="cardTempRange" style="font-size:14px;">--</strong>
@@ -1821,6 +1854,10 @@ document.querySelectorAll("[data-dev]").forEach(btn => {
       return;
     }
     const d = btn.dataset.dev;
+    if (d === "door" && isKeypadLocked) {
+      alert("🚨 Bàn phím ngoài cửa chính đang bị KHÓA CỨNG do nhập sai 4 lần liên tiếp!\n\nVui lòng bấm nút 'Mở khóa bàn phím' ở thanh cảnh báo trước khi điều khiển cửa.");
+      return;
+    }
     if (currentUserRole !== "master" && userPermissions && userPermissions[d] === false) {
       alert(`Chủ nhà (Master) chưa cấp quyền cho bạn điều khiển thiết bị này!`);
       return;
@@ -1888,6 +1925,125 @@ document.querySelectorAll("[data-dev]").forEach(btn => {
   };
 });
 
+let isKeypadLocked = false;
+let audioCtx = null;
+
+function playSecurityAlarm() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtx) audioCtx = new AudioContextClass();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.setValueAtTime(660, now + 0.15);
+    osc.frequency.setValueAtTime(880, now + 0.3);
+    osc.frequency.setValueAtTime(660, now + 0.45);
+
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.6);
+  } catch (err) {
+    console.warn("Không thể phát âm thanh cảnh báo:", err);
+  }
+}
+
+function updateKeypadLockUI(locked) {
+  const banner = $("keypadLockBanner");
+  const wasLocked = isKeypadLocked;
+  isKeypadLocked = !!locked;
+  state.keypad_locked = isKeypadLocked;
+
+  if (banner) {
+    banner.classList.toggle("hidden", !isKeypadLocked);
+  }
+  renderDevice("door");
+
+  if (!wasLocked && isKeypadLocked) {
+    playSecurityAlarm();
+    setTimeout(playSecurityAlarm, 700);
+    setTimeout(playSecurityAlarm, 1400);
+
+    showToast("🚨 CẢNH BÁO AN NINH: Bàn phím cửa đã bị khóa cứng do nhập sai 4 lần liên tiếp!");
+
+    if ("Notification" in window) {
+      if (Notification.permission === "granted") {
+        new Notification("🚨 CẢNH BÁO AN NINH: BÀN PHÍM BỊ KHÓA!", {
+          body: "Bàn phím ngoài cửa chính đã bị khóa cứng do nhập sai mật khẩu 4 lần liên tiếp. Vui lòng kiểm tra ngay!",
+          requireInteraction: true
+        });
+      } else if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+  }
+}
+
+async function handleUnlockKeypad() {
+  if (userPermissions && userPermissions.door === false && currentUserRole !== "master") {
+    alert("Bạn không có quyền quản lý cửa chính hoặc mở khóa bàn phím!");
+    return;
+  }
+  if (!confirm("Xác nhận mở khóa bàn phím cửa ngoài để cho phép tiếp tục nhập mật khẩu?")) {
+    return;
+  }
+  const btn = $("btnUnlockKeypad");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Đang gửi lệnh...";
+  }
+  try {
+    const timestamp = Date.now();
+    const userEmail = currentUser?.email || "Web";
+    const userName = currentUser?.displayName || currentUser?.email?.split("@")[0] || "Người dùng";
+
+    await set(ref(db, "commands/door"), {
+      action: "unlock_keypad",
+      ts: timestamp,
+      src: "web",
+      who: userEmail
+    });
+
+    await update(ref(db, "devices/state"), { keypad_locked: false });
+    await set(ref(db, "door/keypad_locked"), false);
+
+    await set(push(ref(db, "logs/web")), {
+      source: "web",
+      device: "door",
+      action: "Mở khóa bàn phím",
+      label: "Mở khóa bàn phím cửa ngoài",
+      detail: `Thực hiện bởi: ${userEmail}`,
+      user: userEmail,
+      userName: userName,
+      ts: timestamp
+    });
+
+    updateKeypadLockUI(false);
+    showToast("Đã mở khóa bàn phím thành công! Bàn phím cửa đã hoạt động trở lại.");
+  } catch (err) {
+    console.error("Lỗi mở khóa bàn phím:", err);
+    alert("Lỗi khi mở khóa bàn phím: " + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "🔓 Mở khóa bàn phím";
+    }
+  }
+}
+
+const btnUnlockKeypadEl = $("btnUnlockKeypad");
+if (btnUnlockKeypadEl) btnUnlockKeypadEl.onclick = handleUnlockKeypad;
+
 function renderDevice(d) {
   const on = d === "curtain" ? state.curtain === CURTAIN_OPEN : !!state[d];
   const txt = d === "door"
@@ -1896,9 +2052,20 @@ function renderDevice(d) {
       ? (on ? "Đang mở" : "Đang đóng")
       : (on ? "Đang bật" : "Đang tắt");
   const labelEl = $("s-" + d);
-  if (labelEl) labelEl.textContent = txt;
+  if (labelEl) {
+    if (d === "door" && isKeypadLocked) {
+      labelEl.innerHTML = `${on ? "Đang mở" : "Đang đóng"} · <span style="color:var(--bad,#ff4d4f);font-weight:700;">🚨 Bàn phím bị khóa</span>`;
+    } else {
+      labelEl.textContent = txt;
+    }
+  }
   const toggle = document.querySelector(`[data-dev="${d}"]`);
   if (!toggle) return;
+  if (d === "door") {
+    toggle.disabled = isKeypadLocked;
+    toggle.classList.toggle("locked-disabled", isKeypadLocked);
+    toggle.title = isKeypadLocked ? "Bàn phím ngoài đang bị khóa an ninh! Bấm 'Mở khóa bàn phím' ở đầu trang trước." : "";
+  }
   const row = toggle.closest(".dev");
   const wasOn = row.classList.contains("is-on");
   toggle.classList.toggle("on", on);
@@ -1925,6 +2092,9 @@ function listen() {
   onValue(ref(db, "devices/state"), s => {
     const v = s.val() || {};
     let commandAcknowledged = false;
+    if (v.keypad_locked !== undefined) {
+      updateKeypadLockUI(v.keypad_locked === true);
+    }
     ["light", "fan", "curtain", "door", "yard", "voice"].forEach(d => {
       const rawVal = d === "yard" ? (v.yard !== undefined ? v.yard : v.garden) : v[d];
       if (rawVal === undefined) return;
@@ -1945,12 +2115,44 @@ function listen() {
     }
   }, showDatabaseError);
 
+  onValue(ref(db, "door/keypad_locked"), s => {
+    if (s.exists()) {
+      updateKeypadLockUI(s.val() === true);
+    }
+  }, showDatabaseError);
+
   onValue(ref(db, "sensors/latest"), s => {
     const v = s.val();
     if (!v) return;
     $("t").textContent = Number(v.temp).toFixed(1);
     $("h").textContent = Number(v.hum).toFixed(0);
     lastSensorTs = v.ts || 0;
+
+    // Cập nhật trạng thái chuyển động & giờ phát hiện gần nhất
+    const hasMotion = v.motion === true || v.presence === "present";
+    const motionDot = $("motionDot");
+    const motionText = $("motionText");
+    const motionTime = $("motionTime");
+    if (motionDot) {
+      motionDot.style.background = hasMotion ? "var(--good, #10b981)" : "var(--mute, #94a3b8)";
+      motionDot.style.boxShadow = hasMotion ? "0 0 8px #10b981" : "none";
+    }
+    if (motionText) {
+      motionText.textContent = hasMotion ? "Có người" : "Không có";
+      motionText.style.color = hasMotion ? "var(--good, #10b981)" : "inherit";
+    }
+    if (motionTime) {
+      const ts = Number(v.last_motion_ts);
+      if (ts && ts > 1700000000) {
+        const mDate = new Date(ts * 1000);
+        const timeStr = mDate.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        motionTime.textContent = `Lúc ${timeStr}`;
+        motionTime.title = `Lần phát hiện chuyển động gần nhất: ${mDate.toLocaleString("vi-VN")}`;
+      } else {
+        motionTime.textContent = "Chưa phát hiện";
+      }
+    }
+
     updateAge();
   }, showDatabaseError);
   setInterval(updateAge, 10000);
@@ -2382,7 +2584,7 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     row.addEventListener("click", event => {
       if (event.target.closest("button")) return;
       const toggle = row.querySelector("[data-dev]");
-      if (toggle) toggle.click();
+      if (toggle && !toggle.disabled) toggle.click();
     });
   });
   document.querySelectorAll("[data-ui-device]").forEach(toggle => {
@@ -2468,8 +2670,11 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
             label = `Mở cửa bằng bàn phím Keypad${who}`;
             detail = `Nhập đúng mật khẩu${who} trên mô hình`;
           } else if (entry.action === "locked") {
-            label = "Khóa bàn phím Keypad 60s";
-            detail = entry.reason || "Nhập sai mật khẩu 4 lần liên tiếp";
+            label = "Khóa cứng bàn phím Keypad";
+            detail = entry.reason || "Nhập sai mật khẩu 4 lần liên tiếp; chờ mở khóa từ Web";
+          } else if (entry.action === "unlocked_keypad") {
+            label = "Mở khóa bàn phím Keypad";
+            detail = entry.reason || "Đã mở khóa từ xa";
           } else {
             label = "Nhập sai mật khẩu Keypad";
             detail = entry.reason || "Bị từ chối mở cửa";
@@ -2936,7 +3141,7 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     no_motion: "Không có chuyển động trong", motion: "Phát hiện chuyển động",
     dark: "Trời tối", time: "Trong khung giờ"
   };
-  const deviceNames = { light: "Đèn phòng", fan: "Quạt", yard: "Đèn sân", curtain: "Rèm cửa", door: "Cửa" };
+  const deviceNames = { light: "Đèn phòng", fan: "Quạt", yard: "Đèn sân", curtain: "Rèm cửa", door: "Cửa", voice: "Giọng nói & LED" };
   function describeRule(rule) {
     let condition = conditionNames[rule.condition] || "Điều kiện";
     if (["temp_high", "temp_low"].includes(rule.condition)) condition += ` ${rule.threshold} °C`;
@@ -3148,6 +3353,10 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
           const targetKey = d === "yard" ? "garden" : d;
           try {
             if (d === "door") {
+              if (isKeypadLocked) {
+                showToast("Bàn phím cửa đang bị khóa an ninh; bỏ qua mở cửa tự động.");
+                continue;
+              }
               await set(ref(db, "commands/door"), { action: "open", ts: Date.now(), src: "web" });
             } else if (d === "curtain") {
               await set(ref(db, "commands/curtain"), { value: val === "on" ? "open" : "close" });
@@ -3216,7 +3425,7 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       kind.innerHTML = '<option value="notify">Gửi thông báo</option><option value="device">Điều khiển thiết bị</option>';
       kind.value = action.type;
       const target = document.createElement("select");
-      target.innerHTML = '<option value="light">Đèn phòng</option><option value="fan">Quạt</option><option value="yard">Đèn sân</option><option value="curtain">Rèm cửa</option><option value="door">Cửa</option>';
+      target.innerHTML = '<option value="light">Đèn phòng</option><option value="fan">Quạt</option><option value="yard">Đèn sân</option><option value="curtain">Rèm cửa</option><option value="door">Cửa</option><option value="voice">Giọng nói & LED</option>';
       target.value = action.device || "light";
       const value = document.createElement("select");
       value.innerHTML = '<option value="on">Bật / Mở</option><option value="off">Tắt / Đóng</option>';

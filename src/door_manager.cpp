@@ -43,6 +43,8 @@ size_t s_passcodeCount = 0;
 char s_enteredCode[9] = {};
 uint8_t s_enteredLength = 0;
 uint8_t s_wrongAttempts = 0;
+bool s_keypadLocked = false;
+
 uint32_t s_lockoutUntilMs = 0;
 bool s_lockoutActive = false;
 char s_rawKey = 0;
@@ -65,13 +67,19 @@ enum BuzzerMode {
     BUZZER_MODE_IDLE,
     BUZZER_MODE_KEY,
     BUZZER_MODE_SUCCESS,
-    BUZZER_MODE_ERROR
+    BUZZER_MODE_ERROR,
+    BUZZER_MODE_ALARM
 };
+
 BuzzerMode s_buzzerMode = BUZZER_MODE_IDLE;
 uint32_t s_buzzerStepTimerMs = 0;
 uint8_t s_buzzerStep = 0;
 
 void buzzer_trigger(BuzzerMode mode) {
+    if (s_buzzerMode == BUZZER_MODE_ALARM && mode != BUZZER_MODE_IDLE) {
+        // Đang hú còi khẩn cấp (10 tiếng bíp), không để tiếng phím hay bíp lỗi ngắt ngang
+        return;
+    }
     if ((s_buzzerMode == BUZZER_MODE_SUCCESS || s_buzzerMode == BUZZER_MODE_ERROR) &&
         mode == BUZZER_MODE_KEY) {
         return;
@@ -112,12 +120,26 @@ void buzzer_update() {
                 }
             }
             break;
+        case BUZZER_MODE_ALARM:
+            // Cảnh báo khẩn cấp: 10 nhịp bíp (100ms ON / 100ms OFF = 20 bước)
+            if (elapsed >= 100) {
+                s_buzzerStepTimerMs = millis();
+                s_buzzerStep++;
+                if (s_buzzerStep >= 20) {
+                    digitalWrite(PIN_BUZZER, LOW);
+                    s_buzzerMode = BUZZER_MODE_IDLE;
+                } else {
+                    digitalWrite(PIN_BUZZER, (s_buzzerStep % 2 == 0) ? HIGH : LOW);
+                }
+            }
+            break;
         default:
             s_buzzerMode = BUZZER_MODE_IDLE;
             digitalWrite(PIN_BUZZER, LOW);
             break;
     }
 }
+
 
 bool lock_nvs() {
     return s_nvsMutex != nullptr &&
@@ -173,6 +195,10 @@ void set_error(char* error, size_t errorSize, const char* message) {
 
 bool set_door_state(bool open, bool measureDesiredLatency = false,
                     uint32_t desiredReceivedMs = 0) {
+    if (open && s_keypadLocked) {
+        LOG("[DOOR] Từ chối mở cửa: Bàn phím đang bị KHÓA CỨNG an ninh!\n");
+        return false;
+    }
     if (s_doorMotionActive && s_doorMotionTargetOpen == open) return false;
     if (!s_doorMotionActive && s_doorPositionKnown &&
         door_is_open() == open) return false;
@@ -306,6 +332,10 @@ void open_door(const char* source, const char* who) {
 }
 
 void process_key(char key) {
+    if (s_keypadLocked) {
+        buzzer_trigger(BUZZER_MODE_ERROR);
+        return;
+    }
     if (key == '*') {
         buzzer_trigger(BUZZER_MODE_KEY);
         memset(s_enteredCode, 0, sizeof(s_enteredCode));
@@ -336,16 +366,24 @@ void process_key(char key) {
             s_wrongAttempts = 0;
             open_door("keypad", who);
         } else {
-            buzzer_trigger(BUZZER_MODE_ERROR);
             if (++s_wrongAttempts >= DOOR_MAX_WRONG_ATTEMPTS) {
                 s_wrongAttempts = 0;
-                s_lockoutUntilMs = millis() + DOOR_LOCKOUT_MS;
-                s_lockoutActive = true;
+                s_keypadLocked = true;
+                if (lock_nvs()) {
+                    s_preferences.putBool("kplock", true);
+                    unlock_nvs();
+                }
+                buzzer_trigger(BUZZER_MODE_ALARM);
                 log_door_event("locked", "keypad", "", false,
-                               "Nhập sai 4 lần; khóa 60 giây");
+                               "Nhập sai mật khẩu 4 lần liên tiếp; bàn phím đã bị khóa cứng");
+                firebase_set_keypad_locked(true);
             } else {
-                log_door_event("denied", "keypad", "", false,
-                               "Mã không đúng");
+                buzzer_trigger(BUZZER_MODE_ERROR);
+                char reason[64];
+                snprintf(reason, sizeof(reason), "Mã không đúng (lần %u/%u)",
+                         static_cast<unsigned>(s_wrongAttempts),
+                         static_cast<unsigned>(DOOR_MAX_WRONG_ATTEMPTS));
+                log_door_event("denied", "keypad", "", false, reason);
             }
         }
         memset(s_enteredCode, 0, sizeof(s_enteredCode));
@@ -375,8 +413,8 @@ char scan_keypad() {
 }
 
 void process_remote_command() {
-    char action[8] = {};
-    char source[8] = {};
+    char action[24] = {};
+    char source[16] = {};
     int64_t timestampMs = 0;
     bool hasTimestamp = false;
     uint32_t receivedAtMs = 0;
@@ -386,19 +424,29 @@ void process_remote_command() {
         return;
     }
 
-    bool accepted = action[0] == 'c';
+    bool accepted = false;
     const char* reason = "";
-    if (strcmp(action, "open") == 0) {
-        struct timeval now = {};
-        gettimeofday(&now, nullptr);
-        int64_t nowMs = static_cast<int64_t>(now.tv_sec) * 1000 +
-                        now.tv_usec / 1000;
-        if (now.tv_sec <= 1700000000 || !hasTimestamp ||
-            llabs(nowMs - timestampMs) > 30000) {
+    if (strcmp(action, "unlock_keypad") == 0) {
+        accepted = doorUnlockKeypad(source[0] ? source : "web");
+        if (!accepted) {
+            reason = "Không thể mở khóa bàn phím";
+        }
+    } else if (strcmp(action, "open") == 0) {
+        if (s_keypadLocked) {
             accepted = false;
-            reason = "Giờ chưa đồng bộ hoặc timestamp quá hạn";
+            reason = "Bàn phím đang bị khóa an ninh; hãy mở khóa trước";
         } else {
-            accepted = true;
+            struct timeval now = {};
+            gettimeofday(&now, nullptr);
+            int64_t nowMs = static_cast<int64_t>(now.tv_sec) * 1000 +
+                            now.tv_usec / 1000;
+            if (now.tv_sec <= 1700000000 || !hasTimestamp ||
+                llabs(nowMs - timestampMs) > 30000) {
+                accepted = false;
+                reason = "Giờ chưa đồng bộ hoặc timestamp quá hạn";
+            } else {
+                accepted = true;
+            }
         }
     } else if (strcmp(action, "close") == 0) {
         accepted = true;
@@ -408,8 +456,10 @@ void process_remote_command() {
     }
 
     if (accepted) {
-        bool open = strcmp(action, "open") == 0;
-        set_door_state(open, true, receivedAtMs);
+        if (strcmp(action, "unlock_keypad") != 0) {
+            bool open = strcmp(action, "open") == 0;
+            set_door_state(open, true, receivedAtMs);
+        }
         LOG("[DOOR] %s source=%s\n", action, source);
     } else {
         LOG("[DOOR] reject %s source=%s: %s\n", action, source, reason);
@@ -418,7 +468,29 @@ void process_remote_command() {
 }
 }  // namespace
 
+bool doorIsKeypadLocked() {
+    return s_keypadLocked;
+}
+
+bool doorUnlockKeypad(const char* source) {
+    s_keypadLocked = false;
+    s_wrongAttempts = 0;
+    if (lock_nvs()) {
+        s_preferences.putBool("kplock", false);
+        unlock_nvs();
+    }
+    buzzer_trigger(BUZZER_MODE_SUCCESS);
+    log_door_event("unlocked_keypad", source ? source : "web", "", true, "Đã mở khóa bàn phím");
+    firebase_set_keypad_locked(false);
+    LOG("[DOOR] Keypad unlocked by %s\n", source ? source : "web");
+    return true;
+}
+
 bool doorControl(bool open, const char* source) {
+    if (open && s_keypadLocked) {
+        LOG("[DOOR] Refused automation open: Keypad is LOCKED\n");
+        return false;
+    }
     bool changed = set_door_state(open);
     if (changed) {
         log_door_event(open ? "open" : "close", source ? source : "automation", "", true, "");
@@ -445,6 +517,10 @@ void doorInit() {
     }
 
     if (lock_nvs()) {
+        s_keypadLocked = s_preferences.getBool("kplock", false);
+        if (s_keypadLocked) {
+            LOG("[DOOR] Keypad is LOCKED on startup!\n");
+        }
         reload_passcodes();
         if (s_passcodeCount == 0) {
             if (code_is_valid(DOOR_PASSWORD)) {
@@ -536,7 +612,14 @@ void doorUpdate() {
     } else if (button != s_buttonStable &&
                now - s_buttonChangedMs >= kButtonDebounceMs) {
         s_buttonStable = button;
-        if (!s_buttonStable) open_door("button", "");
+        if (!s_buttonStable) {
+            if (s_keypadLocked) {
+                buzzer_trigger(BUZZER_MODE_ERROR);
+                LOG("[DOOR] Physical button ignored: Keypad is LOCKED\n");
+            } else {
+                open_door("button", "");
+            }
+        }
     }
 }
 

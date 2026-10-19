@@ -285,8 +285,8 @@ void sensorsUpdate() {
         if (candidate != s_presenceCandidate) {
             s_presenceCandidate = candidate;
             s_presenceCandidateSinceMs = now;
-        } else if (now - s_bootMs >= 10000 &&
-                   now - s_presenceCandidateSinceMs >= 1000 &&
+        } else if (now - s_bootMs >= 5000 &&
+                   now - s_presenceCandidateSinceMs >= 500 &&
                    s_presenceDetected != candidate) {
             s_presenceDetected = candidate;
         }
@@ -329,9 +329,8 @@ void sensorsPush() {
     bool changed = presence != s_lastPushedPresence ||
                    gardenOn != s_lastPushedGarden;
     bool periodic = now - s_lastPushMs >= SENSOR_PUSH_INTERVAL_MS;
-    bool urgent = changed && now - s_lastPushMs >= 10000UL;
-    if (!periodic && !urgent && !s_forcePush) return;
-    if (now - s_lastPushMs < 10000UL && s_lastPushMs != 0) return;
+    bool urgent = (changed || s_forcePush) && (now - s_lastPushMs >= 2000UL || s_lastPushMs == 0);
+    if (!periodic && !urgent) return;
 
     float temperature;
     float humidity;

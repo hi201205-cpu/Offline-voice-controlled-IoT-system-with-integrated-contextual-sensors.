@@ -90,9 +90,10 @@ struct DoorRemoteCommand {
     int64_t timestampMs;
     uint32_t receivedMs;
     bool hasTimestamp;
-    char action[8];
-    char source[8];
+    char action[24];
+    char source[16];
 };
+
 
 // ── Hằng số ─────────────────────────────────────────────────
 #define FB_QUEUE_DEPTH      16
@@ -132,6 +133,7 @@ static bool          s_syncedFanState = false;
 static bool          s_syncedGardenState = false;
 static bool          s_syncedDoorState = false;
 static bool          s_syncedCurtainState = false;
+static bool          s_syncedKeypadLocked = false;
 static DeviceCommand s_curtainCommandInFlight = {};
 static bool          s_curtainCommandPending = false;
 static uint32_t      s_lastConfigReadMs    = 0;
@@ -608,7 +610,8 @@ static bool firebase_sync_device_state() {
         s_syncedGardenState == s_gardenState &&
         s_syncedDoorState == s_doorState &&
         s_syncedCurtainState == s_curtainOpen &&
-        s_syncedVoiceEnabled == s_voiceEnabled) return true;
+        s_syncedVoiceEnabled == s_voiceEnabled &&
+        s_syncedKeypadLocked == doorIsKeypadLocked()) return true;
 
     FirebaseJson stateJson;
     stateJson.set("light", s_lightState);
@@ -618,6 +621,7 @@ static bool firebase_sync_device_state() {
     stateJson.set("yard", s_gardenState);
     stateJson.set("door", s_doorState);
     stateJson.set("voice", s_voiceEnabled);
+    stateJson.set("keypad_locked", doorIsKeypadLocked());
 
     if (!FB_TIMED("setJSON devices/state",
                   Firebase.setJSON(s_fbWrite, "/devices/state", stateJson))) {
@@ -625,6 +629,7 @@ static bool firebase_sync_device_state() {
             s_fbWrite.errorReason().c_str());
         return false;
     }
+    Firebase.setBool(s_fbWrite, "/door/keypad_locked", doorIsKeypadLocked());
 
     s_deviceStateSynced = true;
     s_syncedLightState = s_lightState;
@@ -633,7 +638,9 @@ static bool firebase_sync_device_state() {
     s_syncedDoorState = s_doorState;
     s_syncedCurtainState = s_curtainOpen;
     s_syncedVoiceEnabled = s_voiceEnabled;
+    s_syncedKeypadLocked = doorIsKeypadLocked();
     return true;
+
 }
 
 static void firebase_queue_command_actual(const DeviceCommand& command,
@@ -799,9 +806,10 @@ static AutoConditionType parse_condition_type(const String& condStr) {
 static AutoTargetDevice parse_target_device(const String& devStr) {
     if (devStr == "light") return DEV_LIGHT;
     if (devStr == "fan") return DEV_FAN;
-    if (devStr == "yard") return DEV_YARD;
+    if (devStr == "yard" || devStr == "garden") return DEV_YARD;
     if (devStr == "curtain") return DEV_CURTAIN;
     if (devStr == "door") return DEV_DOOR;
+    if (devStr == "voice") return DEV_VOICE;
     return DEV_NONE;
 }
 
@@ -1533,7 +1541,7 @@ static void commands_stream_callback(StreamData data) {
             if (j.get(d, "value") && d.success) val = d.boolValue;
         }
         firebase_set_voice_enabled(val);
-        firebase_queue_device_state_sync(false, 0);
+        firebase_queue_device_state(get_relay_state(1), get_relay_state(2), get_relay_state(3), door_is_open(), curtain_is_open());
         LOG("[VOICE] Remote voice enabled changed: %s\n", val ? "ON" : "OFF");
         return;
     }
@@ -1864,7 +1872,19 @@ void firebase_queue_door_event(const char* action, const char* source,
     }
 }
 
+void firebase_set_keypad_locked(bool locked) {
+    (void)locked;
+    s_deviceStateDirty = true;
+    if (!s_fbQueue || !s_firebaseReady || !wifi_connected()) return;
+    FbUpdateMsg msg = {};
+    msg.isDeviceState = true;
+    if (!firebase_enqueue_update(msg)) {
+        LOG("[FB] Could not queue keypad lock state\n");
+    }
+}
+
 void firebase_queue_door_command_result(const char* action, const char* source,
+
                                         bool accepted, const char* reason) {
     if (!s_firebaseReady || !wifi_connected()) return;
     FbUpdateMsg msg = {};
