@@ -1533,6 +1533,7 @@ static void commands_stream_callback(StreamData data) {
             if (j.get(d, "value") && d.success) val = d.boolValue;
         }
         firebase_set_voice_enabled(val);
+        firebase_queue_device_state_sync(false, 0);
         LOG("[VOICE] Remote voice enabled changed: %s\n", val ? "ON" : "OFF");
         return;
     }

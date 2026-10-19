@@ -11,7 +11,6 @@
 #include <Arduino.h>
 #include <esp_attr.h>
 #include <esp_system.h>
-#include <rom/rtc.h>
 #include "config.h"
 #include "audio_capture.h"
 #include "led_relay.h"
@@ -27,27 +26,20 @@ static constexpr uint32_t RESET_CHECKPOINT_MAGIC = 0x4B575352;
 RTC_DATA_ATTR static uint32_t s_resetCheckpointMagic = 0;
 RTC_DATA_ATTR static uint32_t s_resetUptimeCheckpointMs = 0;
 
-static const char* rtc_reset_reason_name(RESET_REASON reason) {
+static const char* reset_reason_name(esp_reset_reason_t reason) {
     switch (reason) {
-        case 1:  return "POWERON_RESET (1)";
-        case 3:  return "SW_SYS_RESET (3)";
-        case 5:  return "DEEPSLEEP_RESET (5)";
-        case 7:  return "TG0WDT_SYS_RESET (7)";
-        case 8:  return "TG1WDT_SYS_RESET (8)";
-        case 9:  return "RTCWDT_SYS_RESET (9)";
-        case 11: return "TG0WDT_CPU_RESET (11)";
-        case 12: return "RTC_SW_CPU_RESET (12)";
-        case 13: return "RTCWDT_CPU_RESET (13)";
-        case 15: return "BROWN_OUT_RESET (15)";
-        case 16: return "RTCWDT_RTC_RESET (16)";
-        case 17: return "TG1WDT_CPU_RESET (17)";
-        case 18: return "SUPER_WDT_RESET (18)";
-        case 19: return "CLK_GLITCH_RESET (19)";
-        case 20: return "EFUSE_RESET (20)";
-        case 21: return "USB_UART_CHIP_RESET (21)";
-        case 22: return "USB_JTAG_CHIP_RESET (22)";
-        case 23: return "PWR_GLITCH_RESET (23)";
-        default: return "UNKNOWN_RTC";
+        case ESP_RST_UNKNOWN: return "unknown (0)";
+        case ESP_RST_POWERON: return "power-on (1)";
+        case ESP_RST_EXT: return "external-pin (2)";
+        case ESP_RST_SW: return "software (3)";
+        case ESP_RST_PANIC: return "panic (4)";
+        case ESP_RST_INT_WDT: return "interrupt-wdt (5)";
+        case ESP_RST_TASK_WDT: return "task-wdt (6)";
+        case ESP_RST_WDT: return "other-wdt (7)";
+        case ESP_RST_DEEPSLEEP: return "deep-sleep (8)";
+        case ESP_RST_BROWNOUT: return "brownout (9)";
+        case ESP_RST_SDIO: return "sdio (10)";
+        default: return "other";
     }
 }
 
@@ -166,11 +158,8 @@ void setup() {
 #if DEBUG_FIRMWARE_METRICS
     bool checkpointValid = s_resetCheckpointMagic == RESET_CHECKPOINT_MAGIC;
     esp_reset_reason_t rawReason = esp_reset_reason();
-    RESET_REASON rtc0 = rtc_get_reset_reason(0);
-    RESET_REASON rtc1 = rtc_get_reset_reason(1);
-    char rReasonBuf[96];
-    snprintf(rReasonBuf, sizeof(rReasonBuf), "RTC: %s (esp_code=%d)",
-             rtc_reset_reason_name(rtc0), static_cast<int>(rawReason));
+    char rReasonBuf[48];
+    snprintf(rReasonBuf, sizeof(rReasonBuf), "%s [code=%d]", reset_reason_name(rawReason), static_cast<int>(rawReason));
     uint32_t prevUptime = checkpointValid ? s_resetUptimeCheckpointMs : 0;
     Serial.printf("[RESET] reason=%s previous_uptime_checkpoint_ms=%lu%s\n",
                   rReasonBuf, static_cast<unsigned long>(prevUptime),
@@ -178,9 +167,9 @@ void setup() {
     firebase_record_reset_event(rReasonBuf, prevUptime);
     s_resetCheckpointMagic = RESET_CHECKPOINT_MAGIC;
 #else
-    RESET_REASON rtc0 = rtc_get_reset_reason(0);
-    char rReasonBuf[96];
-    snprintf(rReasonBuf, sizeof(rReasonBuf), "RTC: %s", rtc_reset_reason_name(rtc0));
+    esp_reset_reason_t rawReason = esp_reset_reason();
+    char rReasonBuf[48];
+    snprintf(rReasonBuf, sizeof(rReasonBuf), "%s [code=%d]", reset_reason_name(rawReason), static_cast<int>(rawReason));
     firebase_record_reset_event(rReasonBuf, 0);
 #endif
     
