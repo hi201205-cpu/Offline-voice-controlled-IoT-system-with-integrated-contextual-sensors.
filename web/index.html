@@ -236,6 +236,24 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
 .settings-accordion-chevron{width:18px;height:18px;color:var(--mute);transition:transform .25s ease}
 .settings-accordion[open] .settings-accordion-chevron{transform:rotate(180deg);color:var(--accent)}
 .settings-accordion-body{padding:20px;border-top:1px solid var(--line);background:var(--panel-raised)}
+/* Member Card Collapsible Accordion */
+.member-accordion{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden;transition:border-color .2s ease,box-shadow .2s ease}
+.member-accordion:hover{border-color:rgba(55,184,255,.3)}
+.member-accordion[open]{border-color:var(--accent);box-shadow:0 3px 14px rgba(0,0,0,.06)}
+.member-accordion summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer;user-select:none;list-style:none;background:var(--panel);transition:background .2s ease}
+.member-accordion summary::-webkit-details-marker{display:none}
+.member-accordion summary:hover{background:var(--panel-raised)}
+.member-accordion-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.member-avatar{width:36px;height:36px;border-radius:10px;background:rgba(55,184,255,.12);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:14px;flex-shrink:0}
+.member-texts{min-width:0}
+.member-name{font-size:13.5px;color:var(--ink);display:block;line-height:1.3;font-weight:700}
+.member-email{font-size:11.5px;color:var(--mute);display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.member-actions-wrap{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.member-chevron-wrap{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--mute);transition:background .2s ease,color .2s ease}
+.member-accordion summary:hover .member-chevron-wrap{color:var(--accent);background:rgba(55,184,255,.08)}
+.member-chevron-icon{width:18px;height:18px;transition:transform .25s ease}
+.member-accordion[open] .member-chevron-icon{transform:rotate(180deg);color:var(--accent)}
+.member-accordion-body{padding:14px;border-top:1px solid var(--line);background:var(--panel-raised);display:flex;flex-direction:column;gap:12px}
 .modal-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:var(--overlay);backdrop-filter:blur(8px)}
 .modal{width:min(760px,100%);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow)}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
@@ -1722,6 +1740,11 @@ function listenSharedMembers() {
       return;
     }
 
+    // Ghi nhớ trạng thái accordion đang mở trước khi render lại
+    const openUids = new Set(
+      Array.from(listEl.querySelectorAll("details.member-accordion[open]")).map(el => el.dataset.memberUid)
+    );
+
     listEl.innerHTML = members.map(m => {
       const perms = m.permissions || {
         light: true, fan: true, curtain: true, door: true, yard: true,
@@ -1739,65 +1762,80 @@ function listenSharedMembers() {
       const genderText = prof.gender === 'male' ? 'Nam' : prof.gender === 'female' ? 'Nữ' : prof.gender === 'other' ? 'Khác' : '<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>';
       const addressText = prof.address ? prof.address : '<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>';
       const lastUpdated = prof.updatedAt ? new Date(prof.updatedAt).toLocaleDateString("vi-VN") : null;
+      const initial = (m.name && m.name.trim()) ? m.name.trim().charAt(0).toUpperCase() : (m.email ? m.email.charAt(0).toUpperCase() : "U");
+      const isOpen = openUids.has(m.uid);
 
       return `
-        <div class="passcode-item" style="display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:14px;border-radius:14px;background:var(--panel);">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div>
-              <b style="font-size:14px;color:var(--ink);">${m.name || "Thành viên"}</b>
-              <span class="meta" style="font-size:12px;margin:2px 0 0;display:block;">${m.email} · Liên kết lúc: ${m.pairedAt ? new Date(m.pairedAt).toLocaleDateString("vi-VN") : "Gần đây"}</span>
+        <details class="member-accordion" data-member-uid="${m.uid}" ${isOpen ? "open" : ""}>
+          <summary>
+            <div class="member-accordion-left">
+              <div class="member-avatar">${initial}</div>
+              <div class="member-texts">
+                <b class="member-name">${m.name || "Thành viên"}</b>
+                <span class="member-email">${m.email}</span>
+              </div>
             </div>
-            <button type="button" class="passcode-del" data-remove-member="${m.uid}" style="padding:6px 12px;">Hủy liên kết</button>
-          </div>
+            <div class="member-actions-wrap">
+              <button type="button" class="passcode-del" data-remove-member="${m.uid}" style="padding:5px 12px;font-size:11.5px;">Hủy liên kết</button>
+              <div class="member-chevron-wrap" title="Xem chi tiết">
+                <svg class="member-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+            </div>
+          </summary>
 
-          <!-- Thông tin cá nhân của thành viên (Chủ nhà kiểm soát) -->
-          <div style="background:var(--panel-raised);padding:10px 12px;border-radius:12px;border:1px solid var(--line);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px dashed var(--line);padding-bottom:5px;">
-              <span style="font-size:11.5px;font-weight:700;color:var(--accent);">Thông tin cá nhân thành viên:</span>
-              <span style="font-size:11px;color:var(--mute);">${lastUpdated ? "Đã cập nhật: " + lastUpdated : "Chưa tự cập nhật hồ sơ"}</span>
+          <div class="member-accordion-body">
+            <!-- Dòng thời gian liên kết & cập nhật -->
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0 6px;border-bottom:1px dashed var(--line);font-size:11.5px;color:var(--mute);flex-wrap:wrap;gap:6px;">
+              <span>Liên kết lúc: <b style="color:var(--ink);">${m.pairedAt ? new Date(m.pairedAt).toLocaleDateString("vi-VN") : "Gần đây"}</b></span>
+              <span>${lastUpdated ? "Cập nhật hồ sơ: " + lastUpdated : "Chưa tự cập nhật hồ sơ"}</span>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:6px 10px;font-size:12px;">
-              <div><span style="color:var(--mute);">SĐT:</span> <b style="color:var(--ink);">${phoneDisplay}</b></div>
-              <div><span style="color:var(--mute);">Ngày sinh:</span> <b style="color:var(--ink);">${dobDisplay}</b></div>
-              <div><span style="color:var(--mute);">Giới tính:</span> <b style="color:var(--ink);">${genderText}</b></div>
-              <div><span style="color:var(--mute);">Địa chỉ:</span> <b style="color:var(--ink);">${addressText}</b></div>
-            </div>
-          </div>
-          
-          <!-- Phân quyền từng thiết bị -->
-          <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:8px;border-top:1px dashed var(--line);align-items:center;">
-            <span style="font-size:11px;color:var(--mute);margin-right:4px;">Quyền thiết bị:</span>
-            <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0;cursor:pointer;">
-              <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="light" ${perms.light !== false ? "checked" : ""}> Đèn
-            </label>
-            <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0;cursor:pointer;">
-              <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="fan" ${perms.fan !== false ? "checked" : ""}> Quạt
-            </label>
-            <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0;cursor:pointer;">
-              <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="curtain" ${perms.curtain !== false ? "checked" : ""}> Rèm
-            </label>
-            <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0;cursor:pointer;">
-              <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="door" ${perms.door !== false ? "checked" : ""}> Cửa chính
-            </label>
-            <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0;cursor:pointer;">
-              <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="yard" ${perms.yard !== false ? "checked" : ""}> Đèn sân
-            </label>
-          </div>
 
-          <!-- Phân quyền Tự động hóa & Keypad cửa -->
-          <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:6px;align-items:center;">
-            <span style="font-size:11px;color:var(--mute);margin-right:4px;">Quyền nâng cao:</span>
-            <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0;cursor:pointer;color:var(--accent);">
-              <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="auto" ${perms.auto !== false ? "checked" : ""}> Cấu hình tự động hóa
-            </label>
-            <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0;cursor:pointer;color:var(--good);">
-              <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="passcodeAdd" ${perms.passcodeAdd === true ? "checked" : ""}> Thêm mật khẩu Keypad
-            </label>
-            <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0;cursor:pointer;color:var(--bad);">
-              <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="passcodeDel" ${perms.passcodeDel === true ? "checked" : ""}> Xóa mật khẩu Keypad
-            </label>
+            <!-- Thông tin cá nhân của thành viên (Chủ nhà kiểm soát) -->
+            <div style="background:var(--panel);padding:10px 12px;border-radius:12px;border:1px solid var(--line);">
+              <div style="font-size:11.5px;font-weight:700;color:var(--accent);margin-bottom:6px;">Thông tin cá nhân thành viên:</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:6px 12px;font-size:12px;">
+                <div><span style="color:var(--mute);">SĐT:</span> <b style="color:var(--ink);">${phoneDisplay}</b></div>
+                <div><span style="color:var(--mute);">Ngày sinh:</span> <b style="color:var(--ink);">${dobDisplay}</b></div>
+                <div><span style="color:var(--mute);">Giới tính:</span> <b style="color:var(--ink);">${genderText}</b></div>
+                <div><span style="color:var(--mute);">Địa chỉ:</span> <b style="color:var(--ink);">${addressText}</b></div>
+              </div>
+            </div>
+            
+            <!-- Phân quyền từng thiết bị -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px 12px;padding-top:4px;align-items:center;">
+              <span style="font-size:11px;font-weight:600;color:var(--mute);margin-right:2px;">Quyền thiết bị:</span>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
+                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="light" ${perms.light !== false ? "checked" : ""}> Đèn
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
+                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="fan" ${perms.fan !== false ? "checked" : ""}> Quạt
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
+                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="curtain" ${perms.curtain !== false ? "checked" : ""}> Rèm
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
+                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="door" ${perms.door !== false ? "checked" : ""}> Cửa chính
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
+                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="yard" ${perms.yard !== false ? "checked" : ""}> Đèn sân
+              </label>
+            </div>
+
+            <!-- Phân quyền Tự động hóa & Keypad cửa -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px 12px;padding-top:2px;align-items:center;">
+              <span style="font-size:11px;font-weight:600;color:var(--mute);margin-right:2px;">Quyền nâng cao:</span>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;color:var(--accent);">
+                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="auto" ${perms.auto !== false ? "checked" : ""}> Cấu hình tự động hóa
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;color:var(--good);">
+                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="passcodeAdd" ${perms.passcodeAdd === true ? "checked" : ""}> Thêm mật khẩu Keypad
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;color:var(--bad);">
+                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="passcodeDel" ${perms.passcodeDel === true ? "checked" : ""}> Xóa mật khẩu Keypad
+              </label>
+            </div>
           </div>
-        </div>
+        </details>
       `;
     }).join("");
 
@@ -1818,7 +1856,9 @@ function listenSharedMembers() {
 
     // Bắt sự kiện xóa / hủy liên kết thành viên
     listEl.querySelectorAll("[data-remove-member]").forEach(btn => {
-      btn.onclick = async () => {
+      btn.onclick = async (e) => {
+        e.stopPropagation(); // Ngăn summary toggle accordion khi bấm nút hủy liên kết
+        e.preventDefault();
         const uid = btn.dataset.removeMember;
         if (!confirm("Bạn có chắc chắn muốn ngắt quyền liên kết của thành viên này khỏi ngôi nhà?")) return;
         try {
