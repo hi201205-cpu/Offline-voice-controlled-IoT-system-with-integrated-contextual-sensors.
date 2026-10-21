@@ -41,7 +41,7 @@ class FirebaseService {
   void startListening() {
     _pollRealtimeData();
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!_disposed) _pollRealtimeData();
     });
   }
@@ -84,7 +84,6 @@ class FirebaseService {
     final uid = resData['localId'];
     final userEmail = resData['email'] ?? email;
 
-    // Lấy hoặc khởi tạo Profile từ Realtime Database
     _currentUser = await _fetchOrCreateProfile(uid, userEmail, resData['displayName'] ?? '');
     _profileCtrl.add(_currentUser);
     return _currentUser!;
@@ -100,7 +99,6 @@ class FirebaseService {
     final cleanEmail = email.trim();
     final isMaster = cleanEmail.toLowerCase() == masterEmail;
 
-    // Nếu không phải Master thì bắt buộc phải có mã mời hợp lệ
     if (!isMaster) {
       if (inviteCode == null || inviteCode.trim().isEmpty) {
         throw 'Cần có Mã mời thành viên từ Master để đăng ký!';
@@ -111,7 +109,6 @@ class FirebaseService {
       }
     }
 
-    // Tạo tài khoản Firebase Auth
     final url = Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$apiKey');
     final response = await http.post(
       url,
@@ -132,7 +129,6 @@ class FirebaseService {
     _refreshToken = resData['refreshToken'];
     final uid = resData['localId'];
 
-    // Cập nhật Tên hiển thị
     if (displayName.trim().isNotEmpty) {
       await http.post(
         Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:update?key=$apiKey'),
@@ -145,7 +141,6 @@ class FirebaseService {
       );
     }
 
-    // Ghi Profile vào Realtime Database
     final profile = UserProfile(
       uid: uid,
       email: cleanEmail,
@@ -157,6 +152,9 @@ class FirebaseService {
         'curtain': true,
         'door': true,
         'yard': true,
+        'auto': true,
+        'passcodeAdd': false,
+        'passcodeDel': false,
       },
       pairedHome: true,
     );
@@ -174,7 +172,6 @@ class FirebaseService {
       }),
     );
 
-    // Nếu dùng mã mời, đánh dấu mã là đã sử dụng
     if (!isMaster && inviteCode != null) {
       await http.patch(
         Uri.parse('$baseUrl/invites/${inviteCode.trim()}.json?auth=$_idToken'),
@@ -192,7 +189,7 @@ class FirebaseService {
     return _currentUser!;
   }
 
-  /// 3. Quên mật khẩu (Gửi email khôi phục mật khẩu)
+  /// 3. Quên mật khẩu
   Future<void> sendPasswordResetEmail(String email) async {
     final cleanEmail = email.trim();
     if (cleanEmail.isEmpty) throw 'Vui lòng nhập địa chỉ email của bạn!';
@@ -213,7 +210,7 @@ class FirebaseService {
     }
   }
 
-  /// 4. Đổi mật khẩu trong Cài đặt (Xác thực lại bằng mật khẩu cũ trước khi đổi)
+  /// 4. Đổi mật khẩu trong Cài đặt
   Future<void> changePassword({
     required String oldPassword,
     required String newPassword,
@@ -222,7 +219,6 @@ class FirebaseService {
     if (newPassword.length < 6) throw 'Mật khẩu mới phải có tối thiểu 6 ký tự!';
     if (oldPassword == newPassword) throw 'Mật khẩu mới phải khác mật khẩu hiện tại!';
 
-    // Bước 1: Re-authenticate bằng mật khẩu cũ
     final verifyUrl = Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$apiKey');
     final verifyRes = await http.post(
       verifyUrl,
@@ -241,7 +237,6 @@ class FirebaseService {
 
     final freshToken = verifyData['idToken'] ?? _idToken;
 
-    // Bước 2: Cập nhật mật khẩu mới
     final updateUrl = Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:update?key=$apiKey');
     final updateRes = await http.post(
       updateUrl,
@@ -261,7 +256,38 @@ class FirebaseService {
     _idToken = updateData['idToken'];
   }
 
-  /// 5. Đăng xuất
+  /// 5. Cập nhật thông tin cá nhân (Profile)
+  Future<void> updateProfile({
+    required String displayName,
+    required String phone,
+    required String dob,
+    required String gender,
+    required String address,
+  }) async {
+    if (_currentUser == null) throw 'Bạn chưa đăng nhập!';
+    final uid = _currentUser!.uid;
+    final nowIso = DateTime.now().toIso8601String();
+
+    await http.patch(
+      Uri.parse('$baseUrl/users/$uid.json?auth=$_idToken'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'displayName': displayName.trim(),
+        'profile': {
+          'phone': phone.trim(),
+          'dob': dob.trim(),
+          'gender': gender.trim(),
+          'address': address.trim(),
+          'updatedAt': nowIso,
+        },
+      }),
+    );
+
+    _currentUser = await _fetchOrCreateProfile(uid, _currentUser!.email, displayName);
+    _profileCtrl.add(_currentUser);
+  }
+
+  /// 6. Đăng xuất
   void signOut() {
     _idToken = null;
     _refreshToken = null;
@@ -271,13 +297,11 @@ class FirebaseService {
 
   // ── ĐIỀU KHIỂN THIẾT BỊ & GỬI LỆNH ─────────────────────────
 
-  /// Gửi lệnh điều khiển thiết bị (Bật/Tắt Đèn, Quạt, Sân vườn)
   Future<bool> setDevice(String deviceKey, bool value) async {
     final userEmail = _currentUser?.email ?? 'Mobile App';
     final now = DateTime.now().millisecondsSinceEpoch;
 
     try {
-      // 1. Ghi lệnh vào node commands
       final cmdTarget = (deviceKey == 'yard' || deviceKey == 'garden') ? 'yard' : deviceKey;
       await http.put(
         Uri.parse('$baseUrl/commands/$cmdTarget.json?auth=$_idToken'),
@@ -290,7 +314,6 @@ class FirebaseService {
         }),
       );
 
-      // Cập nhật trực tiếp devices/state để phản hồi nhanh
       await http.patch(
         Uri.parse('$baseUrl/devices/state.json?auth=$_idToken'),
         headers: {'Content-Type': 'application/json'},
@@ -299,7 +322,6 @@ class FirebaseService {
         }),
       );
 
-      // 2. Ghi lịch sử hoạt động vào logs/web (kèm thông tin user)
       await _writeOperationLog(deviceKey, value ? 'on' : 'off', userEmail, now);
       return true;
     } catch (_) {
@@ -307,7 +329,6 @@ class FirebaseService {
     }
   }
 
-  /// Điều khiển Rèm cửa ('open' hoặc 'close')
   Future<bool> setCurtain(String action) async {
     final userEmail = _currentUser?.email ?? 'Mobile App';
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -339,7 +360,6 @@ class FirebaseService {
     }
   }
 
-  /// Mở Cửa thông minh (tự động khóa sau 5s)
   Future<bool> openDoor() async {
     final userEmail = _currentUser?.email ?? 'Mobile App';
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -371,7 +391,33 @@ class FirebaseService {
     }
   }
 
-  /// Bật tất cả thiết bị
+  /// Mở khóa an ninh bàn phím ngoài (khi bị khóa do nhập sai 4 lần)
+  Future<bool> unlockKeypad() async {
+    final userEmail = _currentUser?.email ?? 'Mobile App';
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    try {
+      await http.patch(
+        Uri.parse('$baseUrl/devices/state.json?auth=$_idToken'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'keypad_locked': false}),
+      );
+
+      await http.put(
+        Uri.parse('$baseUrl/door/keypad_locked.json?auth=$_idToken'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(false),
+      );
+
+      await _writeOperationLog('door', 'unlock', userEmail, now);
+      _lastState = _lastState.copyWith(keypadLocked: false);
+      _stateCtrl.add(_lastState);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> allOn() async {
     final userEmail = _currentUser?.email ?? 'Mobile App';
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -395,7 +441,6 @@ class FirebaseService {
     }
   }
 
-  /// Tắt tất cả thiết bị
   Future<bool> allOff() async {
     final userEmail = _currentUser?.email ?? 'Mobile App';
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -419,7 +464,6 @@ class FirebaseService {
     }
   }
 
-  /// Bật / Tắt Tự động hóa thông minh (Automation)
   Future<bool> setAutomation(bool enabled) async {
     try {
       await http.put(
@@ -432,7 +476,6 @@ class FirebaseService {
     }
   }
 
-  /// Chế độ đèn sân vườn (auto | manual)
   Future<bool> setGardenMode(String mode) async {
     try {
       await http.put(
@@ -445,9 +488,43 @@ class FirebaseService {
     }
   }
 
+  // ── BIỂU ĐỒ LỊCH SỬ CẢM BIẾN (REALTIME DATABASE) ─────────────
+
+  /// Tải các điểm dữ liệu lịch sử cảm biến từ sensors/history
+  Future<List<SensorPoint>> fetchSensorHistory({String range = '24h'}) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/sensors/history.json?auth=$_idToken'));
+      if (res.statusCode == 200 && res.body != 'null') {
+        final data = jsonDecode(res.body) as Map;
+        final points = <SensorPoint>[];
+        final now = DateTime.now();
+        final maxAgeHours = range == '7d' ? 24 * 7 : 24;
+
+        data.forEach((k, v) {
+          if (v is Map) {
+            final t = DeviceState.parseDouble(v['temp'] ?? v['t']);
+            final h = DeviceState.parseDouble(v['hum'] ?? v['h']);
+            final tsRaw = v['ts'] ?? v['time'] ?? int.tryParse(k.toString());
+            DateTime time = now;
+            if (tsRaw != null) {
+              final ms = DeviceState.parseInt(tsRaw);
+              time = DateTime.fromMillisecondsSinceEpoch(ms > 1000000000000 ? ms : ms * 1000);
+            }
+            if (now.difference(time).inHours <= maxAgeHours) {
+              points.add(SensorPoint(timestamp: time, temp: t, hum: h));
+            }
+          }
+        });
+
+        points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        return points;
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // ── MASTER: QUẢN LÝ MÃ MỜI & THÀNH VIÊN ────────────────────
 
-  /// Tạo mã mời 1 lần mới (Chỉ dành cho Master)
   Future<String> createInviteCode() async {
     if (_currentUser?.isMaster != true) throw 'Chỉ Master mới có quyền tạo mã mời!';
 
@@ -469,7 +546,6 @@ class FirebaseService {
     return code;
   }
 
-  /// Tải danh sách mã mời
   Future<List<InviteCode>> getInvites() async {
     try {
       final res = await http.get(Uri.parse('$baseUrl/invites.json?auth=$_idToken'));
@@ -482,19 +558,20 @@ class FirebaseService {
     return [];
   }
 
-  /// Tải danh sách thành viên trong nhà
   Future<List<UserProfile>> getMembers() async {
     try {
       final res = await http.get(Uri.parse('$baseUrl/users.json?auth=$_idToken'));
       if (res.statusCode == 200 && res.body != 'null') {
         final data = jsonDecode(res.body) as Map;
-        return data.entries.map((e) => UserProfile.fromJson(e.key.toString(), e.value as Map)).toList();
+        return data.entries
+            .map((e) => UserProfile.fromJson(e.key.toString(), e.value as Map))
+            .where((u) => u.pairedHome && u.email.toLowerCase() != masterEmail.toLowerCase())
+            .toList();
       }
     } catch (_) {}
     return [];
   }
 
-  /// Cập nhật quyền của một thành viên
   Future<void> updateMemberPermission(String uid, String deviceKey, bool allowed) async {
     if (_currentUser?.isMaster != true) throw 'Chỉ Master mới có quyền đổi phân quyền!';
     await http.patch(
@@ -506,13 +583,25 @@ class FirebaseService {
     );
   }
 
+  Future<void> deleteMember(String uid) async {
+    if (_currentUser?.isMaster != true) throw 'Chỉ Master mới có quyền xóa thành viên!';
+    await http.patch(
+      Uri.parse('$baseUrl/users/$uid.json?auth=$_idToken'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'pairedHome': false,
+      }),
+    );
+  }
+
   // ── PRIVATE HELPERS ───────────────────────────────────────
 
   Future<void> _writeOperationLog(String device, String action, String user, int ts) async {
     try {
       final dateStr = DateTime.fromMillisecondsSinceEpoch(ts).toString().substring(11, 19);
+      final logNode = (device == 'door') ? 'door' : 'web';
       await http.post(
-        Uri.parse('$baseUrl/logs/web.json?auth=$_idToken'),
+        Uri.parse('$baseUrl/logs/$logNode.json?auth=$_idToken'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'device': device,
@@ -549,7 +638,6 @@ class FirebaseService {
       }
     } catch (_) {}
 
-    // Khởi tạo profile mặc định nếu chưa có
     final profile = UserProfile(
       uid: uid,
       email: cleanEmail,
@@ -576,17 +664,28 @@ class FirebaseService {
   }
 
   void _pollRealtimeData() async {
-    // 1. Trạng thái thiết bị
+    // 1. Trạng thái thiết bị & Khóa an ninh bàn phím
     try {
       final res = await http.get(Uri.parse('$baseUrl/devices/state.json?auth=$_idToken'));
+      final doorLockRes = await http.get(Uri.parse('$baseUrl/door/keypad_locked.json?auth=$_idToken'));
+      
+      bool isLocked = false;
+      if (doorLockRes.statusCode == 200 && doorLockRes.body == 'true') {
+        isLocked = true;
+      }
+
       if (res.statusCode == 200 && res.body != 'null') {
         final data = jsonDecode(res.body) as Map;
-        _lastState = DeviceState.fromJson(data);
+        if (data['keypad_locked'] == true) isLocked = true;
+        _lastState = DeviceState.fromJson(data).copyWith(keypadLocked: isLocked);
+        _stateCtrl.add(_lastState);
+      } else if (isLocked != _lastState.keypadLocked) {
+        _lastState = _lastState.copyWith(keypadLocked: isLocked);
         _stateCtrl.add(_lastState);
       }
     } catch (_) {}
 
-    // 2. Dữ liệu cảm biến
+    // 2. Dữ liệu cảm biến mới nhất
     try {
       final res = await http.get(Uri.parse('$baseUrl/sensors/latest.json?auth=$_idToken'));
       if (res.statusCode == 200 && res.body != 'null') {
@@ -596,15 +695,28 @@ class FirebaseService {
       }
     } catch (_) {}
 
-    // 3. Lịch sử thao tác
+    // 3. Lịch sử thao tác tổng hợp (web, door/keypad, voice, auto)
     try {
-      final res = await http.get(Uri.parse('$baseUrl/logs/web.json?orderBy=%22%24key%22&limitToLast=25&auth=$_idToken'));
-      if (res.statusCode == 200 && res.body != 'null') {
-        final data = jsonDecode(res.body) as Map;
-        final list = data.entries.map((e) => LogEntry.fromJson(e.key.toString(), e.value as Map)).toList()
-          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-        _logsCtrl.add(list);
+      final allLogs = <LogEntry>[];
+      final nodes = ['logs/web', 'logs/door', 'logs/voice', 'logs/auto'];
+
+      for (final node in nodes) {
+        try {
+          final res = await http.get(Uri.parse('$baseUrl/$node.json?orderBy=%22%24key%22&limitToLast=20&auth=$_idToken'));
+          if (res.statusCode == 200 && res.body != 'null') {
+            final data = jsonDecode(res.body) as Map;
+            data.forEach((k, v) {
+              if (v is Map) {
+                allLogs.add(LogEntry.fromJson(k.toString(), v));
+              }
+            });
+          }
+        } catch (_) {}
       }
+
+      allLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      final finalLogs = allLogs.take(50).toList();
+      _logsCtrl.add(finalLogs);
     } catch (_) {}
   }
 

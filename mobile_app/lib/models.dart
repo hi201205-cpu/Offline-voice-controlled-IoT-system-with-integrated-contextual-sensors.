@@ -1,14 +1,15 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 /// Trạng thái thiết bị phần cứng từ ESP32 và Realtime Database
 class DeviceState {
-  final bool light;       // Relay 1 - Đèn
-  final bool fan;         // Relay 2 - Quạt
-  final String curtain;   // 'open' | 'close'
-  final bool door;        // true: Mở, false: Đóng
-  final bool yard;        // Đèn sân vườn
-  final bool voice;       // Nhận diện giọng nói offline đang bật/tắt
-  final int lastSeen;     // Epoch ms từ Firebase server timestamp
+  final bool light;          // Relay 1 - Đèn phòng
+  final bool fan;            // Relay 2 - Quạt làm mát
+  final String curtain;      // 'open' | 'close'
+  final bool door;           // true: Mở, false: Đóng
+  final bool yard;           // Đèn sân vườn
+  final bool voice;          // Nhận diện giọng nói offline đang bật/tắt
+  final int lastSeen;        // Epoch ms từ Firebase server timestamp
+  final bool keypadLocked;   // Khóa an ninh bàn phím ngoài khi nhập sai 4 lần
 
   const DeviceState({
     this.light = false,
@@ -18,6 +19,7 @@ class DeviceState {
     this.yard = false,
     this.voice = true,
     this.lastSeen = 0,
+    this.keypadLocked = false,
   });
 
   bool get isCurtainOpen => curtain == 'open';
@@ -31,6 +33,7 @@ class DeviceState {
       yard: parseBool(json['yard'] ?? json['garden'] ?? json['relay_garden']),
       voice: parseBool(json['voice'] ?? true),
       lastSeen: parseInt(json['last_seen'] ?? json['ts']),
+      keypadLocked: parseBool(json['keypad_locked'] ?? json['is_locked_out']),
     );
   }
 
@@ -42,6 +45,7 @@ class DeviceState {
     bool? yard,
     bool? voice,
     int? lastSeen,
+    bool? keypadLocked,
   }) {
     return DeviceState(
       light: light ?? this.light,
@@ -51,6 +55,7 @@ class DeviceState {
       yard: yard ?? this.yard,
       voice: voice ?? this.voice,
       lastSeen: lastSeen ?? this.lastSeen,
+      keypadLocked: keypadLocked ?? this.keypadLocked,
     );
   }
 
@@ -110,13 +115,26 @@ class SensorData {
   }
 }
 
-/// Lịch sử thao tác & sự kiện trong hệ thống
+/// Điểm dữ liệu lịch sử cảm biến dùng để vẽ biểu đồ
+class SensorPoint {
+  final DateTime timestamp;
+  final double temp;
+  final double hum;
+
+  const SensorPoint({
+    required this.timestamp,
+    required this.temp,
+    required this.hum,
+  });
+}
+
+/// Lịch sử thao tác & sự kiện trong hệ thống (Không dùng emoji)
 class LogEntry {
   final String key;
   final String device;
   final String action;
   final String source;    // 'app' | 'web' | 'voice' | 'door' | 'auto'
-  final String user;      // Email tài khoản thao tác
+  final String user;      // Email hoặc nguồn thực hiện
   final DateTime timestamp;
 
   const LogEntry({
@@ -145,13 +163,15 @@ class LogEntry {
 
     final rawDevice = json['device']?.toString() ?? json['command']?.toString() ?? '';
     final rawAction = json['action']?.toString() ?? json['state']?.toString() ?? '';
-    final rawUser = json['user']?.toString() ?? json['email']?.toString() ?? (json['source'] == 'voice' ? 'ESP32 Mic' : 'Hệ thống');
+    final rawSource = json['src']?.toString() ?? json['source']?.toString() ?? 'app';
+    final rawUser = json['user']?.toString() ?? json['email']?.toString() ?? 
+        (rawSource == 'voice' ? 'ESP32 Mic' : (rawSource == 'door' ? 'Bàn phím ngoài' : 'Hệ thống'));
 
     return LogEntry(
       key: key,
       device: rawDevice,
       action: rawAction,
-      source: json['src']?.toString() ?? json['source']?.toString() ?? 'app',
+      source: rawSource,
       user: rawUser,
       timestamp: time,
     );
@@ -159,37 +179,64 @@ class LogEntry {
 
   String get deviceLabel {
     final d = device.toLowerCase();
+    final s = source.toLowerCase();
+    if (s == 'door' || s == 'keypad' || d.contains('door') || d.contains('cua')) return 'Cửa chính / Keypad';
     if (d.contains('den') || d.contains('light')) return 'Đèn phòng';
-    if (d.contains('quat') || d.contains('fan')) return 'Quạt';
+    if (d.contains('quat') || d.contains('fan')) return 'Quạt làm mát';
     if (d.contains('rem') || d.contains('curtain')) return 'Rèm cửa';
-    if (d.contains('cua') || d.contains('door')) return 'Cửa thông minh';
     if (d.contains('vuon') || d.contains('yard') || d.contains('garden')) return 'Đèn sân vườn';
+    if (s == 'voice') return 'Lệnh giọng nói AI';
+    if (s == 'auto') return 'Tự động hóa thông minh';
     if (d.contains('all') || d.contains('het')) return 'Tất cả thiết bị';
     return device.isNotEmpty ? device : 'Thiết bị';
   }
 
   String get actionLabel {
     final a = action.toLowerCase();
+    final s = source.toLowerCase();
+    final d = device.toLowerCase();
+    if (a == 'denied') return 'Từ chối mở cửa (Sai mật khẩu)';
+    if (a == 'locked') return 'Khóa an ninh bàn phím (4 lần sai)';
+    if (a == 'unlock') return 'Mở khóa an ninh bàn phím';
     if (a == 'on' || a == 'bat' || a == 'bat_den' || a == 'bat_quat') return 'Bật';
     if (a == 'off' || a == 'tat' || a == 'tat_den' || a == 'tat_quat') return 'Tắt';
-    if (a == 'open' || a == 'mo' || a == 'mo_rem' || a == 'mo_cua') return 'Mở';
+    if (a == 'open' || a == 'mo' || a == 'mo_rem' || a == 'mo_cua') {
+      if (d.contains('cua') || s.contains('door')) return 'Mở cửa thành công';
+      return 'Mở';
+    }
     if (a == 'close' || a == 'dong' || a == 'dong_rem') return 'Đóng';
+    if (a.contains('passcode_add')) return 'Thêm mật khẩu Keypad';
+    if (a.contains('passcode_del')) return 'Xóa mật khẩu Keypad';
     return action.isNotEmpty ? action : 'Thao tác';
   }
 
-  String get deviceIcon {
+  String get sourceLabel {
+    final s = source.toLowerCase();
+    if (s == 'door' || s == 'keypad' || s == 'bàn phím') return 'Bàn phím ngoài';
+    if (s == 'voice') return 'Giọng nói AI';
+    if (s == 'auto') return 'Tự động hóa';
+    if (s == 'web') return 'Web Dashboard';
+    if (s == 'app') return 'Ứng dụng';
+    return source.isNotEmpty ? source : 'Hệ thống';
+  }
+
+  IconData get iconData {
     final d = device.toLowerCase();
-    if (d.contains('den') || d.contains('light')) return '💡';
-    if (d.contains('quat') || d.contains('fan')) return '🌀';
-    if (d.contains('rem') || d.contains('curtain')) return '🪟';
-    if (d.contains('cua') || d.contains('door')) return '🚪';
-    if (d.contains('vuon') || d.contains('yard') || d.contains('garden')) return '🌳';
-    if (d.contains('voice')) return '🎙️';
-    return '⚡';
+    final s = source.toLowerCase();
+    final a = action.toLowerCase();
+    if (a == 'locked' || a == 'denied') return Icons.lock_clock_rounded;
+    if (s == 'door' || s == 'keypad' || d.contains('door') || d.contains('cua')) return Icons.door_front_door_rounded;
+    if (d.contains('den') || d.contains('light')) return Icons.lightbulb_rounded;
+    if (d.contains('quat') || d.contains('fan')) return Icons.wind_power_rounded;
+    if (d.contains('rem') || d.contains('curtain')) return Icons.curtains_rounded;
+    if (d.contains('vuon') || d.contains('yard') || d.contains('garden')) return Icons.park_rounded;
+    if (s == 'voice') return Icons.mic_rounded;
+    if (s == 'auto') return Icons.auto_awesome_rounded;
+    return Icons.settings_remote_rounded;
   }
 }
 
-/// Thông tin tài khoản người dùng và phân quyền
+/// Thông tin tài khoản người dùng và phân quyền đầy đủ (Đồng bộ với Web)
 class UserProfile {
   final String uid;
   final String email;
@@ -197,6 +244,11 @@ class UserProfile {
   final String role;         // 'master' | 'member'
   final Map<String, bool> permissions;
   final bool pairedHome;
+  final String phone;
+  final String dob;
+  final String gender;
+  final String address;
+  final String? updatedAt;
 
   const UserProfile({
     required this.uid,
@@ -209,8 +261,16 @@ class UserProfile {
       'curtain': true,
       'door': true,
       'yard': true,
+      'auto': true,
+      'passcodeAdd': false,
+      'passcodeDel': false,
     },
     this.pairedHome = true,
+    this.phone = '',
+    this.dob = '',
+    this.gender = '',
+    this.address = '',
+    this.updatedAt,
   });
 
   bool get isMaster => role == 'master' || email.toLowerCase() == 'xhai2005@gmail.com';
@@ -230,6 +290,9 @@ class UserProfile {
       'curtain': true,
       'door': true,
       'yard': true,
+      'auto': true,
+      'passcodeAdd': false,
+      'passcodeDel': false,
     };
 
     if (json['permissions'] is Map) {
@@ -240,8 +303,13 @@ class UserProfile {
         'curtain': DeviceState.parseBool(pMap['curtain'] ?? true),
         'door': DeviceState.parseBool(pMap['door'] ?? true),
         'yard': DeviceState.parseBool(pMap['yard'] ?? true),
+        'auto': DeviceState.parseBool(pMap['auto'] ?? true),
+        'passcodeAdd': DeviceState.parseBool(pMap['passcodeAdd'] ?? false),
+        'passcodeDel': DeviceState.parseBool(pMap['passcodeDel'] ?? false),
       };
     }
+
+    final prof = (json['profile'] is Map) ? json['profile'] as Map : {};
 
     return UserProfile(
       uid: uid,
@@ -250,6 +318,11 @@ class UserProfile {
       role: isMasterUser ? 'master' : (json['role']?.toString() ?? 'member'),
       permissions: perms,
       pairedHome: DeviceState.parseBool(json['pairedHome'] ?? true),
+      phone: prof['phone']?.toString() ?? json['phone']?.toString() ?? '',
+      dob: prof['dob']?.toString() ?? json['dob']?.toString() ?? '',
+      gender: prof['gender']?.toString() ?? json['gender']?.toString() ?? '',
+      address: prof['address']?.toString() ?? json['address']?.toString() ?? '',
+      updatedAt: prof['updatedAt']?.toString() ?? json['updatedAt']?.toString(),
     );
   }
 }
