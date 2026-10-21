@@ -2101,6 +2101,54 @@ if (btnUnlinkedEnterCode) btnUnlinkedEnterCode.onclick = () => openDevicePairMod
 const btnSettingsPairNow = $("btnSettingsPairNow");
 if (btnSettingsPairNow) btnSettingsPairNow.onclick = () => openDevicePairModal(true);
 
+// Tự động xoay vòng dọn dẹp dữ liệu cũ (Rolling Window) để Firebase luôn dưới 1.000 bản ghi
+async function triggerAutoRollingCleanup() {
+  const lastPrune = localStorage.getItem("last_auto_prune_ts");
+  const now = Date.now();
+  // Giới hạn chạy tối đa 1 lần mỗi 4 tiếng để tiết kiệm băng thông và tài nguyên
+  if (lastPrune && (now - parseInt(lastPrune, 10) < 4 * 3600 * 1000)) return;
+
+  try {
+    const updates = {};
+    let needsUpdate = false;
+
+    // 1. Cảm biến: Giữ tối đa 250 điểm mới nhất (~4 tiếng đo liên tục, vừa khít biểu đồ)
+    const sensorSnap = await get(query(ref(db, "sensors/history")));
+    if (sensorSnap.exists()) {
+      const data = sensorSnap.val();
+      const keys = Object.keys(data).sort();
+      if (keys.length > 250) {
+        const toRemove = keys.slice(0, keys.length - 250);
+        toRemove.forEach(k => { updates["sensors/history/" + k] = null; });
+        needsUpdate = true;
+      }
+    }
+
+    // 2. Nhật ký thao tác: Giữ tối đa 200 bản ghi mới nhất cho mỗi loại (đủ xem vết 1-2 tháng)
+    const logNodes = ["logs/web", "logs/voice", "logs/auto", "logs/door"];
+    for (const node of logNodes) {
+      const logSnap = await get(query(ref(db, node)));
+      if (logSnap.exists()) {
+        const data = logSnap.val();
+        const keys = Object.keys(data).sort();
+        if (keys.length > 220) {
+          const toRemove = keys.slice(0, keys.length - 200);
+          toRemove.forEach(k => { updates[node + "/" + k] = null; });
+          needsUpdate = true;
+        }
+      }
+    }
+
+    if (needsUpdate) {
+      await update(ref(db), updates);
+      console.log("[Auto-Prune] Đã tự động dọn dẹp các bản ghi cũ thành công.");
+    }
+    localStorage.setItem("last_auto_prune_ts", String(now));
+  } catch (err) {
+    console.warn("[Auto-Prune] Bỏ qua lượt dọn dẹp:", err);
+  }
+}
+
 onAuthStateChanged(auth, user => {
   currentUser = user;
   $("login").classList.toggle("hidden", !!user);
@@ -2110,11 +2158,15 @@ onAuthStateChanged(auth, user => {
     checkUserDeviceLink(user);
     loadUserProfile(user);
     updateSecuritySection(user);
+    triggerAutoRollingCleanup();
   } else {
     started = false;
     isUserPaired = false;
   }
 });
+
+// Định kỳ kiểm tra dọn dẹp mỗi 4 tiếng nếu trang web được mở liên tục
+setInterval(triggerAutoRollingCleanup, 4 * 3600 * 1000);
 
 // ---- Điều khiển ----
 document.querySelectorAll("[data-dev]").forEach(btn => {
