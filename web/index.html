@@ -11,17 +11,30 @@
 <script>
   try {
     document.documentElement.dataset.theme = localStorage.getItem("smart-home-theme") || "system";
+    const savedFs = localStorage.getItem("smart-home-font-size") || "14";
+    const zoomFactor = (parseInt(savedFs, 10) / 14).toFixed(3);
+    document.documentElement.style.setProperty("--app-zoom", zoomFactor);
+    document.documentElement.style.setProperty("--base-font-size", savedFs + "px");
+    document.documentElement.style.setProperty("--font-scale", zoomFactor);
+    document.documentElement.style.fontSize = savedFs + "px";
   } catch (error) {
     console.warn("Không thể đọc tùy chọn giao diện:", error);
     document.documentElement.dataset.theme = "system";
   }
 </script>
 <style>
-:root{color-scheme:dark;--bg:#07111f;--panel:#0d1b2d;--panel-raised:#11243a;--ink:#eef6ff;--mute:#8ea5bd;--line:rgba(151,187,222,.15);--accent:#37b8ff;--accent-2:#42e2de;--on:#39c9e9;--bad:#ff7e83;--good:#5ce0b2;--shadow:0 20px 60px rgba(0,0,0,.22);--chart-grid:rgba(174,202,232,.1);--chart-ink:#9bb1c9;--ambient:rgba(22,102,154,.16);--glass-tint:rgba(151,187,222,.05);--switch-off:#526174;--knob:#fff;--knob-shadow:rgba(0,0,0,.27);--overlay:rgba(2,9,18,.65);--accent-glow:rgba(55,184,255,.45);--gold:#ffd76a;--gold-glow:rgba(255,215,106,.7);--primary-ink:#041523;--brand-start:rgba(55,184,255,.22);--brand-end:rgba(66,226,222,.1);--nav-active:rgba(55,184,255,.12)}
+:root{
+  color-scheme:dark;
+  --base-font-size:14px;
+  --app-zoom:1;
+  --font-scale:1;
+  --bg:#07111f;--panel:#0d1b2d;--panel-raised:#11243a;--ink:#eef6ff;--mute:#8ea5bd;--line:rgba(151,187,222,.15);--accent:#37b8ff;--accent-2:#42e2de;--on:#39c9e9;--bad:#ff7e83;--good:#5ce0b2;--shadow:0 20px 60px rgba(0,0,0,.22);--chart-grid:rgba(174,202,232,.1);--chart-ink:#9bb1c9;--ambient:rgba(22,102,154,.16);--glass-tint:rgba(151,187,222,.05);--switch-off:#526174;--knob:#fff;--knob-shadow:rgba(0,0,0,.27);--overlay:rgba(2,9,18,.65);--accent-glow:rgba(55,184,255,.45);--gold:#ffd76a;--gold-glow:rgba(255,215,106,.7);--primary-ink:#041523;--brand-start:rgba(55,184,255,.22);--brand-end:rgba(66,226,222,.1);--nav-active:rgba(55,184,255,.12)
+}
 :root[data-theme="light"]{color-scheme:light;--bg:#eaf2fa;--panel:rgba(255,255,255,.78);--panel-raised:#f7fbff;--ink:#152c45;--mute:#58718b;--line:rgba(54,103,149,.18);--accent:#137fc2;--accent-2:#08a9ac;--on:#1eabd1;--bad:#c64759;--good:#168f70;--shadow:0 18px 48px rgba(43,82,121,.12);--chart-grid:rgba(44,86,128,.12);--chart-ink:#58718b;--ambient:rgba(45,123,183,.1);--glass-tint:rgba(255,255,255,.28);--switch-off:#9eacba;--knob:#fff;--knob-shadow:rgba(18,45,72,.2);--overlay:rgba(16,39,64,.48);--accent-glow:rgba(19,127,194,.35);--gold:#bd7b00;--gold-glow:rgba(189,123,0,.4);--primary-ink:#06263a;--brand-start:rgba(19,127,194,.18);--brand-end:rgba(8,169,172,.1);--nav-active:rgba(19,127,194,.1)}
 @media(prefers-color-scheme:light){:root[data-theme="system"]{color-scheme:light;--bg:#eaf2fa;--panel:rgba(255,255,255,.78);--panel-raised:#f7fbff;--ink:#152c45;--mute:#58718b;--line:rgba(54,103,149,.18);--accent:#137fc2;--accent-2:#08a9ac;--on:#1eabd1;--bad:#c64759;--good:#168f70;--shadow:0 18px 48px rgba(43,82,121,.12);--chart-grid:rgba(44,86,128,.12);--chart-ink:#58718b;--ambient:rgba(45,123,183,.1);--glass-tint:rgba(255,255,255,.28);--switch-off:#9eacba;--knob:#fff;--knob-shadow:rgba(18,45,72,.2);--overlay:rgba(16,39,64,.48);--accent-glow:rgba(19,127,194,.35);--gold:#bd7b00;--gold-glow:rgba(189,123,0,.4);--primary-ink:#06263a;--brand-start:rgba(19,127,194,.18);--brand-end:rgba(8,169,172,.1);--nav-active:rgba(19,127,194,.1)}}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 72% 0%,var(--ambient),transparent 42%),var(--bg);color:var(--ink);font:400 14px/1.55 "Be Vietnam Pro",system-ui,sans-serif;transition:background-color .25s,color .25s}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 72% 0%,var(--ambient),transparent 42%),var(--bg);color:var(--ink);font:400 var(--base-font-size, 14px)/1.55 "Be Vietnam Pro",system-ui,sans-serif;transition:background-color .25s,color .25s}
+#app, .modal-backdrop, #toastRoot{zoom:var(--app-zoom, 1)}
 button,input,select{font:inherit}
 button{cursor:pointer;color:var(--ink);border:1px solid var(--line);background:var(--panel-raised);border-radius:12px;padding:9px 14px;transition:transform .18s,border-color .18s,background .18s}
 button:hover{border-color:var(--accent);transform:translateY(-1px)}
@@ -164,6 +177,15 @@ p{margin:8px 0}
 .door-unlocked{opacity:0}
 .dev[data-device="door"].is-on .door-locked{opacity:0}
 .dev[data-device="door"].is-on .door-unlocked{opacity:1}
+.dev[data-device="voice"] .device-icon{position:relative;transition:all .35s cubic-bezier(.34,1.56,.64,1)}
+.dev[data-device="voice"].is-on .device-icon{color:#fff;background:linear-gradient(135deg,var(--on),var(--accent));box-shadow:0 0 16px var(--accent-glow);animation:mic-listening-pulse 2s infinite ease-in-out}
+.dev[data-device="voice"].is-on .device-icon svg{stroke:#fff;stroke-width:2.2;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));animation:mic-wave-breathe 1.8s ease-in-out infinite}
+.dev[data-device="voice"].is-on .device-icon::after{content:"";position:absolute;inset:-5px;border-radius:15px;border:1.5px solid var(--on);animation:mic-ring-ripple 2s infinite cubic-bezier(.2,.8,.4,1);pointer-events:none}
+@keyframes mic-listening-pulse{0%,100%{transform:scale(1);box-shadow:0 0 10px rgba(57,201,233,.5)}50%{transform:scale(1.08);box-shadow:0 0 22px rgba(57,201,233,.85)}}
+@keyframes mic-wave-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+@keyframes mic-ring-ripple{0%{opacity:.9;transform:scale(.95)}70%{opacity:0;transform:scale(1.4)}100%{opacity:0;transform:scale(1.45)}}
+.live-mic-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:5px;vertical-align:middle;box-shadow:0 0 8px var(--good);animation:mic-dot-blink 1.2s infinite ease-in-out}
+@keyframes mic-dot-blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
 .card-click{cursor:pointer}
 .wide{grid-column:1/-1}
 ul{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto}
@@ -193,10 +215,27 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
 .small-button{padding:7px 10px;font-size:12px}
 .switch-line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
 .switch-line input[type="checkbox"]{accent-color:var(--accent);width:20px;height:20px}
-.settings-section{margin:14px 0 24px}
+.settings-section{margin:14px 0 20px}
 .settings-options{display:flex;flex-wrap:wrap;gap:10px}
 .settings-options label{display:flex;gap:7px;align-items:center;margin:0;padding:10px 13px;border:1px solid var(--line);border-radius:12px;color:var(--ink);cursor:pointer}
 .settings-options input{width:auto}
+/* Settings Modern Collapsible Accordions */
+.settings-accordion{margin-top:14px;border:1px solid var(--line);border-radius:18px;background:var(--panel);overflow:hidden;transition:border-color .2s ease,box-shadow .2s ease}
+.settings-accordion:hover{border-color:rgba(55,184,255,.3)}
+.settings-accordion[open]{border-color:var(--accent);box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.settings-accordion summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;cursor:pointer;user-select:none;list-style:none;background:var(--panel);transition:background .2s}
+.settings-accordion summary::-webkit-details-marker{display:none}
+.settings-accordion summary:hover{background:var(--panel-raised)}
+.settings-accordion-title-wrap{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.settings-accordion-icon{width:38px;height:38px;border-radius:12px;background:rgba(55,184,255,.1);border:1px solid rgba(55,184,255,.2);color:var(--accent);display:grid;place-items:center;flex-shrink:0}
+.settings-accordion-icon svg{width:18px;height:18px}
+.settings-accordion-texts{min-width:0}
+.settings-accordion-texts h3{font-size:14px;font-weight:700;margin:0 0 2px;color:var(--ink);letter-spacing:-.2px}
+.settings-accordion-texts p{font-size:11.5px;color:var(--mute);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.settings-accordion-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.settings-accordion-chevron{width:18px;height:18px;color:var(--mute);transition:transform .25s ease}
+.settings-accordion[open] .settings-accordion-chevron{transform:rotate(180deg);color:var(--accent)}
+.settings-accordion-body{padding:20px;border-top:1px solid var(--line);background:var(--panel-raised)}
 .modal-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:var(--overlay);backdrop-filter:blur(8px)}
 .modal{width:min(760px,100%);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow)}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
@@ -277,7 +316,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
         <div class="auth-input-wrap">
           <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <input id="pass" type="password" placeholder="Nhập mật khẩu" autocomplete="current-password" required>
-          <button type="button" class="auth-toggle-pwd" id="toggleLoginPass" aria-label="Hiện mật khẩu">👁</button>
+          <button type="button" class="auth-toggle-pwd" id="toggleLoginPass" aria-label="Hiện mật khẩu"></button>
         </div>
       </div>
 
@@ -302,7 +341,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
         <div class="auth-input-wrap">
           <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <input id="regPass" type="password" placeholder="Tạo mật khẩu an toàn" autocomplete="new-password" minlength="6" required>
-          <button type="button" class="auth-toggle-pwd" id="toggleRegPass" aria-label="Hiện mật khẩu">👁</button>
+          <button type="button" class="auth-toggle-pwd" id="toggleRegPass" aria-label="Hiện mật khẩu"></button>
         </div>
       </div>
 
@@ -345,7 +384,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
 <div id="app" class="hidden">
   <header class="app-header">
     <div class="brand"><span class="brand-mark" aria-hidden="true">⌂</span><div><h1>Nhà thông minh</h1><span class="meta">Không gian sống kết nối</span></div></div>
-    <div class="header-right"><div class="greeting"><strong id="greeting">Chào buổi tối! 🌙</strong><span id="greetingSub">Đang cập nhật cảm biến...</span></div><div class="connection" id="connectionBadge"><span class="status-dot" aria-hidden="true"></span><span class="meta" id="dbStatus">Đang kết nối Firebase...</span></div><span class="meta" id="who"></span><button id="btnOut" aria-label="Đăng xuất">↗</button></div>
+    <div class="header-right"><div class="greeting"><strong id="greeting">Chào buổi tối!</strong><span id="greetingSub">Đang cập nhật cảm biến...</span></div><div class="connection" id="connectionBadge"><span class="status-dot" aria-hidden="true"></span><span class="meta" id="dbStatus">Đang kết nối Firebase...</span></div><span class="meta" id="who"></span><button id="btnOut" aria-label="Đăng xuất">↗</button></div>
   </header>
   <div class="workspace">
     <nav class="sidebar" aria-label="Điều hướng chính">
@@ -357,31 +396,37 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
       <!-- Banner đỏ cảnh báo chưa hoàn tất thông tin cá nhân (hiển thị trên tất cả các tab) -->
       <div id="profileWarningBanner" class="profile-warning-banner hidden">
         <div class="warning-content">
-          <span class="warning-icon">⚠️</span>
+          <span class="warning-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ff4d4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;display:block;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </span>
           <div>
             <strong>Vui lòng cập nhật thông tin hồ sơ:</strong>
             <span>Hồ sơ cá nhân (Họ tên, Số điện thoại, Ngày sinh...) của bạn chưa hoàn tất. Vui lòng cập nhật để Chủ nhà kiểm soát và quản lý quyền sử dụng.</span>
           </div>
         </div>
-        <button type="button" id="btnGoToProfile" class="warning-btn">Cập nhật ngay ➔</button>
+        <button type="button" id="btnGoToProfile" class="warning-btn">Cập nhật ngay →</button>
       </div>
 
       <!-- Banner khẩn cấp khi bàn phím nhập sai 4 lần bị khóa cứng -->
       <div id="keypadLockBanner" class="keypad-lock-banner hidden">
         <div class="lock-banner-content">
-          <span class="lock-banner-icon" aria-hidden="true">🚨</span>
+          <span class="lock-banner-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;display:block;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </span>
           <div>
             <strong>CẢNH BÁO AN NINH: BÀN PHÍM CỬA ĐÃ BỊ KHÓA CỨNG!</strong>
             <span>Đã nhập sai mật khẩu 4 lần liên tiếp tại cửa. Bàn phím bên ngoài đã bị vô hiệu hóa hoàn toàn để ngăn chặn kẻ gian. Nhấn nút bên cạnh để mở khóa bàn phím.</span>
           </div>
         </div>
-        <button type="button" id="btnUnlockKeypad" class="btn-unlock-keypad">🔓 Mở khóa bàn phím</button>
+        <button type="button" id="btnUnlockKeypad" class="btn-unlock-keypad">Mở khóa bàn phím</button>
       </div>
 
       <!-- Màn hình yêu cầu liên kết thiết bị cho tài khoản mới (Khóa toàn bộ chức năng) -->
       <section class="view hidden" id="deviceUnlinkedView">
         <div class="unlinked-card">
-          <div class="unlinked-icon-box">🔐</div>
+          <div class="unlinked-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:34px;height:34px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
           <h2>Tài khoản chưa liên kết ngôi nhà</h2>
           <p>
             Chào mừng bạn đến với hệ thống Smart Home! Bạn chưa được kết nối với thiết bị ESP32 nào.<br>
@@ -399,7 +444,9 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
         <!-- Banner thông báo liên kết thiết bị cho tài khoản mới -->
         <div id="devicePairingBanner" class="device-pairing-banner hidden">
           <div class="pairing-info">
-            <span class="pairing-icon">⚡</span>
+            <span class="pairing-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;display:block;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </span>
             <div>
               <strong style="display:block;font-size:13.5px;color:var(--ink);">Chưa liên kết thiết bị gia đình</strong>
               <span class="meta" style="margin:2px 0 0;font-size:12px;display:block;">Nhập mã thiết bị hoặc mã chia sẻ từ chủ nhà để đồng bộ điều khiển.</span>
@@ -468,15 +515,58 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               <button type="button" class="activity-filter" data-activity-filter="web">Web</button>
             </div>
             <ul id="logs"><li class="empty">Chưa có lịch sử thao tác</li></ul>
-            <div id="logsPagination" style="margin-top:14px;text-align:center;">
-              <button type="button" id="btnOpenExpandedHistory" class="secondary" style="padding:9px 20px;border-radius:10px;font-size:0.875rem;cursor:pointer;background:var(--card-hover, rgba(255,255,255,0.06));border:1px solid var(--border-color, rgba(255,255,255,0.18));color:inherit;font-weight:600;display:inline-flex;align-items:center;gap:8px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-                <span id="btnExpandText">Xem toàn bộ lịch sử (phóng to) ↗</span>
-              </button>
-            </div>
-            <p class="meta" id="appHistoryNote">Lịch sử được đồng bộ thời gian thực từ ESP32 và Web qua Firebase.</p>
+            <p class="meta" id="appHistoryNote" style="margin-top:12px;">Lịch sử được đồng bộ thời gian thực từ ESP32 và Web qua Firebase.</p>
           </section>
-          <section class="card"><h2>Tự động hóa ESP32</h2><p class="meta" id="firmwareAutomationSummary">Đang tải cấu hình từ thiết bị</p><button type="button" data-go-page="automation">Cấu hình tự động hóa →</button></section>
+          <section class="card" id="firmwareAutoCard">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+              <h2 style="margin:0;">Tự động hóa ESP32</h2>
+              <span id="quickAutoMasterBadge" class="mock-label" style="background:rgba(57,201,233,.12);color:var(--on);border:1px solid rgba(57,201,233,.3);font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;">● Sẵn sàng</span>
+            </div>
+            
+            <div class="auto-quick-grid" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px;margin-bottom:12px;">
+              <div class="auto-item-box" style="background:var(--panel-raised, rgba(255,255,255,.04));border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;">
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;color:var(--accent);flex-shrink:0;"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+                  <span style="font-weight:600;color:var(--ink);">Quạt phòng</span>
+                </div>
+                <div id="quickAutoFan" style="font-size:12px;font-weight:600;color:var(--on);">Bật khi ≥ 30°C</div>
+                <span class="meta" style="font-size:11px;">Khi có người</span>
+              </div>
+
+              <div class="auto-item-box" style="background:var(--panel-raised, rgba(255,255,255,.04));border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;">
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;color:var(--accent);flex-shrink:0;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  <span style="font-weight:600;color:var(--ink);">Vắng nhà</span>
+                </div>
+                <div id="quickAutoAbsent" style="font-size:12px;font-weight:600;color:var(--on);">Tắt sau 15p</div>
+                <span class="meta" style="font-size:11px;">Tự ngắt đèn &amp; quạt</span>
+              </div>
+
+              <div class="auto-item-box" style="background:var(--panel-raised, rgba(255,255,255,.04));border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;">
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;color:var(--accent);flex-shrink:0;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  <span style="font-weight:600;color:var(--ink);">Đèn sân vườn</span>
+                </div>
+                <div id="quickAutoGarden" style="font-size:12px;font-weight:600;color:var(--on);">Cảm biến LDR</div>
+                <span class="meta" style="font-size:11px;">Tự bật khi trời tối</span>
+              </div>
+
+              <div class="auto-item-box" style="background:var(--panel-raised, rgba(255,255,255,.04));border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;">
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;color:var(--accent);flex-shrink:0;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                  <span style="font-weight:600;color:var(--ink);">Giọng nói &amp; LED</span>
+                </div>
+                <div id="quickAutoVoice" style="font-size:12px;font-weight:600;color:var(--on);">Radar mmWave</div>
+                <span class="meta" style="font-size:11px;">Bật khi có người</span>
+              </div>
+            </div>
+
+            <p class="meta" id="firmwareAutomationSummary" style="margin-bottom:12px;font-size:11.5px;line-height:1.4;">Đang tải cấu hình từ thiết bị…</p>
+            
+            <button type="button" class="secondary" data-go-page="automation" style="width:100%;display:flex;justify-content:center;align-items:center;gap:6px;font-weight:600;padding:9px;border-radius:10px;">
+              <span>Cấu hình tự động hóa chi tiết →</span>
+            </button>
+          </section>
           <section class="card wide">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
               <h2 style="margin:0;">Thống kê từ khóa giọng nói trong 24 giờ qua</h2>
@@ -526,83 +616,18 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
         </details>
       </section>
       <section class="view" id="settingsView" data-view="settings">
-        <div class="page-title"><div><h2>Cài đặt</h2><p>Tùy chỉnh giao diện và trải nghiệm</p></div></div>
-        <section class="card" id="cardThemeSettings">
-          <div class="settings-section"><h2>Giao diện</h2><div class="settings-options" role="radiogroup" aria-label="Chọn giao diện"><label><input type="radio" name="theme" value="light"> Sáng</label><label><input type="radio" name="theme" value="dark"> Tối</label><label><input type="radio" name="theme" value="system"> Theo hệ thống</label></div></div>
-          <div class="settings-section"><h2>Màu nhấn</h2><div class="settings-options"><label><input type="radio" name="accent" value="blue" checked> Xanh dương</label><label><input type="radio" name="accent" value="purple"> Tím</label><label><input type="radio" name="accent" value="green"> Xanh lá</label></div></div>
-          <div class="settings-section"><label class="switch-line"><span>Tắt hiệu ứng chuyển động</span><input type="checkbox" id="reduceAnimations"></label></div>
-          <div class="settings-section"><label for="fontSize">Cỡ chữ</label><select id="fontSize"><option value="14">Tiêu chuẩn</option><option value="16">Lớn</option><option value="18">Rất lớn</option></select></div>
-        </section>
-
-        <!-- Thẻ Thông tin cá nhân (User Profile) -->
-        <section class="card" id="cardUserProfileSettings" style="margin-top:16px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-            <div>
-              <h2 style="margin:0 0 4px;">Thông tin cá nhân</h2>
-              <p class="meta" style="margin:0;">Quản lý hồ sơ, họ tên, số điện thoại và thông tin liên hệ của bạn</p>
-            </div>
-            <span id="profileProviderBadge" class="mock-label" style="font-weight:600;">Đang tải...</span>
+        <div class="page-title">
+          <div>
+            <h2>Cài đặt</h2>
+            <p>Tùy chỉnh giao diện, thông tin cá nhân và quản trị hệ thống</p>
           </div>
-          <form id="formUserProfile" onsubmit="return false;" style="display:grid;gap:14px;max-width:560px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-              <div>
-                <label for="profileName" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Họ và tên</label>
-                <div class="auth-input-wrap">
-                  <input type="text" id="profileName" placeholder="Nhập họ và tên của bạn" required>
-                </div>
-              </div>
-              <div>
-                <label for="profilePhone" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Số điện thoại</label>
-                <div class="auth-input-wrap">
-                  <input type="tel" id="profilePhone" placeholder="Ví dụ: 0912345678" maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label for="profileEmail" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Email tài khoản</label>
-              <div class="auth-input-wrap" style="opacity:0.85;">
-                <input type="email" id="profileEmail" disabled style="cursor:not-allowed;background:rgba(255,255,255,0.03);">
-              </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-              <div>
-                <label for="profileDob" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Ngày sinh</label>
-                <div class="auth-input-wrap">
-                  <input type="date" id="profileDob" style="color:var(--ink);">
-                </div>
-              </div>
-              <div>
-                <label for="profileGender" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Giới tính</label>
-                <div class="auth-input-wrap">
-                  <select id="profileGender" style="width:100%;height:44px;background:var(--panel-raised);border:1px solid var(--line);border-radius:12px;padding:0 14px;color:var(--ink);font-size:13px;">
-                    <option value="">-- Chọn giới tính --</option>
-                    <option value="male">Nam</option>
-                    <option value="female">Nữ</option>
-                    <option value="other">Khác</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label for="profileAddress" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Địa chỉ</label>
-              <div class="auth-input-wrap">
-                <input type="text" id="profileAddress" placeholder="Địa chỉ nơi ở hoặc ghi chú">
-              </div>
-            </div>
-
-            <div id="profileStatusMsg" class="meta" style="font-size:12.5px;min-height:18px;"></div>
-            <div style="display:flex;gap:10px;align-items:center;">
-              <button type="submit" class="primary" id="btnSaveProfile" style="padding:9px 22px;border-radius:12px;font-weight:600;">Lưu thay đổi thông tin</button>
-            </div>
-          </form>
-        </section>
+        </div>
 
         <!-- Khối thông báo chưa liên kết trong Cài đặt (chỉ hiện khi chưa liên kết) -->
-        <section class="card hidden" id="settingsUnlinkedNotice" style="margin-top:16px;border:1px dashed var(--accent);background:rgba(55,184,255,0.05);padding:24px;text-align:center;">
-          <div style="font-size:32px;margin-bottom:8px;">🔐</div>
+        <section class="card hidden" id="settingsUnlinkedNotice" style="margin-top:14px;border:1px dashed var(--accent);background:rgba(55,184,255,0.05);padding:22px;text-align:center;">
+          <div style="display:inline-grid;place-items:center;width:48px;height:48px;border-radius:14px;background:rgba(55,184,255,.12);color:var(--accent);margin:0 auto 10px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
           <h3 style="margin:0 0 6px;font-size:16px;color:var(--ink);">Chưa liên kết thiết bị ngôi nhà</h3>
           <p class="meta" style="max-width:520px;margin:0 auto 16px;font-size:13px;line-height:1.5;">
             Các cài đặt mở rộng (Giao diện hệ thống, Mật khẩu Keypad, Quản trị ngôi nhà) sẽ khả dụng sau khi bạn liên kết với ngôi nhà thông qua Mã mời 1 lần từ Chủ nhà.
@@ -610,144 +635,338 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
           <button type="button" class="primary" id="btnSettingsPairNow" style="padding:9px 20px;font-size:13px;font-weight:600;border-radius:12px;">＋ Nhập mã liên kết thiết bị ngay</button>
         </section>
 
-        <section class="card" id="cardKeypadSettings" style="margin-top:16px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <div>
-              <h2 style="margin:0 0 4px;">Mật khẩu mở cửa (Keypad)</h2>
-              <p class="meta" style="margin:0;">Mã số 4–8 chữ số dùng trên bàn phím số ESP32</p>
-            </div>
-            <button type="button" class="primary" id="btnOpenAddPasscode" style="padding:8px 14px;border-radius:12px;font-size:13px;font-weight:600;">＋ Thêm mật khẩu</button>
-          </div>
-          <div id="passcodeList" class="passcode-list">
-            <p class="meta">Đang tải danh sách mật khẩu...</p>
-          </div>
-          <p class="meta" style="margin-top:12px;font-size:12px;">Mật khẩu được lưu trữ an toàn bằng hàm băm SHA-256 trong bộ nhớ NVS của ESP32.</p>
-        </section>
-        <section class="card" id="cardHomeAdminSettings" style="margin-top:16px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-            <div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <h2 style="margin:0;">Liên kết thiết bị &amp; Quản trị ngôi nhà</h2>
-                <span id="userRoleBadge" class="mock-label" style="background:linear-gradient(135deg,rgba(55,184,255,.2),rgba(66,226,222,.1));color:var(--accent);font-weight:700;">Đang tải...</span>
-              </div>
-              <p class="meta" style="margin:2px 0 0;">Quản lý quyền truy cập và mã chia sẻ kết nối cho thành viên gia đình</p>
-            </div>
-            <button type="button" class="primary" id="btnOpenPairModal" style="padding:8px 14px;border-radius:12px;font-size:13px;font-weight:600;">＋ Liên kết thiết bị</button>
-          </div>
-
-          <!-- Khu vực tạo mã mời 1 lần chỉ dành cho Master -->
-          <div id="masterShareSection" style="padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel-raised);margin-bottom:14px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-              <div>
-                <b style="font-size:14px;display:block;">Tạo mã mời thành viên mới (Mã dùng 1 lần)</b>
-                <span class="meta" style="font-size:12px;margin:2px 0 0;display:block;">Mỗi lần bấm sẽ tạo một mã ngẫu nhiên duy nhất, tự hủy ngay sau khi 1 tài khoản sử dụng.</span>
-              </div>
-              <button type="button" class="primary" id="btnGenInviteCode" style="padding:7px 16px;border-radius:10px;font-size:12px;">⚡ Tạo mã mời mới</button>
-            </div>
-            <div id="activeInviteCodeWrap" class="hidden" style="margin-top:12px;padding:12px 14px;background:rgba(55,184,255,.1);border:1px dashed var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-              <div>
-                <span style="font-size:11px;color:var(--mute);display:block;">Mã mời vừa tạo (cung cấp mã này cho người cần liên kết):</span>
-                <strong id="displayActiveInviteCode" style="font-size:17px;letter-spacing:1.5px;color:var(--accent);font-family:monospace;">------</strong>
-              </div>
-              <button type="button" id="btnCopyInviteCode" class="small-button">Sao chép mã</button>
-            </div>
-          </div>
-
-          <!-- Danh sách thành viên đã liên kết ngôi nhà (Chỉ hiển thị cho Master) -->
-          <div id="masterMembersSection" style="margin-top:14px;border:1px solid var(--line);border-radius:16px;background:var(--panel-raised);padding:16px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-              <div>
-                <b style="font-size:14px;display:block;">Thành viên gia đình đã liên kết</b>
-                <span class="meta" style="font-size:12px;margin:2px 0 0;display:block;">Danh sách các tài khoản đang có quyền truy cập ngôi nhà của bạn.</span>
-              </div>
-              <span id="memberCountBadge" class="mock-label" style="font-weight:700;">0 thành viên</span>
-            </div>
-            <div id="sharedMembersList" style="display:grid;gap:10px;">
-              <p class="meta" style="font-size:12px;margin:8px 0;">Chưa có thành viên nào liên kết qua mã mời.</p>
-            </div>
-          </div>
-
-          <div style="padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel-raised);display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;">
-            <div>
-              <b style="font-size:13.5px;display:block;">Mã định danh mô hình (Home ID)</b>
-              <span class="meta" style="font-size:12px;margin:2px 0 0;display:block;" id="currentHomeCodeDisplay">HOME-2026-ESP32</span>
-            </div>
-            <span class="mock-label">Hệ thống ESP32</span>
-          </div>
-          <p class="meta" style="margin-top:12px;font-size:12px;">Bảo mật: Chỉ tài khoản Master (xhai2005@gmail.com) mới có quyền tạo mã mời và quản lý phân quyền thành viên.</p>
-        </section>
-
-        <!-- Thẻ Bảo mật & Mật khẩu tài khoản -->
-        <section class="card" id="cardSecuritySettings" style="margin-top:16px;">
-          <div style="margin-bottom:14px;">
-            <h2 style="margin:0 0 4px;">Bảo mật &amp; Mật khẩu tài khoản</h2>
-            <p class="meta" style="margin:0;" id="authSecuritySubtitle">Quản lý phương thức xác thực và mật khẩu đăng nhập của bạn.</p>
-          </div>
-
-          <!-- Trạng thái 1: Tài khoản đăng nhập qua Google (Chưa tạo mật khẩu riêng) -->
-          <div id="googleAccountSecurityWrap" class="hidden" style="padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel-raised);">
-            <div style="display:flex;align-items:flex-start;gap:14px;">
-              <div style="width:40px;height:40px;border-radius:12px;background:white;display:grid;place-items:center;flex-shrink:0;">
-                <svg viewBox="0 0 24 24" style="width:22px;height:22px;">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        <!-- Thẻ 1: Giao diện & Hiển thị -->
+        <details class="settings-accordion" id="accThemeSettings" open>
+          <summary>
+            <div class="settings-accordion-title-wrap">
+              <div class="settings-accordion-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="5"/>
+                  <line x1="12" y1="1" x2="12" y2="3"/>
+                  <line x1="12" y1="21" x2="12" y2="23"/>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                  <line x1="1" y1="12" x2="3" y2="12"/>
+                  <line x1="21" y1="12" x2="23" y2="12"/>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
                 </svg>
               </div>
-              <div style="flex:1;">
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                  <b style="font-size:14.5px;">Đăng nhập qua Google (google.com)</b>
-                  <span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">✓ Đã bảo vệ</span>
-                </div>
-                <p class="meta" style="font-size:12.5px;margin:6px 0 10px;line-height:1.5;">
-                  Tài khoản của bạn được liên kết và chứng thực trực tiếp qua tài khoản Google. Bạn không có mật khẩu riêng trên hệ thống này nên không cần đổi mật khẩu tại đây.
-                </p>
-                <div style="padding:12px;background:rgba(55,184,255,0.08);border:1px dashed var(--accent);border-radius:12px;margin-bottom:12px;">
-                  <strong style="display:block;font-size:12.5px;color:var(--accent);">Bạn muốn đăng nhập thủ công bằng Email &amp; Mật khẩu?</strong>
-                  <span class="meta" style="display:block;font-size:11.5px;margin-top:3px;">
-                    Nhấn nút bên dưới để nhận email thiết lập mật khẩu. Sau khi đặt mật khẩu, bạn có thể vừa đăng nhập bằng Google, vừa dùng email &amp; mật khẩu đó đăng nhập bình thường!
-                  </span>
-                </div>
-                <button type="button" class="primary" id="btnSendGoogleResetPass" style="padding:8px 16px;border-radius:10px;font-size:12.5px;">
-                  🔑 Gửi email thiết lập mật khẩu đăng nhập thủ công
-                </button>
-                <div id="googleResetMsg" class="meta" style="font-size:12px;margin-top:8px;"></div>
+              <div class="settings-accordion-texts">
+                <h3>Giao diện &amp; Trải nghiệm</h3>
+                <p>Chế độ sáng tối, màu nhấn, cỡ chữ và hiệu ứng chuyển động</p>
               </div>
             </div>
+            <div class="settings-accordion-right">
+              <span class="mock-label" id="badgeThemeSummary">Tùy chỉnh</span>
+              <svg class="settings-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </summary>
+          <div class="settings-accordion-body" id="cardThemeSettings">
+            <div class="settings-section" style="margin-top:0;">
+              <h2>Giao diện</h2>
+              <div class="settings-options" role="radiogroup" aria-label="Chọn giao diện">
+                <label><input type="radio" name="theme" value="light"> Sáng</label>
+                <label><input type="radio" name="theme" value="dark"> Tối</label>
+                <label><input type="radio" name="theme" value="system"> Theo hệ thống</label>
+              </div>
+            </div>
+            <div class="settings-section">
+              <h2>Màu nhấn</h2>
+              <div class="settings-options">
+                <label><input type="radio" name="accent" value="blue" checked> Xanh dương</label>
+                <label><input type="radio" name="accent" value="purple"> Tím</label>
+                <label><input type="radio" name="accent" value="green"> Xanh lá</label>
+              </div>
+            </div>
+            <div class="settings-section">
+              <label class="switch-line">
+                <span>Tắt hiệu ứng chuyển động</span>
+                <input type="checkbox" id="reduceAnimations">
+              </label>
+            </div>
+            <div class="settings-section" style="margin-bottom:0;">
+              <label for="fontSize" style="font-weight:600;display:block;margin-bottom:8px;">Cỡ chữ toàn hệ thống</label>
+              <select id="fontSize" style="width:100%;max-width:320px;height:42px;border-radius:12px;background:var(--panel);border:1px solid var(--line);padding:0 14px;color:var(--ink);font-size:13.5px;">
+                <option value="14">Tiêu chuẩn (14px)</option>
+                <option value="16">Lớn (16px)</option>
+                <option value="18">Rất lớn (18px)</option>
+              </select>
+              <p class="meta" style="margin-top:6px;font-size:12px;">Tự động phóng to thu nhỏ toàn bộ giao diện, cỡ chữ và các thẻ hiển thị.</p>
+            </div>
           </div>
+        </details>
 
-          <!-- Trạng thái 2: Form đổi mật khẩu cho tài khoản có Mật khẩu (Email/Password) -->
-          <div id="passwordAccountSecurityWrap">
-            <form id="formChangePassword" onsubmit="return false;" style="display:grid;gap:12px;max-width:480px;">
-              <div>
-                <label for="oldPassword" style="margin:0 0 4px;">Mật khẩu hiện tại</label>
-                <div class="auth-input-wrap">
-                  <input type="password" id="oldPassword" placeholder="Nhập mật khẩu đang dùng" autocomplete="current-password" required>
-                  <button type="button" class="auth-toggle-pwd" id="toggleOldPass" aria-label="Hiện mật khẩu">👁</button>
+        <!-- Thẻ 2: Thông tin cá nhân (User Profile) -->
+        <details class="settings-accordion" id="accUserProfile">
+          <summary>
+            <div class="settings-accordion-title-wrap">
+              <div class="settings-accordion-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div class="settings-accordion-texts">
+                <h3>Thông tin cá nhân</h3>
+                <p>Họ tên, số điện thoại, ngày sinh và địa chỉ liên hệ</p>
+              </div>
+            </div>
+            <div class="settings-accordion-right">
+              <span id="profileProviderBadge" class="mock-label" style="font-weight:600;">Đang tải...</span>
+              <svg class="settings-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </summary>
+          <div class="settings-accordion-body" id="cardUserProfileSettings">
+            <div style="margin-bottom:14px;">
+              <p class="meta" style="margin:0;">Quản lý hồ sơ, họ tên, số điện thoại và thông tin liên hệ của bạn để Chủ nhà nhận biết</p>
+            </div>
+            <form id="formUserProfile" onsubmit="return false;" style="display:grid;gap:14px;max-width:560px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label for="profileName" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Họ và tên</label>
+                  <div class="auth-input-wrap">
+                    <input type="text" id="profileName" placeholder="Nhập họ và tên của bạn" required>
+                  </div>
+                </div>
+                <div>
+                  <label for="profilePhone" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Số điện thoại</label>
+                  <div class="auth-input-wrap">
+                    <input type="tel" id="profilePhone" placeholder="Ví dụ: 0912345678" maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                  </div>
                 </div>
               </div>
+
               <div>
-                <label for="newPassword" style="margin:0 0 4px;">Mật khẩu mới (tối thiểu 6 ký tự)</label>
-                <div class="auth-input-wrap">
-                  <input type="password" id="newPassword" placeholder="Nhập mật khẩu mới" autocomplete="new-password" minlength="6" required>
-                  <button type="button" class="auth-toggle-pwd" id="toggleNewPass" aria-label="Hiện mật khẩu">👁</button>
+                <label for="profileEmail" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Email tài khoản</label>
+                <div class="auth-input-wrap" style="opacity:0.85;">
+                  <input type="email" id="profileEmail" disabled style="cursor:not-allowed;background:rgba(255,255,255,0.03);">
                 </div>
               </div>
-              <div>
-                <label for="confirmNewPassword" style="margin:0 0 4px;">Xác nhận mật khẩu mới</label>
-                <div class="auth-input-wrap">
-                  <input type="password" id="confirmNewPassword" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password" minlength="6" required>
-                  <button type="button" class="auth-toggle-pwd" id="toggleConfirmPass" aria-label="Hiện mật khẩu">👁</button>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label for="profileDob" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Ngày sinh</label>
+                  <div class="auth-input-wrap">
+                    <input type="date" id="profileDob" style="color:var(--ink);">
+                  </div>
+                </div>
+                <div>
+                  <label for="profileGender" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Giới tính</label>
+                  <div class="auth-input-wrap">
+                    <select id="profileGender" style="width:100%;height:44px;background:var(--panel-raised);border:1px solid var(--line);border-radius:12px;padding:0 14px;color:var(--ink);font-size:13px;">
+                      <option value="">-- Chọn giới tính --</option>
+                      <option value="male">Nam</option>
+                      <option value="female">Nữ</option>
+                      <option value="other">Khác</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-              <div id="changePassMsg" class="meta" style="font-size:12.5px;min-height:18px;"></div>
+
+              <div>
+                <label for="profileAddress" style="margin:0 0 6px;font-size:13px;font-weight:600;display:block;">Địa chỉ</label>
+                <div class="auth-input-wrap">
+                  <input type="text" id="profileAddress" placeholder="Địa chỉ nơi ở hoặc ghi chú">
+                </div>
+              </div>
+
+              <div id="profileStatusMsg" class="meta" style="font-size:12.5px;min-height:18px;"></div>
               <div style="display:flex;gap:10px;align-items:center;">
-                <button type="submit" class="primary" id="btnSubmitChangePass" style="padding:9px 20px;border-radius:12px;font-weight:600;">Cập nhật mật khẩu mới</button>
+                <button type="submit" class="primary" id="btnSaveProfile" style="padding:9px 22px;border-radius:12px;font-weight:600;">Lưu thay đổi thông tin</button>
               </div>
             </form>
           </div>
-        </section>
+        </details>
+
+        <!-- Thẻ 3: Mật khẩu mở cửa (Keypad) -->
+        <details class="settings-accordion" id="accKeypadSettings">
+          <summary>
+            <div class="settings-accordion-title-wrap">
+              <div class="settings-accordion-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <div class="settings-accordion-texts">
+                <h3>Mật khẩu mở cửa (Keypad)</h3>
+                <p>Mã số 4–8 chữ số dùng trên bàn phím phần cứng ESP32</p>
+              </div>
+            </div>
+            <div class="settings-accordion-right">
+              <span class="mock-label" id="keypadPassCountBadge">NVS ESP32</span>
+              <svg class="settings-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </summary>
+          <div class="settings-accordion-body" id="cardKeypadSettings">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+              <div>
+                <p class="meta" style="margin:0;">Mã số 4–8 chữ số dùng trực tiếp trên bàn phím số ESP32</p>
+              </div>
+              <button type="button" class="primary" id="btnOpenAddPasscode" style="padding:8px 14px;border-radius:12px;font-size:13px;font-weight:600;">＋ Thêm mật khẩu</button>
+            </div>
+            <div id="passcodeList" class="passcode-list">
+              <p class="meta">Đang tải danh sách mật khẩu...</p>
+            </div>
+            <p class="meta" style="margin-top:12px;font-size:12px;">Mật khẩu được lưu trữ an toàn bằng hàm băm SHA-256 trong bộ nhớ NVS của ESP32.</p>
+          </div>
+        </details>
+
+        <!-- Thẻ 4: Liên kết thiết bị & Quản trị ngôi nhà -->
+        <details class="settings-accordion" id="accHomeAdminSettings">
+          <summary>
+            <div class="settings-accordion-title-wrap">
+              <div class="settings-accordion-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              </div>
+              <div class="settings-accordion-texts">
+                <h3>Liên kết thiết bị &amp; Quản trị ngôi nhà</h3>
+                <p>Mã chia sẻ kết nối, quản lý phân quyền thành viên gia đình</p>
+              </div>
+            </div>
+            <div class="settings-accordion-right">
+              <span id="userRoleBadge" class="mock-label" style="background:linear-gradient(135deg,rgba(55,184,255,.2),rgba(66,226,222,.1));color:var(--accent);font-weight:700;">Đang tải...</span>
+              <svg class="settings-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </summary>
+          <div class="settings-accordion-body" id="cardHomeAdminSettings">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+              <button type="button" class="primary" id="btnOpenPairModal" style="padding:8px 14px;border-radius:12px;font-size:13px;font-weight:600;">＋ Liên kết thiết bị</button>
+            </div>
+
+            <!-- Khu vực tạo mã mời 1 lần chỉ dành cho Master -->
+            <div id="masterShareSection" style="padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel);margin-bottom:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+                <div>
+                  <b style="font-size:14px;display:block;">Tạo mã mời thành viên mới (Mã dùng 1 lần)</b>
+                  <span class="meta" style="font-size:12px;margin:2px 0 0;display:block;">Mỗi lần bấm sẽ tạo một mã ngẫu nhiên duy nhất, tự hủy ngay sau khi 1 tài khoản sử dụng.</span>
+                </div>
+                <button type="button" class="primary" id="btnGenInviteCode" style="padding:7px 16px;border-radius:10px;font-size:12px;">+ Tạo mã mời mới</button>
+              </div>
+              <div id="activeInviteCodeWrap" class="hidden" style="margin-top:12px;padding:12px 14px;background:rgba(55,184,255,.1);border:1px dashed var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:all .3s ease;">
+                <div>
+                  <span id="activeInviteCodeNotice" style="font-size:11px;color:var(--mute);display:block;">Mã mời vừa tạo (cung cấp mã này cho người cần liên kết):</span>
+                  <strong id="displayActiveInviteCode" style="font-size:17px;letter-spacing:1.5px;color:var(--accent);font-family:monospace;">------</strong>
+                </div>
+                <button type="button" id="btnCopyInviteCode" class="small-button">Sao chép mã</button>
+              </div>
+            </div>
+
+            <!-- Danh sách thành viên đã liên kết ngôi nhà (Chỉ hiển thị cho Master) -->
+            <div id="masterMembersSection" style="margin-top:14px;border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:16px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <div>
+                  <b style="font-size:14px;display:block;">Thành viên gia đình đã liên kết</b>
+                  <span class="meta" style="font-size:12px;margin:2px 0 0;display:block;">Danh sách các tài khoản đang có quyền truy cập ngôi nhà của bạn.</span>
+                </div>
+                <span id="memberCountBadge" class="mock-label" style="font-weight:700;">0 thành viên</span>
+              </div>
+              <div id="sharedMembersList" style="display:grid;gap:10px;">
+                <p class="meta" style="font-size:12px;margin:8px 0;">Chưa có thành viên nào liên kết qua mã mời.</p>
+              </div>
+            </div>
+
+            <div style="padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;">
+              <div>
+                <b style="font-size:13.5px;display:block;">Mã định danh mô hình (Home ID)</b>
+                <span class="meta" style="font-size:12px;margin:2px 0 0;display:block;" id="currentHomeCodeDisplay">HOME-2026-ESP32</span>
+              </div>
+              <span class="mock-label">Hệ thống ESP32</span>
+            </div>
+            <p class="meta" style="margin-top:12px;font-size:12px;">Bảo mật: Chỉ tài khoản Master (xhai2005@gmail.com) mới có quyền tạo mã mời và quản lý phân quyền thành viên.</p>
+          </div>
+        </details>
+
+        <!-- Thẻ 5: Bảo mật & Mật khẩu tài khoản -->
+        <details class="settings-accordion" id="accSecuritySettings">
+          <summary>
+            <div class="settings-accordion-title-wrap">
+              <div class="settings-accordion-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              </div>
+              <div class="settings-accordion-texts">
+                <h3>Bảo mật &amp; Mật khẩu tài khoản</h3>
+                <p id="authSecuritySubtitle">Quản lý phương thức xác thực và mật khẩu đăng nhập</p>
+              </div>
+            </div>
+            <div class="settings-accordion-right">
+              <span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Đã bảo vệ</span>
+              <svg class="settings-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </summary>
+          <div class="settings-accordion-body" id="cardSecuritySettings">
+            <!-- Trạng thái 1: Tài khoản đăng nhập qua Google (Chưa tạo mật khẩu riêng) -->
+            <div id="googleAccountSecurityWrap" class="hidden" style="padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel);">
+              <div style="display:flex;align-items:flex-start;gap:14px;">
+                <div style="width:40px;height:40px;border-radius:12px;background:white;display:grid;place-items:center;flex-shrink:0;">
+                  <svg viewBox="0 0 24 24" style="width:22px;height:22px;">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                </div>
+                <div style="flex:1;">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <b style="font-size:14.5px;">Đăng nhập qua Google (google.com)</b>
+                    <span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Đã bảo vệ</span>
+                  </div>
+                  <p class="meta" style="font-size:12.5px;margin:6px 0 10px;line-height:1.5;">
+                    Tài khoản của bạn được liên kết và chứng thực trực tiếp qua tài khoản Google. Bạn không có mật khẩu riêng trên hệ thống này nên không cần đổi mật khẩu tại đây.
+                  </p>
+                  <div style="padding:12px;background:rgba(55,184,255,0.08);border:1px dashed var(--accent);border-radius:12px;margin-bottom:12px;">
+                    <strong style="display:block;font-size:12.5px;color:var(--accent);">Bạn muốn đăng nhập thủ công bằng Email &amp; Mật khẩu?</strong>
+                    <span class="meta" style="display:block;font-size:11.5px;margin-top:3px;">
+                      Nhấn nút bên dưới để nhận email thiết lập mật khẩu. Sau khi đặt mật khẩu, bạn có thể vừa đăng nhập bằng Google, vừa dùng email &amp; mật khẩu đó đăng nhập bình thường!
+                    </span>
+                  </div>
+                  <button type="button" class="primary" id="btnSendGoogleResetPass" style="padding:8px 16px;border-radius:10px;font-size:12.5px;">
+                    Gửi email thiết lập mật khẩu đăng nhập thủ công
+                  </button>
+                  <div id="googleResetMsg" class="meta" style="font-size:12px;margin-top:8px;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Trạng thái 2: Form đổi mật khẩu cho tài khoản có Mật khẩu (Email/Password) -->
+            <div id="passwordAccountSecurityWrap">
+              <form id="formChangePassword" onsubmit="return false;" style="display:grid;gap:12px;max-width:480px;">
+                <div>
+                  <label for="oldPassword" style="margin:0 0 4px;">Mật khẩu hiện tại</label>
+                  <div class="auth-input-wrap">
+                    <input type="password" id="oldPassword" placeholder="Nhập mật khẩu đang dùng" autocomplete="current-password" required>
+                    <button type="button" class="auth-toggle-pwd" id="toggleOldPass" aria-label="Hiện mật khẩu"></button>
+                  </div>
+                </div>
+                <div>
+                  <label for="newPassword" style="margin:0 0 4px;">Mật khẩu mới (tối thiểu 6 ký tự)</label>
+                  <div class="auth-input-wrap">
+                    <input type="password" id="newPassword" placeholder="Nhập mật khẩu mới" autocomplete="new-password" minlength="6" required>
+                    <button type="button" class="auth-toggle-pwd" id="toggleNewPass" aria-label="Hiện mật khẩu"></button>
+                  </div>
+                </div>
+                <div>
+                  <label for="confirmNewPassword" style="margin:0 0 4px;">Xác nhận mật khẩu mới</label>
+                  <div class="auth-input-wrap">
+                    <input type="password" id="confirmNewPassword" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password" minlength="6" required>
+                    <button type="button" class="auth-toggle-pwd" id="toggleConfirmPass" aria-label="Hiện mật khẩu"></button>
+                  </div>
+                </div>
+                <div id="changePassMsg" class="meta" style="font-size:12.5px;min-height:18px;"></div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                  <button type="submit" class="primary" id="btnSubmitChangePass" style="padding:9px 20px;border-radius:12px;font-weight:600;">Cập nhật mật khẩu mới</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </details>
+      </section>
       </section>
     </div>
   </div>
@@ -829,38 +1048,25 @@ tabRegister.onclick = () => {
   $("err").textContent = "";
 };
 
-// Toggle hiện / ẩn mật khẩu
-const toggleLoginPass = $("toggleLoginPass");
-if (toggleLoginPass) {
-  toggleLoginPass.onclick = () => {
-    const input = $("pass");
-    const isPwd = input.type === "password";
-    input.type = isPwd ? "text" : "password";
-    toggleLoginPass.textContent = isPwd ? "🔒" : "👁";
-  };
-}
-const toggleRegPass = $("toggleRegPass");
-if (toggleRegPass) {
-  toggleRegPass.onclick = () => {
-    const input = $("regPass");
-    const isPwd = input.type === "password";
-    input.type = isPwd ? "text" : "password";
-    toggleRegPass.textContent = isPwd ? "🔒" : "👁";
-  };
-}
+// Toggle hiện / ẩn mật khẩu (dùng icon SVG sạch sẽ, không dùng emoji)
+const SVG_PWD_EYE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;display:block;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const SVG_PWD_HIDE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;display:block;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
-// Toggle các ô mật khẩu trong Cài đặt
 const setupTogglePwd = (btnId, inputId) => {
   const btn = $(btnId);
   const input = $(inputId);
   if (btn && input) {
+    btn.innerHTML = SVG_PWD_EYE;
     btn.onclick = () => {
       const isPwd = input.type === "password";
       input.type = isPwd ? "text" : "password";
-      btn.textContent = isPwd ? "🔒" : "👁";
+      btn.innerHTML = isPwd ? SVG_PWD_HIDE : SVG_PWD_EYE;
+      btn.setAttribute("aria-label", isPwd ? "Ẩn mật khẩu" : "Hiện mật khẩu");
     };
   }
 };
+setupTogglePwd("toggleLoginPass", "pass");
+setupTogglePwd("toggleRegPass", "regPass");
 setupTogglePwd("toggleOldPass", "oldPassword");
 setupTogglePwd("toggleNewPass", "newPassword");
 setupTogglePwd("toggleConfirmPass", "confirmNewPassword");
@@ -1103,12 +1309,14 @@ function checkProfileCompletion(prof, name) {
   banner.classList.toggle("hidden", isCompleted);
 }
 
-// Bắt sự kiện bấm vào nút "Cập nhật ngay ➔" trên banner đỏ
+// Bắt sự kiện bấm vào nút "Cập nhật ngay" trên banner đỏ
 const btnGoToProfile = $("btnGoToProfile");
 if (btnGoToProfile) {
   btnGoToProfile.onclick = () => {
     const settingsTab = document.querySelector('[data-page="settings"]');
     if (settingsTab) settingsTab.click();
+    const acc = $("accUserProfile");
+    if (acc) acc.open = true;
     setTimeout(() => {
       $("formUserProfile")?.scrollIntoView({ behavior: "smooth", block: "center" });
       const pName = $("profileName");
@@ -1291,7 +1499,7 @@ if (btnSendGoogleResetPass) {
       }
     } finally {
       btnSendGoogleResetPass.disabled = false;
-      btnSendGoogleResetPass.textContent = "🔑 Gửi lại email thiết lập mật khẩu";
+      btnSendGoogleResetPass.textContent = "Gửi lại email thiết lập mật khẩu";
     }
   };
 }
@@ -1436,7 +1644,7 @@ async function checkUserDeviceLink(user) {
           isUserPaired = livePaired;
           applyDevicePairingUI(isUserPaired);
           if (!isUserPaired) {
-            showToast("⚠️ Tài khoản của bạn đã bị Chủ nhà hủy liên kết khỏi ngôi nhà!");
+            showToast("Tài khoản của bạn đã bị Chủ nhà hủy liên kết khỏi ngôi nhà!");
           }
         }
         if (liveData.permissions) {
@@ -1458,7 +1666,7 @@ async function checkUserDeviceLink(user) {
     // Cập nhật thẻ quyền trong Settings
     const roleBadge = $("userRoleBadge");
     if (roleBadge) {
-      roleBadge.textContent = currentUserRole === "master" ? "👑 Chủ nhà (Master)" : "Thành viên gia đình";
+      roleBadge.textContent = currentUserRole === "master" ? "Chủ nhà (Master)" : "Thành viên gia đình";
       roleBadge.style.color = currentUserRole === "master" ? "var(--good)" : "var(--accent)";
     }
     const masterSection = $("masterShareSection");
@@ -1473,6 +1681,17 @@ async function checkUserDeviceLink(user) {
     // Nếu là Master, tải danh sách các thành viên đã liên kết
     if (currentUserRole === "master") {
       listenSharedMembers();
+      // Khôi phục theo dõi mã mời active nếu có
+      get(ref(db, "invites")).then(snap => {
+        if (!snap.exists()) return;
+        const allInvites = snap.val();
+        for (const c in allInvites) {
+          if (allInvites[c]?.createdBy === currentUser.uid && allInvites[c]?.status === "active") {
+            watchActiveInviteCode(c);
+            break;
+          }
+        }
+      }).catch(() => {});
     }
 
   } catch (err) {
@@ -1534,14 +1753,14 @@ function listenSharedMembers() {
           <!-- Thông tin cá nhân của thành viên (Chủ nhà kiểm soát) -->
           <div style="background:var(--panel-raised);padding:10px 12px;border-radius:12px;border:1px solid var(--line);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px dashed var(--line);padding-bottom:5px;">
-              <span style="font-size:11.5px;font-weight:700;color:var(--accent);">📋 Thông tin cá nhân thành viên:</span>
+              <span style="font-size:11.5px;font-weight:700;color:var(--accent);">Thông tin cá nhân thành viên:</span>
               <span style="font-size:11px;color:var(--mute);">${lastUpdated ? "Đã cập nhật: " + lastUpdated : "Chưa tự cập nhật hồ sơ"}</span>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:6px 10px;font-size:12px;">
-              <div><span style="color:var(--mute);">📞 SĐT:</span> <b style="color:var(--ink);">${phoneDisplay}</b></div>
-              <div><span style="color:var(--mute);">🎂 Ngày sinh:</span> <b style="color:var(--ink);">${dobDisplay}</b></div>
-              <div><span style="color:var(--mute);">⚧ Giới tính:</span> <b style="color:var(--ink);">${genderText}</b></div>
-              <div><span style="color:var(--mute);">📍 Địa chỉ:</span> <b style="color:var(--ink);">${addressText}</b></div>
+              <div><span style="color:var(--mute);">SĐT:</span> <b style="color:var(--ink);">${phoneDisplay}</b></div>
+              <div><span style="color:var(--mute);">Ngày sinh:</span> <b style="color:var(--ink);">${dobDisplay}</b></div>
+              <div><span style="color:var(--mute);">Giới tính:</span> <b style="color:var(--ink);">${genderText}</b></div>
+              <div><span style="color:var(--mute);">Địa chỉ:</span> <b style="color:var(--ink);">${addressText}</b></div>
             </div>
           </div>
           
@@ -1652,6 +1871,58 @@ function applyDevicePairingUI(paired) {
   }
 }
 
+// Lắng nghe và cập nhật trạng thái mã mời 1 lần (tự động biến mất khi đã dùng)
+let activeInviteUnsub = null;
+
+function watchActiveInviteCode(code) {
+  if (activeInviteUnsub) {
+    activeInviteUnsub();
+    activeInviteUnsub = null;
+  }
+  const inviteRef = ref(db, "invites/" + code);
+  activeInviteUnsub = onValue(inviteRef, (snapshot) => {
+    const wrap = $("activeInviteCodeWrap");
+    const codeDisplay = $("displayActiveInviteCode");
+    const notice = $("activeInviteCodeNotice");
+    if (!wrap || !codeDisplay) return;
+
+    if (!snapshot.exists()) {
+      wrap.classList.add("hidden");
+      if (activeInviteUnsub) {
+        activeInviteUnsub();
+        activeInviteUnsub = null;
+      }
+      return;
+    }
+
+    const data = snapshot.val();
+    if (data.status === "used") {
+      codeDisplay.innerHTML = `<span style="text-decoration:line-through;color:var(--mute);">${code}</span> <span class="mock-label" style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:11px;font-weight:700;margin-left:6px;">Đã được sử dụng</span>`;
+      if (notice) {
+        notice.textContent = `Mã này vừa được tài khoản ${data.usedByEmail || 'thành viên'} sử dụng thành công!`;
+        notice.style.color = "var(--good)";
+      }
+      showToast(`Mã mời 1 lần ${code} đã được sử dụng thành công.`);
+      setTimeout(() => {
+        wrap.classList.add("hidden");
+        try { remove(inviteRef); } catch(_) {}
+      }, 4000);
+
+      if (activeInviteUnsub) {
+        activeInviteUnsub();
+        activeInviteUnsub = null;
+      }
+    } else {
+      wrap.classList.remove("hidden");
+      codeDisplay.textContent = code;
+      if (notice) {
+        notice.textContent = "Mã mời vừa tạo (cung cấp mã này cho người cần liên kết):";
+        notice.style.color = "var(--mute)";
+      }
+    }
+  });
+}
+
 // Tạo mã mời 1 lần (Chỉ Master mới có quyền gọi)
 async function generateOneTimeInviteCode() {
   if (currentUserRole !== "master") {
@@ -1674,12 +1945,7 @@ async function generateOneTimeInviteCode() {
       homeId: DEFAULT_HOME_CODE
     });
 
-    const wrap = $("activeInviteCodeWrap");
-    const codeDisplay = $("displayActiveInviteCode");
-    if (wrap && codeDisplay) {
-      wrap.classList.remove("hidden");
-      codeDisplay.textContent = code;
-    }
+    watchActiveInviteCode(code);
     showToast(`Đã tạo mã mời 1 lần: ${code}. Cung cấp mã này cho người cần kết nối.`);
   } catch (err) {
     console.error("Lỗi tạo mã mời:", err);
@@ -1728,7 +1994,7 @@ function openDevicePairModal(isNewAccount = false) {
               <input id="inputPairCode" required placeholder="Ví dụ: HM-8A2F" style="margin-top:6px;text-transform:uppercase;">
             </label>
             <p class="meta" style="font-size:11.5px;margin:6px 0 16px;">
-              💡 Lưu ý: Mỗi mã mời chỉ sử dụng được duy nhất 1 lần để bảo mật cho ngôi nhà.
+              Lưu ý: Mỗi mã mời chỉ sử dụng được duy nhất 1 lần để bảo mật cho ngôi nhà.
             </p>
             <div id="pairError" style="color:var(--bad);font-size:12.5px;min-height:16px;margin-bottom:10px;"></div>
             <div class="form-actions" style="display:flex;gap:8px;justify-content:flex-end;">
@@ -1780,11 +2046,16 @@ function openDevicePairModal(isNewAccount = false) {
 
       const validHome = inviteData.homeId || DEFAULT_HOME_CODE;
 
-      // Xóa mã mời 1 lần ngay lập tức
+      // Cập nhật trạng thái 'used' ngay lập tức để Master nhận thông báo thời gian thực
       try {
-        await remove(ref(db, "invites/" + code));
-      } catch (rmErr) {
-        await update(ref(db, "invites/" + code), { status: "used", usedBy: currentUser.uid, usedAt: Date.now() });
+        await update(ref(db, "invites/" + code), { 
+          status: "used", 
+          usedBy: currentUser.uid, 
+          usedByEmail: currentUser.email || "Thành viên gia đình",
+          usedAt: Date.now() 
+        });
+      } catch (upErr) {
+        console.warn("Lỗi cập nhật trạng thái mã:", upErr);
       }
 
       // Cập nhật trạng thái liên kết của User
@@ -1807,7 +2078,7 @@ function openDevicePairModal(isNewAccount = false) {
         listen();
       }
 
-      showToast("🎉 Liên kết thành công! Bạn đã có thể theo dõi và điều khiển ngôi nhà.");
+      showToast("Liên kết thành công! Bạn đã có thể theo dõi và điều khiển ngôi nhà.");
     } catch (err) {
       console.error("Lỗi liên kết thiết bị:", err);
       errBox.textContent = "Lỗi khi lưu liên kết: " + (err.message || err.code);
@@ -1855,7 +2126,7 @@ document.querySelectorAll("[data-dev]").forEach(btn => {
     }
     const d = btn.dataset.dev;
     if (d === "door" && isKeypadLocked) {
-      alert("🚨 Bàn phím ngoài cửa chính đang bị KHÓA CỨNG do nhập sai 4 lần liên tiếp!\n\nVui lòng bấm nút 'Mở khóa bàn phím' ở thanh cảnh báo trước khi điều khiển cửa.");
+      alert("Cảnh báo: Bàn phím ngoài cửa chính đang bị KHÓA CỨNG do nhập sai 4 lần liên tiếp!\n\nVui lòng bấm nút 'Mở khóa bàn phím' ở thanh cảnh báo trước khi điều khiển cửa.");
       return;
     }
     if (currentUserRole !== "master" && userPermissions && userPermissions[d] === false) {
@@ -1974,11 +2245,11 @@ function updateKeypadLockUI(locked) {
     setTimeout(playSecurityAlarm, 700);
     setTimeout(playSecurityAlarm, 1400);
 
-    showToast("🚨 CẢNH BÁO AN NINH: Bàn phím cửa đã bị khóa cứng do nhập sai 4 lần liên tiếp!");
+    showToast("CẢNH BÁO AN NINH: Bàn phím cửa đã bị khóa cứng do nhập sai 4 lần liên tiếp!");
 
     if ("Notification" in window) {
       if (Notification.permission === "granted") {
-        new Notification("🚨 CẢNH BÁO AN NINH: BÀN PHÍM BỊ KHÓA!", {
+        new Notification("CẢNH BÁO AN NINH: BÀN PHÍM BỊ KHÓA!", {
           body: "Bàn phím ngoài cửa chính đã bị khóa cứng do nhập sai mật khẩu 4 lần liên tiếp. Vui lòng kiểm tra ngay!",
           requireInteraction: true
         });
@@ -2036,7 +2307,7 @@ async function handleUnlockKeypad() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = "🔓 Mở khóa bàn phím";
+      btn.textContent = "Mở khóa bàn phím";
     }
   }
 }
@@ -2054,7 +2325,9 @@ function renderDevice(d) {
   const labelEl = $("s-" + d);
   if (labelEl) {
     if (d === "door" && isKeypadLocked) {
-      labelEl.innerHTML = `${on ? "Đang mở" : "Đang đóng"} · <span style="color:var(--bad,#ff4d4f);font-weight:700;">🚨 Bàn phím bị khóa</span>`;
+      labelEl.innerHTML = `${on ? "Đang mở" : "Đang đóng"} · <span style="color:var(--bad,#ff4d4f);font-weight:700;">Bàn phím bị khóa</span>`;
+    } else if (d === "voice") {
+      labelEl.innerHTML = on ? '<span class="live-mic-dot"></span> Đang lắng nghe' : 'Đang tắt';
     } else {
       labelEl.textContent = txt;
     }
@@ -2280,9 +2553,22 @@ function renderFirmwareAutomation() {
   $("firmwareDarkBelow").disabled = firmwareGarden.mode !== "auto";
   $("firmwareBrightAbove").disabled = firmwareGarden.mode !== "auto";
   $("firmwareAutomationSummary").textContent =
-    `${firmwareAutomation.enabled ? "Quạt/vắng nhà: đang bật" : "Quạt/vắng nhà: đang tắt"} · ` +
+    `${firmwareAutomation.enabled ? "Quạt & vắng nhà: đang bật" : "Quạt & vắng nhà: đang tắt"} · ` +
     `quạt từ ${firmwareAutomation.fanTempOn}°C · vắng ${firmwareAutomation.noPersonMinutes} phút · ` +
-    `đèn sân ${firmwareGarden.mode === "auto" ? "tự động" : "thủ công"}`;
+    `đèn sân ${firmwareGarden.mode === "auto" ? "tự động LDR" : "thủ công"}`;
+  
+  const quickFan = $("quickAutoFan");
+  const quickAbsent = $("quickAutoAbsent");
+  const quickGarden = $("quickAutoGarden");
+  const quickBadge = $("quickAutoMasterBadge");
+  if (quickFan) quickFan.textContent = firmwareAutomation.enabled ? `Bật khi ≥ ${firmwareAutomation.fanTempOn}°C` : "Đang tạm tắt";
+  if (quickAbsent) quickAbsent.textContent = firmwareAutomation.enabled ? `Tắt sau ${firmwareAutomation.noPersonMinutes}p` : "Đang tạm tắt";
+  if (quickGarden) quickGarden.textContent = firmwareGarden.mode === "auto" ? `Tự động LDR (<${firmwareGarden.darkBelow}%)` : "Chế độ thủ công";
+  if (quickBadge) {
+    const isAct = firmwareAutomation.enabled || firmwareGarden.mode === "auto";
+    quickBadge.textContent = isAct ? "● Đang hoạt động" : "○ Tạm dừng";
+    quickBadge.style.color = isAct ? "var(--good)" : "var(--mute)";
+  }
   $("firmwareAutomationStatus").textContent =
     automationAutoLoaded && automationGardenLoaded
       ? "Đã đồng bộ cấu hình từ Firebase"
@@ -2503,8 +2789,16 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       chart.data.datasets.forEach(dataset => {
         const humidity = dataset.label && dataset.label.includes("ẩm");
         const temperature = dataset.label && dataset.label.includes("Nhiệt");
-        if (chart.canvas.id === "chKw" || humidity) dataset.borderColor = dataset.backgroundColor = accent;
-        if (temperature) dataset.borderColor = dataset.backgroundColor = bad;
+        if (chart.canvas.id === "chKw") {
+          dataset.borderColor = dataset.backgroundColor = accent;
+        } else if (humidity) {
+          dataset.borderColor = accent;
+          if (dataset.fill === true) dataset.backgroundColor = accent + "18";
+        }
+        if (temperature) {
+          dataset.borderColor = bad;
+          if (dataset.fill === true) dataset.backgroundColor = bad + "20";
+        }
       });
       chart.update("none");
     });
@@ -2536,16 +2830,27 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
   const savedAccent = readPreference("smart-home-accent");
   const accentInput = document.querySelector(`input[name="accent"][value="${["blue", "purple", "green"].includes(savedAccent) ? savedAccent : "blue"}"]`);
   if (accentInput && savedAccent) { accentInput.checked = true; accentInput.dispatchEvent(new Event("change")); }
-  const savedFontSize = readPreference("smart-home-font-size");
-  if (savedFontSize && $ui("fontSize")) {
-    $ui("fontSize").value = savedFontSize;
-    document.documentElement.style.fontSize = savedFontSize + "px";
+  function applyFontSize(val) {
+    const size = parseInt(val, 10) || 14;
+    const zoomFactor = (size / 14).toFixed(3);
+    document.documentElement.style.setProperty("--app-zoom", zoomFactor);
+    document.documentElement.style.setProperty("--base-font-size", size + "px");
+    document.documentElement.style.setProperty("--font-scale", zoomFactor);
+    document.documentElement.style.fontSize = size + "px";
+    if (document.body) document.body.style.fontSize = size + "px";
+    if ($ui("fontSize")) $ui("fontSize").value = String(size);
   }
-  $ui("fontSize").addEventListener("change", event => {
-    document.documentElement.style.fontSize = event.target.value + "px";
-    try { localStorage.setItem("smart-home-font-size", event.target.value); }
-    catch (error) { console.error("Không thể lưu cỡ chữ:", error); }
-  });
+
+  const savedFontSize = readPreference("smart-home-font-size") || "14";
+  applyFontSize(savedFontSize);
+
+  if ($ui("fontSize")) {
+    $ui("fontSize").addEventListener("change", event => {
+      applyFontSize(event.target.value);
+      try { localStorage.setItem("smart-home-font-size", event.target.value); }
+      catch (error) { console.error("Không thể lưu cỡ chữ:", error); }
+    });
+  }
   $ui("reduceAnimations").addEventListener("change", event => {
     document.documentElement.classList.toggle("no-motion", event.target.checked);
     try { localStorage.setItem("smart-home-no-motion", String(event.target.checked)); }
@@ -2557,15 +2862,15 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
   }
 
   const greetingPeriods = [
-    { start: 5, end: 10, text: "Chào buổi sáng!", icon: "☀️" },
-    { start: 10, end: 13, text: "Chào buổi trưa!", icon: "🌤️" },
-    { start: 13, end: 19, text: "Chào buổi chiều!", icon: "🌇" },
-    { start: 19, end: 29, text: "Chào buổi tối!", icon: "🌙" }
+    { start: 5, end: 10, text: "Chào buổi sáng!" },
+    { start: 10, end: 13, text: "Chào buổi trưa!" },
+    { start: 13, end: 19, text: "Chào buổi chiều!" },
+    { start: 19, end: 29, text: "Chào buổi tối!" }
   ];
   function updateGreeting() {
     const hour = new Date().getHours();
     const period = greetingPeriods.find(item => hour >= item.start && hour < item.end) || greetingPeriods[3];
-    $ui("greeting").textContent = period.text + " " + period.icon;
+    $ui("greeting").textContent = period.text;
     const temp = $ui("t").textContent;
     const humidity = $ui("h").textContent;
     $ui("greetingSub").textContent = temp !== "--"
@@ -2671,7 +2976,12 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
             detail = `Nhập đúng mật khẩu${who} trên mô hình`;
           } else if (entry.action === "locked") {
             label = "Khóa cứng bàn phím Keypad";
-            detail = entry.reason || "Nhập sai mật khẩu 4 lần liên tiếp; chờ mở khóa từ Web";
+            const r = entry.reason || "";
+            if (!r || r.endsWith("; bàn phím đã b") || r.endsWith("đã b")) {
+              detail = "Nhập sai mật khẩu 4 lần liên tiếp; bàn phím đã bị khóa cứng";
+            } else {
+              detail = r;
+            }
           } else if (entry.action === "unlocked_keypad") {
             label = "Mở khóa bàn phím Keypad";
             detail = entry.reason || "Đã mở khóa từ xa";
@@ -2819,7 +3129,7 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
               <button type="button" class="activity-filter" data-modal-filter="web">Web</button>
             </div>
             <div style="min-width:200px;flex:1;max-width:300px;">
-              <input type="text" id="modalHistorySearch" placeholder="🔍 Tìm kiếm thao tác..." style="width:100%;padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel, rgba(0,0,0,0.25));color:inherit;font-size:0.85rem;box-sizing:border-box;">
+              <input type="text" id="modalHistorySearch" placeholder="Tìm kiếm thao tác..." style="width:100%;padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel, rgba(0,0,0,0.25));color:inherit;font-size:0.85rem;box-sizing:border-box;">
             </div>
           </div>
 
@@ -3662,9 +3972,8 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
             data: hums,
             yAxisID: "y1",
             borderColor: humidityColor,
-            backgroundColor: humGradient,
-            borderWidth: 1.8,
-            fill: true,
+            borderWidth: 2,
+            fill: false,
             tension: 0.38,
             pointRadius: 0,
             pointHoverRadius: 5
@@ -3746,12 +4055,23 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     detailChart = new Chart(context, {
       type: "line",
       data: { labels: points.map(point => point.label), datasets: [
-        { label: "Nhiệt độ (°C)", data: temps, yAxisID: "y", borderColor: tempColor, backgroundColor: tempGradient, fill: true, tension: .38, pointRadius: points.length > 30 ? 0 : 3, pointHoverRadius: 6 },
-        { label: "Độ ẩm (%)", data: hums, yAxisID: "y1", borderColor: humidityColor, backgroundColor: humGradient, fill: true, tension: .38, pointRadius: 0, pointHoverRadius: 5 }
+        { label: "Nhiệt độ (°C)", data: temps, yAxisID: "y", borderColor: tempColor, backgroundColor: tempGradient, fill: true, tension: .38, borderWidth: 2.5, pointRadius: points.length > 30 ? 0 : 3.5, pointHoverRadius: 6, pointBackgroundColor: tempColor },
+        { label: "Độ ẩm (%)", data: hums, yAxisID: "y1", borderColor: humidityColor, fill: false, tension: .38, borderWidth: 2.2, pointRadius: points.length > 30 ? 0 : 2.5, pointHoverRadius: 6, pointBackgroundColor: humidityColor }
       ] },
       options: {
         responsive: true, maintainAspectRatio: false, color: ink, interaction: { mode: "index", intersect: false },
         plugins: {
+          legend: {
+            display: true,
+            position: "top",
+            labels: {
+              color: ink,
+              font: { size: 12, weight: "600" },
+              usePointStyle: true,
+              pointStyle: "circle",
+              padding: 16
+            }
+          },
           tooltip: {
             backgroundColor: "rgba(13, 27, 45, 0.94)",
             titleColor: "#eef6ff",
@@ -3771,16 +4091,16 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
             position: "left",
             suggestedMin: Math.floor(minTemp - 1.5),
             suggestedMax: Math.ceil(maxTemp + 1.5),
-            title: { display: true, text: "°C", color: ink },
-            ticks: { color: ink },
+            title: { display: true, text: "Nhiệt độ (°C)", color: tempColor, font: { size: 11, weight: "bold" } },
+            ticks: { color: tempColor },
             grid: { color: grid }
           },
           y1: {
             position: "right",
             suggestedMin: Math.max(0, Math.floor(minHum - 8)),
             suggestedMax: Math.min(100, Math.ceil(maxHum + 8)),
-            title: { display: true, text: "%", color: ink },
-            ticks: { color: ink },
+            title: { display: true, text: "Độ ẩm (%)", color: humidityColor, font: { size: 11, weight: "bold" } },
+            ticks: { color: humidityColor },
             grid: { drawOnChartArea: false }
           }
         }

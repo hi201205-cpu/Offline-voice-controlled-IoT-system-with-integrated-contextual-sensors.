@@ -45,6 +45,9 @@ __pycache__/
 *.log
 debug.log
 
+# ── Tài liệu & Tài nguyên nội bộ ─────────────────────────────
+docs/
+
 # ── Thông tin nhạy cảm (WiFi, Firebase Secret Keys) ──────────
 # File config.h thật chứa WiFi SSID/Password và Firebase Secret
 # ĐÃ BẢO VỆ: Không bao giờ đẩy config.h lên GitHub công khai!

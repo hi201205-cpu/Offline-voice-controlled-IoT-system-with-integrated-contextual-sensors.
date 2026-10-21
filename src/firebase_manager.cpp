@@ -60,13 +60,13 @@ struct FbUpdateMsg {
     bool          accepted;
     char          presence[12];
     char          action[24];
-    char          reason[64];
+    char          reason[128];
     char          eventSource[12];
     char          who[81];
     char          ruleId[RULE_ID_LEN];
     char          ruleName[RULE_NAME_LEN];
     char          statusState[20];
-    char          lastResult[64];
+    char          lastResult[128];
     char          timeoutAction[16];
 };
 

@@ -50,8 +50,8 @@ bool s_lockoutActive = false;
 char s_rawKey = 0;
 char s_stableKey = 0;
 uint32_t s_keyChangedMs = 0;
-bool s_buttonRaw = true;
-bool s_buttonStable = true;
+bool s_buttonRaw = false;
+bool s_buttonStable = false;
 uint32_t s_buttonChangedMs = 0;
 bool s_enteredOverflow = false;
 bool s_doorAutoCloseArmed = false;
@@ -379,7 +379,7 @@ void process_key(char key) {
                 firebase_set_keypad_locked(true);
             } else {
                 buzzer_trigger(BUZZER_MODE_ERROR);
-                char reason[64];
+                char reason[128];
                 snprintf(reason, sizeof(reason), "Mã không đúng (lần %u/%u)",
                          static_cast<unsigned>(s_wrongAttempts),
                          static_cast<unsigned>(DOOR_MAX_WRONG_ATTEMPTS));
@@ -545,7 +545,15 @@ void doorInit() {
     for (uint8_t column = 0; column < kColumns; ++column) {
         pinMode(kColumnPins[column], INPUT_PULLUP);
     }
+#if (DOOR_BUTTON_ACTIVE_LEVEL == HIGH)
+    pinMode(PIN_DOOR_BUTTON, INPUT_PULLDOWN);
+#else
     pinMode(PIN_DOOR_BUTTON, INPUT_PULLUP);
+#endif
+    bool initialPressed = (digitalRead(PIN_DOOR_BUTTON) == DOOR_BUTTON_ACTIVE_LEVEL);
+    s_buttonRaw = initialPressed;
+    s_buttonStable = initialPressed;
+    s_buttonChangedMs = millis();
     pinMode(PIN_BUZZER, OUTPUT);
     digitalWrite(PIN_BUZZER, LOW);
 }
@@ -605,19 +613,26 @@ void doorUpdate() {
         if (s_stableKey != 0) process_key(s_stableKey);
     }
 
-    bool button = digitalRead(PIN_DOOR_BUTTON) == HIGH;
-    if (button != s_buttonRaw) {
-        s_buttonRaw = button;
+    bool isPressed = (digitalRead(PIN_DOOR_BUTTON) == DOOR_BUTTON_ACTIVE_LEVEL);
+    if (now < 2500) {
+        // Khóa an toàn 2.5 giây đầu sau boot: liên tục đồng bộ trạng thái, không kích hoạt mở cửa
+        s_buttonRaw = isPressed;
+        s_buttonStable = isPressed;
         s_buttonChangedMs = now;
-    } else if (button != s_buttonStable &&
-               now - s_buttonChangedMs >= kButtonDebounceMs) {
-        s_buttonStable = button;
-        if (!s_buttonStable) {
-            if (s_keypadLocked) {
-                buzzer_trigger(BUZZER_MODE_ERROR);
-                LOG("[DOOR] Physical button ignored: Keypad is LOCKED\n");
-            } else {
-                open_door("button", "");
+    } else {
+        if (isPressed != s_buttonRaw) {
+            s_buttonRaw = isPressed;
+            s_buttonChangedMs = now;
+        } else if (isPressed != s_buttonStable &&
+                   now - s_buttonChangedMs >= kButtonDebounceMs) {
+            s_buttonStable = isPressed;
+            if (s_buttonStable) {
+                if (s_keypadLocked) {
+                    buzzer_trigger(BUZZER_MODE_ERROR);
+                    LOG("[DOOR] Physical button ignored: Keypad is LOCKED\n");
+                } else {
+                    open_door("button", "");
+                }
             }
         }
     }

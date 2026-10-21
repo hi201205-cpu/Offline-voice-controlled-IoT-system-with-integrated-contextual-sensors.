@@ -31,6 +31,10 @@
 #define PIN_DOOR_LIMIT_CLOSED 3
 #define PIN_GARDEN_LIGHT 1
 #define PIN_DOOR_BUTTON 47
+// Cấu hình mức tích cực nút bấm mở cửa GPIO 47:
+// - Module nút bấm 3 chân (VCC, GND, OUT/SIG) thông dụng: OUT = LOW khi nhả, HIGH khi bấm -> chọn HIGH (1)
+// - Nút nhấn cơ 2 chân nối GND (INPUT_PULLUP): OUT = HIGH khi nhả, LOW khi bấm -> chọn LOW (0)
+#define DOOR_BUTTON_ACTIVE_LEVEL HIGH
 #define PIN_BUZZER      48
 #define PIN_KEYPAD_ROW_1 13
 #define PIN_KEYPAD_ROW_2 14
