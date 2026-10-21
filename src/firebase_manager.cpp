@@ -419,15 +419,18 @@ static void firebase_do_update(const FbUpdateMsg& msg) {
             history.set("ts", static_cast<uint32_t>(msg.timestamp));
         }
 
-        char historyPath[48];
-        snprintf(historyPath, sizeof(historyPath), "/sensors/history/%lu",
-                 static_cast<unsigned long>(msg.timestamp));
-        FirebaseJson& historyToWrite = msg.isSensorSnapshot ? history : json;
+        static uint32_t s_lastHistoryWriteMs = 0;
+        bool shouldWriteHistory = (s_lastHistoryWriteMs == 0 || (millis() - s_lastHistoryWriteMs >= 60000UL));
+
         FirebaseJson sensorUpdate;
         sensorUpdate.set("sensors/latest", json);
-        String historyJsonPath = String("sensors/history/") +
-                                static_cast<unsigned long>(msg.timestamp);
-        sensorUpdate.set(historyJsonPath, historyToWrite);
+        if (shouldWriteHistory) {
+            s_lastHistoryWriteMs = millis();
+            String historyJsonPath = String("sensors/history/") +
+                                    static_cast<unsigned long>(msg.timestamp);
+            FirebaseJson& historyToWrite = msg.isSensorSnapshot ? history : json;
+            sensorUpdate.set(historyJsonPath, historyToWrite);
+        }
         String sensorUpdateBody;
         if (!sensorUpdate.toString(sensorUpdateBody, false)) {
             LOG("[SENSOR] Could not serialize combined sensor update\n");
@@ -468,28 +471,6 @@ static void firebase_do_update(const FbUpdateMsg& msg) {
 
         bool stateChanged = msg.relay1 != s_prevRelay1 ||
                             msg.relay2 != s_prevRelay2;
-        if (stateChanged && legacyStateUpdated) {
-            char logPath[160];
-            snprintf(logPath, sizeof(logPath), "/devices/%s/logs/%lu",
-                     FIREBASE_DEVICE_ID,
-                     static_cast<unsigned long>(millis()));
-            char logBody[256];
-            const char* labelName =
-                msg.label >= 0 && msg.label < 7
-                    ? LABEL_NAMES[msg.label] : "unknown";
-            const char* sourceName =
-                msg.source == CMD_SOURCE_VOICE ? "voice" : "remote";
-            snprintf(logBody, sizeof(logBody),
-                     "{\"command\":\"%s\",\"source\":\"%s\","
-                     "\"relay1\":%s,\"relay2\":%s,"
-                     "\"ts\":{\".sv\":\"timestamp\"}}",
-                     labelName, sourceName,
-                     msg.relay1 ? "true" : "false",
-                     msg.relay2 ? "true" : "false");
-            if (!fb_put(logPath, logBody)) {
-                LOG("[FB] Could not write legacy command log\n");
-            }
-        }
         if (legacyStateUpdated) {
             s_prevRelay1 = msg.relay1;
             s_prevRelay2 = msg.relay2;
@@ -578,27 +559,9 @@ static void firebase_do_update(const FbUpdateMsg& msg) {
         return;
     }
 
-    // [2] Ghi log khi trạng thái relay thay đổi
     if (stateChanged) {
-        char logPath[160];
-        snprintf(logPath, sizeof(logPath),
-            "/devices/%s/logs/%lu",
-            FIREBASE_DEVICE_ID,
-            (unsigned long)millis());
-
-        char logBody[256];
-        snprintf(logBody, sizeof(logBody),
-            "{\"command\":\"%s\",\"source\":\"%s\","
-            "\"relay1\":%s,\"relay2\":%s,"
-            "\"ts\":{\".sv\":\"timestamp\"}}",
-            labelName, sourceName, r1, r2);
-
-        if (fb_put(logPath, logBody)) {
-            s_prevRelay1 = msg.relay1;
-            s_prevRelay2 = msg.relay2;
-        } else {
-            LOG("[FB] Loi ghi log\n");
-        }
+        s_prevRelay1 = msg.relay1;
+        s_prevRelay2 = msg.relay2;
     }
 }
 
