@@ -64,7 +64,15 @@ fun HistoryScreen(
         OutlinedTextField(
             value = uiState.searchQuery,
             onValueChange = { historyViewModel.onSearchQueryChanged(it) },
-            placeholder = { Text("Tìm kiếm theo tên, thiết bị, email...") },
+            placeholder = {
+                Text(
+                    text = "Tìm kiếm tên, thiết bị, email...",
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    fontSize = 13.5.sp
+                )
+            },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
@@ -156,6 +164,12 @@ fun HistoryScreen(
 
 @Composable
 fun HistoryLogCard(item: HistoryItem) {
+    val themeController = LocalThemeController.current
+    val isDark = when (themeController.themeMode) {
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+        AppThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
     val timeStr = formatHistoryTimestamp(item.ts)
 
     when (item) {
@@ -220,10 +234,17 @@ fun HistoryLogCard(item: HistoryItem) {
                 }
             }
 
+            val errorFill = if (isDark) DoorAlertRedBg else Color(0xFFFEE2E2)
+            val errorBorder = if (isDark) StateError.copy(alpha = 0.6f) else Color(0xFFFCA5A5)
+            val errorBadgeBg = if (isDark) StateError.copy(alpha = 0.25f) else Color(0xFFFECACA)
+            val errorBadgeText = if (isDark) StateError else Color(0xFFDC2626)
+            val errorTitleColor = if (isDark) StateError else Color(0xFFDC2626)
+            val errorDetailColor = if (isDark) StateError.copy(alpha = 0.9f) else Color(0xFF991B1B)
+
             GlassCard(
                 shape = RoundedCornerShape(16.dp),
-                fillColor = if (isError) DoorAlertRedBg else null,
-                borderColor = if (isError) StateError.copy(alpha = 0.6f) else null,
+                fillColor = if (isError) errorFill else null,
+                borderColor = if (isError) errorBorder else null,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
@@ -234,13 +255,13 @@ fun HistoryLogCard(item: HistoryItem) {
                     ) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (isError) StateError.copy(alpha = 0.25f) else Color(0xFF16A34A).copy(alpha = 0.25f)
+                            color = if (isError) errorBadgeBg else (if (isDark) Color(0xFF16A34A).copy(alpha = 0.25f) else Color(0xFFDCFCE7))
                         ) {
                             Text(
                                 text = "[$sourceBadge]",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isError) StateError else Color(0xFF34D399),
+                                color = if (isError) errorBadgeText else (if (isDark) Color(0xFF34D399) else Color(0xFF16A34A)),
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                             )
                         }
@@ -249,7 +270,7 @@ fun HistoryLogCard(item: HistoryItem) {
                             text = timeStr,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (isError) StateError else AuroraAccentEnd
+                            color = if (isError) errorBadgeText else AuroraAccentEnd
                         )
                     }
 
@@ -258,7 +279,7 @@ fun HistoryLogCard(item: HistoryItem) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = if (isError) StateError.copy(alpha = 0.25f) else AuroraAccentStart.copy(alpha = 0.25f),
+                            color = if (isError) errorBadgeBg else (if (isDark) AuroraAccentStart.copy(alpha = 0.25f) else Color(0xFFE0F2FE)),
                             modifier = Modifier.size(36.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -270,7 +291,7 @@ fun HistoryLogCard(item: HistoryItem) {
                                         else -> Icons.Default.DoorFront
                                     },
                                     contentDescription = eventTitle,
-                                    tint = if (isError) StateError else AuroraAccentEnd,
+                                    tint = if (isError) errorBadgeText else (if (isDark) AuroraAccentEnd else Color(0xFF0284C7)),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -283,7 +304,7 @@ fun HistoryLogCard(item: HistoryItem) {
                                 text = eventTitle,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isError) StateError else MaterialTheme.colorScheme.onBackground
+                                color = if (isError) errorTitleColor else MaterialTheme.colorScheme.onBackground
                             )
                             if (detailStr.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(2.dp))
@@ -291,7 +312,7 @@ fun HistoryLogCard(item: HistoryItem) {
                                     text = detailStr,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = if (isError) StateError.copy(alpha = 0.9f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                                    color = if (isError) errorDetailColor else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
                                 )
                             }
                         }

@@ -1,5 +1,6 @@
 package com.example.doan2.ui.components
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,19 @@ fun DoorAlertBanner(
 ) {
     var showConfirmUnlockDialog by remember { mutableStateOf(false) }
 
+    val themeController = LocalThemeController.current
+    val isDark = when (themeController.themeMode) {
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+        AppThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+
+    val alertFill = if (isDark) DoorAlertRedBg else Color(0xFFFEE2E2)
+    val alertBorder = if (isDark) StateError.copy(alpha = 0.7f) else Color(0xFFFCA5A5)
+    val alertTitleColor = if (isDark) StateError else Color(0xFFDC2626)
+    val alertTextColor = if (isDark) Color.White.copy(alpha = 0.9f) else Color(0xFF991B1B)
+    val alertBtnColor = if (isDark) StateError else Color(0xFFDC2626)
+
     if (showConfirmUnlockDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmUnlockDialog = false },
@@ -54,7 +68,7 @@ fun DoorAlertBanner(
                         showConfirmUnlockDialog = false
                         onUnlockKeypad?.invoke()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = StateError)
+                    colors = ButtonDefaults.buttonColors(containerColor = alertBtnColor)
                 ) {
                     Text("Xác nhận mở khóa", fontWeight = FontWeight.Bold)
                 }
@@ -72,8 +86,8 @@ fun DoorAlertBanner(
     if (keypadLocked) {
         GlassCard(
             shape = RoundedCornerShape(16.dp),
-            fillColor = DoorAlertRedBg,
-            borderColor = StateError.copy(alpha = 0.7f),
+            fillColor = alertFill,
+            borderColor = alertBorder,
             modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -87,20 +101,20 @@ fun DoorAlertBanner(
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = "Bàn phím bị khóa",
-                    tint = StateError,
+                    tint = alertTitleColor,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "CẢNH BÁO AN NINH BÀN PHÍM",
-                        color = StateError,
+                        color = alertTitleColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "Khóa an ninh do nhập sai mật khẩu 4 lần. Cửa tạm khóa chống đột nhập.",
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = alertTextColor,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
@@ -110,7 +124,7 @@ fun DoorAlertBanner(
                     Button(
                         onClick = { showConfirmUnlockDialog = true },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = StateError,
+                            containerColor = alertBtnColor,
                             contentColor = Color.White
                         ),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
@@ -137,8 +151,8 @@ fun DoorAlertBanner(
 
         GlassCard(
             shape = RoundedCornerShape(16.dp),
-            fillColor = DoorAlertRedBg,
-            borderColor = StateError.copy(alpha = 0.5f),
+            fillColor = alertFill,
+            borderColor = alertBorder,
             modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -152,13 +166,13 @@ fun DoorAlertBanner(
                 Icon(
                     imageVector = Icons.Default.Error,
                     contentDescription = stringResource(R.string.alert_door_wrong_pass, count, timeStr),
-                    tint = StateError,
+                    tint = alertTitleColor,
                     modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource(R.string.alert_door_wrong_pass, count, timeStr),
-                    color = StateError,
+                    color = alertTitleColor,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
@@ -167,7 +181,7 @@ fun DoorAlertBanner(
                 Button(
                     onClick = onAck,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = StateError,
+                        containerColor = alertBtnColor,
                         contentColor = Color.White
                     ),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),

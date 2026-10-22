@@ -73,12 +73,14 @@ fun GlassCard(
         Modifier
     }
 
+    val hasAlpha = defaultFill.alpha < 0.98f
+
     Surface(
         shape = shape,
         color = defaultFill,
         border = BorderStroke(borderWidth, borderBrush),
         tonalElevation = 0.dp,
-        shadowElevation = if (isDark) 0.dp else 2.dp,
+        shadowElevation = if (isDark || hasAlpha) 0.dp else 2.dp,
         modifier = modifier
             .graphicsLayer {
                 scaleX = scale
