@@ -63,24 +63,27 @@ fun LoginScreen(
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            try {
-                val account = task.getResult(ApiException::class.java)
-                val idToken = account?.idToken
-                if (!idToken.isNullOrEmpty()) {
-                    authViewModel.loginWithGoogle(idToken, onLoginSuccess)
-                } else {
-                    Toast.makeText(context, "Không nhận được ID Token từ Google", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: ApiException) {
-                val errorMsg = when (e.statusCode) {
-                    12500 -> "Lỗi xác thực Google (12500): Hãy kiểm tra cấu hình tài khoản Google trên thiết bị."
-                    10 -> "Lỗi cấu hình (10): Cần thêm SHA-1 vào Firebase Console."
-                    else -> "Lỗi đăng nhập Google: ${e.statusCode} ${e.localizedMessage}"
-                }
-                Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val idToken = account?.idToken
+            if (!idToken.isNullOrEmpty()) {
+                authViewModel.loginWithGoogle(idToken, onLoginSuccess)
+            } else {
+                Toast.makeText(context, "Không nhận được ID Token từ Google", Toast.LENGTH_SHORT).show()
             }
+        } catch (e: ApiException) {
+            if (e.statusCode == 12501) {
+                // User cancelled sign-in dialog
+                return@rememberLauncherForActivityResult
+            }
+            val errorMsg = when (e.statusCode) {
+                12500 -> "Lỗi Google (12500): Vui lòng đăng nhập Google Play trên máy và thêm SHA-1 vào Firebase Console."
+                10 -> "Lỗi cấu hình (10: DEVELOPER_ERROR): Chưa thêm mã chứng chỉ SHA-1 của máy vào Firebase Console."
+                7 -> "Lỗi kết nối mạng khi xác thực Google (Code 7)."
+                else -> "Lỗi đăng nhập Google (${e.statusCode}): ${e.localizedMessage ?: "Thất bại"}"
+            }
+            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
         }
     }
 

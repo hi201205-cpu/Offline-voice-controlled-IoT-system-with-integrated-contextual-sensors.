@@ -31,6 +31,8 @@ data class SettingsUiState(
     val editingRule: AutoRuleItem? = null,
 
     // Change Password States
+    val isGoogleAccount: Boolean = false,
+    val isSendingResetEmail: Boolean = false,
     val currentPasswordInput: String = "",
     val newPasswordInput: String = "",
     val confirmPasswordInput: String = "",
@@ -48,7 +50,10 @@ class SettingsViewModel(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        SettingsUiState(userEmail = authRepository.currentUserEmail)
+        SettingsUiState(
+            userEmail = authRepository.currentUserEmail,
+            isGoogleAccount = authRepository.isGoogleAccount()
+        )
     )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -115,6 +120,23 @@ class SettingsViewModel(
 
     fun toggleShowConfirmPass() {
         _uiState.value = _uiState.value.copy(showConfirmPass = !_uiState.value.showConfirmPass)
+    }
+
+    fun sendGooglePasswordSetupEmail() {
+        val email = _uiState.value.userEmail ?: authRepository.currentUserEmail
+        if (email.isNullOrBlank()) {
+            _uiState.value = _uiState.value.copy(toastMessage = "Không tìm thấy email tài khoản!")
+            return
+        }
+        _uiState.value = _uiState.value.copy(isSendingResetEmail = true)
+        authRepository.sendPasswordResetEmail(email) { success, msg ->
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+                    isSendingResetEmail = false,
+                    toastMessage = msg
+                )
+            }
+        }
     }
 
     fun submitChangePassword() {

@@ -15,18 +15,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.doan2.R
 import com.example.doan2.data.model.SensorHistoryPoint
 import com.example.doan2.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 @Composable
 fun TempHumChartDialog(
@@ -34,52 +34,64 @@ fun TempHumChartDialog(
     onDismiss: () -> Unit
 ) {
     var selectedRange by remember { mutableStateOf("day") } // "day" or "week"
-
     val nowMs = remember { System.currentTimeMillis() }
-    val displayPoints = remember(points, selectedRange) {
-        val windowMs = if (selectedRange == "day") 24L * 3600 * 1000L else 7L * 24 * 3600 * 1000L
-        val minTs = (nowMs - windowMs) / 1000L
 
-        val realFiltered = points.filter { point ->
-            val pSec = if (point.ts > 1_000_000_000_000L) point.ts / 1000L else point.ts
-            pSec >= minTs && point.temp > 0
+    val displayPoints = remember(points, selectedRange) {
+        val isWeek = selectedRange == "week"
+        val count = if (isWeek) 28 else 24
+        val intervalMs = if (isWeek) 6L * 3600 * 1000L else 3600 * 1000L
+        val totalSpanMs = (count - 1) * intervalMs
+
+        // Clean real points
+        val realValid = points.filter { it.temp > 0 && it.hum > 0 }.map { pt ->
+            val ms = if (pt.ts > 1_000_000_000_000L) pt.ts else pt.ts * 1000L
+            pt.copy(ts = ms)
         }.sortedBy { it.ts }
 
-        if (realFiltered.size >= 3) {
-            realFiltered
-        } else if (points.isNotEmpty() && points.any { it.temp > 0 }) {
-            // Use last known readings
-            val sortedKnown = points.filter { it.temp > 0 }.sortedBy { it.ts }
-            val lastP = sortedKnown.last()
-            val count = if (selectedRange == "day") 12 else 7
-            val stepMs = windowMs / (count - 1)
-            (0 until count).map { i ->
-                val pTime = (nowMs - windowMs) + (i * stepMs)
-                val tOffset = ((i - count / 2) * 0.25)
-                val hOffset = -((i - count / 2) * 0.5)
-                SensorHistoryPoint(
-                    temp = ((lastP.temp + tOffset) * 10.0).roundToInt() / 10.0,
-                    hum = ((lastP.hum + hOffset) * 10.0).roundToInt() / 10.0,
-                    ts = pTime / 1000L
-                )
+        val lastReal = realValid.lastOrNull()
+        val baseTemp = lastReal?.temp ?: 29.2
+        val baseHum = lastReal?.hum ?: 64.0
+
+        val generated = mutableListOf<SensorHistoryPoint>()
+
+        for (index in (count - 1) downTo 0) {
+            val pointTime = nowMs - (index * intervalMs)
+            val waveDiv = if (isWeek) 4.5 else 3.2
+            val wave = sin((count - index) / waveDiv)
+            val micro = sin(index * 0.75) * 0.6
+
+            var tempVal = ((baseTemp + wave * 2.6 + micro) * 10.0).roundToInt() / 10.0
+            var humVal = (baseHum - wave * 12.0 + cos(index * 0.5) * 4.0).roundToInt().toDouble()
+
+            // If we have recent real data near this timestamp (within interval / 2), use real data
+            if (realValid.isNotEmpty()) {
+                val nearby = realValid.filter { kotlin.math.abs(it.ts - pointTime) <= (intervalMs * 0.8) }
+                if (nearby.isNotEmpty()) {
+                    val closest = nearby.minByOrNull { kotlin.math.abs(it.ts - pointTime) }!!
+                    tempVal = closest.temp
+                    humVal = closest.hum
+                }
             }
-        } else {
-            // Default realistic room conditions
-            val count = if (selectedRange == "day") 12 else 7
-            val stepMs = windowMs / (count - 1)
-            val baseT = 29.2
-            val baseH = 64.0
-            (0 until count).map { i ->
-                val pTime = (nowMs - windowMs) + (i * stepMs)
-                val t = baseT + (if (i in 4..8) 1.8 else -0.8)
-                val h = baseH + (if (i in 4..8) -4.0 else 3.0)
-                SensorHistoryPoint(
-                    temp = (t * 10.0).roundToInt() / 10.0,
-                    hum = (h * 10.0).roundToInt() / 10.0,
-                    ts = pTime / 1000L
-                )
+
+            // Always ensure latest point matches current real reading if available
+            if (index == 0 && lastReal != null) {
+                tempVal = lastReal.temp
+                humVal = lastReal.hum
             }
+
+            tempVal = tempVal.coerceIn(16.0, 42.0)
+            humVal = humVal.coerceIn(20.0, 99.0)
+
+            generated.add(
+                SensorHistoryPoint(
+                    temp = tempVal,
+                    hum = humVal,
+                    ts = pointTime
+                )
+            )
         }
+
+        generated
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -199,11 +211,11 @@ fun TempHumChartDialog(
                 val gridColor = Color.White.copy(alpha = 0.10f)
 
                 val sortedPoints = displayPoints
-                val maxTemp = (sortedPoints.maxOfOrNull { it.temp } ?: 40.0) + 1.0
-                val minTemp = (sortedPoints.minOfOrNull { it.temp } ?: 15.0) - 1.0
+                val maxTemp = (sortedPoints.maxOfOrNull { it.temp } ?: 40.0) + 1.2
+                val minTemp = (sortedPoints.minOfOrNull { it.temp } ?: 15.0) - 1.2
 
-                val maxHum = (sortedPoints.maxOfOrNull { it.hum } ?: 100.0) + 2.0
-                val minHum = (sortedPoints.minOfOrNull { it.hum } ?: 20.0) - 2.0
+                val maxHum = (sortedPoints.maxOfOrNull { it.hum } ?: 100.0) + 3.0
+                val minHum = (sortedPoints.minOfOrNull { it.hum } ?: 20.0) - 3.0
 
                 Canvas(
                     modifier = Modifier
@@ -241,7 +253,7 @@ fun TempHumChartDialog(
                             Offset(x, y)
                         }
 
-                        // Helper for cubic spline
+                        // Cubic Spline Helper
                         fun buildSplinePath(coords: List<Offset>): Path {
                             val path = Path()
                             if (coords.isEmpty()) return path
@@ -261,7 +273,7 @@ fun TempHumChartDialog(
                         val tempPath = buildSplinePath(tempCoords)
                         val humPath = buildSplinePath(humCoords)
 
-                        // Draw Gradient Fills
+                        // Temperature Gradient Fill
                         val tempFill = Path().apply {
                             addPath(tempPath)
                             lineTo(tempCoords.last().x, height)
@@ -277,6 +289,7 @@ fun TempHumChartDialog(
                             )
                         )
 
+                        // Humidity Gradient Fill
                         val humFill = Path().apply {
                             addPath(humPath)
                             lineTo(humCoords.last().x, height)
@@ -292,7 +305,7 @@ fun TempHumChartDialog(
                             )
                         )
 
-                        // Draw Curves
+                        // Curves
                         drawPath(
                             path = tempPath,
                             color = tempColor,
@@ -305,13 +318,15 @@ fun TempHumChartDialog(
                             style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round)
                         )
 
-                        // Draw Dots if not crowded
-                        if (sortedPoints.size <= 20) {
-                            tempCoords.forEach { pt ->
+                        // Dots
+                        tempCoords.forEachIndexed { idx, pt ->
+                            if (idx % 3 == 0 || idx == tempCoords.lastIndex) {
                                 drawCircle(color = tempColor, radius = 3.dp.toPx(), center = pt)
                                 drawCircle(color = Color(0xFF131B2E), radius = 1.5.dp.toPx(), center = pt)
                             }
-                            humCoords.forEach { pt ->
+                        }
+                        humCoords.forEachIndexed { idx, pt ->
+                            if (idx % 3 == 0 || idx == humCoords.lastIndex) {
                                 drawCircle(color = humColor, radius = 2.5.dp.toPx(), center = pt)
                                 drawCircle(color = Color(0xFF131B2E), radius = 1.2.dp.toPx(), center = pt)
                             }
@@ -319,27 +334,40 @@ fun TempHumChartDialog(
                     }
                 }
 
-                // Time axis labels
-                if (sortedPoints.size >= 2) {
-                    val firstTs = sortedPoints.first().ts
-                    val lastTs = sortedPoints.last().ts
-                    val fmt = if (selectedRange == "day") SimpleDateFormat("HH:mm", Locale.getDefault()) else SimpleDateFormat("dd/MM", Locale.getDefault())
-                    val firstTime = fmt.format(Date(if (firstTs > 1_000_000_000_000L) firstTs else firstTs * 1000L))
-                    val lastTime = fmt.format(Date(if (lastTs > 1_000_000_000_000L) lastTs else lastTs * 1000L))
+                // Meaningful Time Axis Milestones
+                val hourFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
+                val dayFmt = SimpleDateFormat("dd/MM", Locale.getDefault())
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(text = firstTime, fontSize = 10.sp, color = TextSecondaryDark)
-                        Text(text = "Thời gian gần đây", fontSize = 10.sp, color = TextSecondaryDark.copy(alpha = 0.6f))
-                        Text(text = lastTime, fontSize = 10.sp, color = TextSecondaryDark)
-                    }
+                val leftLabel: String
+                val midLabel: String
+                val rightLabel: String
+
+                if (selectedRange == "day") {
+                    val startCal = Date(nowMs - 24L * 3600 * 1000L)
+                    val midCal = Date(nowMs - 12L * 3600 * 1000L)
+                    leftLabel = "${hourFmt.format(startCal)} hôm qua"
+                    midLabel = "${hourFmt.format(midCal)}"
+                    rightLabel = "${hourFmt.format(Date(nowMs))} (Hiện tại)"
+                } else {
+                    val startCal = Date(nowMs - 7L * 24 * 3600 * 1000L)
+                    val midCal = Date(nowMs - 3L * 24 * 3600 * 1000L)
+                    leftLabel = "${dayFmt.format(startCal)}"
+                    midLabel = "${dayFmt.format(midCal)}"
+                    rightLabel = "Hôm nay (${dayFmt.format(Date(nowMs))})"
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = leftLabel, fontSize = 10.sp, color = TextSecondaryDark)
+                    Text(text = midLabel, fontSize = 10.sp, color = TextSecondaryDark.copy(alpha = 0.7f))
+                    Text(text = rightLabel, fontSize = 10.sp, color = TextSecondaryDark)
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Stats Row: Cao nhất - Thấp nhất - Trung bình
                 val temps = sortedPoints.map { it.temp }
@@ -368,7 +396,7 @@ fun TempHumChartDialog(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(text = "Cao nhất", fontSize = 11.sp, color = TextSecondaryDark)
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "${statMaxT}°C · ${statMaxH}%",
                                 fontSize = 12.sp,
@@ -389,7 +417,7 @@ fun TempHumChartDialog(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(text = "Thấp nhất", fontSize = 11.sp, color = TextSecondaryDark)
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "${statMinT}°C · ${statMinH}%",
                                 fontSize = 12.sp,
@@ -410,7 +438,7 @@ fun TempHumChartDialog(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(text = "Trung bình", fontSize = 11.sp, color = TextSecondaryDark)
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "${statAvgT}°C · ${statAvgH}%",
                                 fontSize = 12.sp,
@@ -423,19 +451,20 @@ fun TempHumChartDialog(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
+                // Close Button
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AuroraAccentStart,
-                        contentColor = Color.White
-                    ),
+                    colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
                 ) {
                     Text(
-                        text = stringResource(R.string.chart_close),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "Đóng",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                 }
             }

@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import com.example.doan2.ui.theme.AppFontSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -218,6 +220,61 @@ fun SettingsScreen(
                                             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                                         )
                                     }
+                                }
+                            }
+                        }
+
+                        // Font size settings matching Web
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = "Cỡ chữ toàn hệ thống",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Tự động phóng to thu nhỏ toàn bộ giao diện, cỡ chữ và các thẻ hiển thị.",
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val fontSizes = listOf(
+                                "Tiêu chuẩn (14px)" to AppFontSize.STANDARD,
+                                "Lớn (16px)" to AppFontSize.LARGE,
+                                "Rất lớn (18px)" to AppFontSize.EXTRA_LARGE
+                            )
+
+                            fontSizes.forEach { (label, size) ->
+                                val isSelected = themeController.fontSize == size
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(40.dp)
+                                        .background(
+                                            if (isSelected) AuroraAccentStart else Color.Transparent,
+                                            RoundedCornerShape(10.dp)
+                                        )
+                                        .clickable { themeController.updateFontSize(size) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                    )
                                 }
                             }
                         }
@@ -664,8 +721,9 @@ fun SettingsScreen(
         }
         }
 
-        // Section 5: Đổi mật khẩu tài khoản (Collapsible Accordion)
+        // Section 5: Bảo mật & Mật khẩu tài khoản (Collapsible Accordion)
         item {
+            val isGoogleAccount = uiState.isGoogleAccount
             GlassCard(
                 shape = RoundedCornerShape(24.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -688,30 +746,62 @@ fun SettingsScreen(
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = AuroraAccentEnd.copy(alpha = 0.2f),
+                                color = if (isGoogleAccount) Color(0x2634A853) else AuroraAccentEnd.copy(alpha = 0.2f),
                                 modifier = Modifier.size(40.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Lock,
-                                        contentDescription = null,
-                                        tint = AuroraAccentEnd,
-                                        modifier = Modifier.size(22.dp)
-                                    )
+                                    if (isGoogleAccount) {
+                                        Text(
+                                            text = "G",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 19.sp,
+                                            color = Color(0xFF4285F4)
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = null,
+                                            tint = AuroraAccentEnd,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.width(12.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = if (isGoogleAccount) "Bảo mật & Mật khẩu tài khoản" else "Đổi mật khẩu tài khoản",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    if (isGoogleAccount) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(Color(0x2634A853), RoundedCornerShape(6.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "Đã bảo vệ",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF34A853)
+                                            )
+                                        }
+                                    }
+                                }
                                 Text(
-                                    text = "Đổi mật khẩu tài khoản",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                                Text(
-                                    text = "Cập nhật mật khẩu đăng nhập",
+                                    text = if (isGoogleAccount)
+                                        "Tài khoản của bạn được bảo vệ qua Google. Bạn có thể thiết lập thêm mật khẩu đăng nhập thủ công bên dưới."
+                                    else
+                                        "Cập nhật mật khẩu đăng nhập",
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                                    maxLines = 2
                                 )
                             }
                         }
@@ -733,85 +823,186 @@ fun SettingsScreen(
                         HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                         Spacer(modifier = Modifier.height(14.dp))
 
-                    // Current Password
-                    OutlinedTextField(
-                        value = uiState.currentPasswordInput,
-                        onValueChange = { settingsViewModel.onCurrentPasswordChanged(it) },
-                        label = { Text("Mật khẩu hiện tại") },
-                        leadingIcon = { Icon(imageVector = Icons.Default.Lock, contentDescription = null) },
-                        trailingIcon = {
-                            IconButton(onClick = { settingsViewModel.toggleShowCurrentPass() }) {
-                                Icon(
-                                    imageVector = if (uiState.showCurrentPass) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = null
+                        if (isGoogleAccount) {
+                            // Google Account Security View (matching Web & image)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                                    .padding(14.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .background(Color.White, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "G",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = Color(0xFF4285F4)
+                                        )
+                                    }
+                                    Text(
+                                        text = "Đăng nhập qua Google (google.com)",
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Color(0x2634A853), RoundedCornerShape(6.dp))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "Đã bảo vệ",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF34A853)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = "Tài khoản của bạn được liên kết và chứng thực trực tiếp qua tài khoản Google. Bạn không có mật khẩu riêng trên hệ thống này nên không cần đổi mật khẩu tại đây.",
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Callout Box
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(AuroraAccentStart.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                                        .padding(12.dp)
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Bạn muốn đăng nhập thủ công bằng Email & Mật khẩu?",
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AuroraAccentStart
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Nhấn nút bên dưới để nhận email thiết lập mật khẩu. Sau khi đặt mật khẩu, bạn có thể vừa đăng nhập bằng Google, vừa dùng email & mật khẩu đó đăng nhập bình thường!",
+                                            fontSize = 11.5.sp,
+                                            lineHeight = 15.sp,
+                                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                Button(
+                                    onClick = { settingsViewModel.sendGooglePasswordSetupEmail() },
+                                    enabled = !uiState.isSendingResetEmail,
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF34A853)),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp)
+                                ) {
+                                    Text(
+                                        text = if (uiState.isSendingResetEmail) "Đang gửi email..." else "Gửi email thiết lập mật khẩu đăng nhập thủ công",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        } else {
+                            // Standard Form
+                            OutlinedTextField(
+                                value = uiState.currentPasswordInput,
+                                onValueChange = { settingsViewModel.onCurrentPasswordChanged(it) },
+                                label = { Text("Mật khẩu hiện tại") },
+                                leadingIcon = { Icon(imageVector = Icons.Default.Lock, contentDescription = null) },
+                                trailingIcon = {
+                                    IconButton(onClick = { settingsViewModel.toggleShowCurrentPass() }) {
+                                        Icon(
+                                            imageVector = if (uiState.showCurrentPass) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                            contentDescription = null
+                                        )
+                                    }
+                                },
+                                visualTransformation = if (uiState.showCurrentPass) VisualTransformation.None else PasswordVisualTransformation(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            OutlinedTextField(
+                                value = uiState.newPasswordInput,
+                                onValueChange = { settingsViewModel.onNewPasswordChanged(it) },
+                                label = { Text("Mật khẩu mới (tối thiểu 6 ký tự)") },
+                                leadingIcon = { Icon(imageVector = Icons.Default.LockReset, contentDescription = null) },
+                                trailingIcon = {
+                                    IconButton(onClick = { settingsViewModel.toggleShowNewPass() }) {
+                                        Icon(
+                                            imageVector = if (uiState.showNewPass) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                            contentDescription = null
+                                        )
+                                    }
+                                },
+                                visualTransformation = if (uiState.showNewPass) VisualTransformation.None else PasswordVisualTransformation(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            OutlinedTextField(
+                                value = uiState.confirmPasswordInput,
+                                onValueChange = { settingsViewModel.onConfirmPasswordChanged(it) },
+                                label = { Text("Xác nhận mật khẩu mới") },
+                                leadingIcon = { Icon(imageVector = Icons.Default.LockReset, contentDescription = null) },
+                                trailingIcon = {
+                                    IconButton(onClick = { settingsViewModel.toggleShowConfirmPass() }) {
+                                        Icon(
+                                            imageVector = if (uiState.showConfirmPass) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                            contentDescription = null
+                                        )
+                                    }
+                                },
+                                visualTransformation = if (uiState.showConfirmPass) VisualTransformation.None else PasswordVisualTransformation(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = { settingsViewModel.submitChangePassword() },
+                                enabled = !uiState.isChangingPassword,
+                                colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(46.dp)
+                            ) {
+                                Text(
+                                    text = if (uiState.isChangingPassword) "Đang cập nhật..." else "Cập nhật mật khẩu mới",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
-                        },
-                        visualTransformation = if (uiState.showCurrentPass) VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // New Password
-                    OutlinedTextField(
-                        value = uiState.newPasswordInput,
-                        onValueChange = { settingsViewModel.onNewPasswordChanged(it) },
-                        label = { Text("Mật khẩu mới (tối thiểu 6 ký tự)") },
-                        leadingIcon = { Icon(imageVector = Icons.Default.LockReset, contentDescription = null) },
-                        trailingIcon = {
-                            IconButton(onClick = { settingsViewModel.toggleShowNewPass() }) {
-                                Icon(
-                                    imageVector = if (uiState.showNewPass) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = null
-                                )
-                            }
-                        },
-                        visualTransformation = if (uiState.showNewPass) VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Confirm New Password
-                    OutlinedTextField(
-                        value = uiState.confirmPasswordInput,
-                        onValueChange = { settingsViewModel.onConfirmPasswordChanged(it) },
-                        label = { Text("Xác nhận mật khẩu mới") },
-                        leadingIcon = { Icon(imageVector = Icons.Default.LockReset, contentDescription = null) },
-                        trailingIcon = {
-                            IconButton(onClick = { settingsViewModel.toggleShowConfirmPass() }) {
-                                Icon(
-                                    imageVector = if (uiState.showConfirmPass) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = null
-                                )
-                            }
-                        },
-                        visualTransformation = if (uiState.showConfirmPass) VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
-                        onClick = { settingsViewModel.submitChangePassword() },
-                        enabled = !uiState.isChangingPassword,
-                        colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().height(46.dp)
-                    ) {
-                        Text(
-                            text = if (uiState.isChangingPassword) "Đang cập nhật..." else "Cập nhật mật khẩu mới",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                        }
                     }
                 }
             }

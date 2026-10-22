@@ -9,10 +9,19 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 
 enum class AppThemeMode {
     SYSTEM, LIGHT, DARK
+}
+
+enum class AppFontSize(val label: String, val scale: Float, val pxLabel: String) {
+    STANDARD("Tiêu chuẩn", 1.0f, "14px"),
+    LARGE("Lớn", 1.14f, "16px"),
+    EXTRA_LARGE("Rất lớn", 1.28f, "18px")
 }
 
 class ThemeController(private val context: android.content.Context? = null) {
@@ -24,9 +33,20 @@ class ThemeController(private val context: android.content.Context? = null) {
         } ?: AppThemeMode.DARK
     )
 
+    var fontSize by mutableStateOf(
+        prefs?.getString("font_size", null)?.let {
+            try { AppFontSize.valueOf(it) } catch (e: Exception) { AppFontSize.STANDARD }
+        } ?: AppFontSize.STANDARD
+    )
+
     fun updateTheme(mode: AppThemeMode) {
         themeMode = mode
         prefs?.edit()?.putString("theme_mode", mode.name)?.apply()
+    }
+
+    fun updateFontSize(size: AppFontSize) {
+        fontSize = size
+        prefs?.edit()?.putString("font_size", size.name)?.apply()
     }
 }
 
@@ -67,7 +87,18 @@ fun Doan2Theme(
 
     val colorScheme = if (isDark) DarkColorScheme else LightColorScheme
 
-    CompositionLocalProvider(LocalThemeController provides themeController) {
+    val currentDensity = LocalDensity.current
+    val customDensity = remember(currentDensity, themeController.fontSize) {
+        Density(
+            density = currentDensity.density,
+            fontScale = currentDensity.fontScale * themeController.fontSize.scale
+        )
+    }
+
+    CompositionLocalProvider(
+        LocalThemeController provides themeController,
+        LocalDensity provides customDensity
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography,
@@ -75,3 +106,4 @@ fun Doan2Theme(
         )
     }
 }
+

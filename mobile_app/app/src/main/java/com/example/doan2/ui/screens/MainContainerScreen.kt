@@ -75,7 +75,12 @@ fun MainContainerScreen(
     )
 
     val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-    val greetingText = if (currentHour in 5..11) "Chào buổi sáng" else "Chào buổi tối"
+    val greetingText = when (currentHour) {
+        in 5..9 -> "Chào buổi sáng"
+        in 10..12 -> "Chào buổi trưa"
+        in 13..18 -> "Chào buổi chiều"
+        else -> "Chào buổi tối"
+    }
 
     val isMaster = profile?.role == "master" || authState.currentUserEmail?.equals("xhai2005@gmail.com", ignoreCase = true) == true
     val isPaired = profile?.isPaired == true || isMaster

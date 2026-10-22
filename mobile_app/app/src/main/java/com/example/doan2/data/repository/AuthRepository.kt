@@ -506,6 +506,14 @@ class AuthRepository(
 
 
 
+    fun isGoogleAccount(): Boolean {
+        val user = auth.currentUser ?: return false
+        val providers = user.providerData.map { it.providerId }
+        return providers.contains("google.com") && !providers.contains("password")
+    }
+
+
+
     fun changePassword(
 
         currentPass: String,
