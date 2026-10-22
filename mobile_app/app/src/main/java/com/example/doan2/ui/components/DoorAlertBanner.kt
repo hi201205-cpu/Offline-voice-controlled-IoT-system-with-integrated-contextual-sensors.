@@ -7,7 +7,7 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +30,45 @@ fun DoorAlertBanner(
     onUnlockKeypad: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    var showConfirmUnlockDialog by remember { mutableStateOf(false) }
+
+    if (showConfirmUnlockDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmUnlockDialog = false },
+            title = {
+                Text(
+                    text = "Xác nhận mở khóa bàn phím",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Bàn phím ngoài đang bị khóa an ninh do nhập sai mật khẩu 4 lần. Bạn có chắc chắn muốn mở khóa bàn phím ngay bây giờ không?",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmUnlockDialog = false
+                        onUnlockKeypad?.invoke()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StateError)
+                ) {
+                    Text("Xác nhận mở khóa", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showConfirmUnlockDialog = false }
+                ) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
     if (keypadLocked) {
         GlassCard(
             shape = RoundedCornerShape(16.dp),
@@ -69,7 +108,7 @@ fun DoorAlertBanner(
                 if (onUnlockKeypad != null) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = onUnlockKeypad,
+                        onClick = { showConfirmUnlockDialog = true },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = StateError,
                             contentColor = Color.White

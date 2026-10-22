@@ -44,6 +44,44 @@ fun DoorScreen(
     val uiState by doorViewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showFallbackConfirmDialog by remember { mutableStateOf(false) }
+    var showKeypadUnlockConfirmDialog by remember { mutableStateOf(false) }
+
+    if (showKeypadUnlockConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showKeypadUnlockConfirmDialog = false },
+            title = {
+                Text(
+                    text = "Xác nhận mở khóa bàn phím",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Bàn phím ngoài đang bị khóa an ninh do nhập sai mật khẩu 4 lần. Bạn có chắc chắn muốn mở khóa bàn phím ngay bây giờ không?",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showKeypadUnlockConfirmDialog = false
+                        doorViewModel.unlockKeypad()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StateError)
+                ) {
+                    Text("Xác nhận mở khóa", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showKeypadUnlockConfirmDialog = false }
+                ) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
 
     LaunchedEffect(uiState.toastMessage) {
         uiState.toastMessage?.let {
@@ -204,7 +242,7 @@ fun DoorScreen(
                         if (isKeypadLocked) {
                             Spacer(modifier = Modifier.height(10.dp))
                             OutlinedButton(
-                                onClick = { doorViewModel.unlockKeypad() },
+                                onClick = { showKeypadUnlockConfirmDialog = true },
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = StateError),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, StateError),
                                 shape = RoundedCornerShape(12.dp),

@@ -1437,6 +1437,42 @@ static void commands_stream_callback(StreamData data) {
         enqueue_json_device_command(commands, "curtain", 2);
         enqueue_json_device_command(commands, "garden", 3);
         enqueue_json_device_command(commands, "yard", 3);
+
+        FirebaseJsonData doorData;
+        if (commands.get(doorData, "door") && doorData.success) {
+            DoorRemoteCommand command = {};
+            command.receivedMs = millis();
+            if (doorData.type == "string") {
+                String value = doorData.stringValue;
+                value.toLowerCase();
+                value.trim();
+                snprintf(command.action, sizeof(command.action), "%s", value.c_str());
+                snprintf(command.source, sizeof(command.source), "web");
+            } else if (doorData.type == "json") {
+                FirebaseJson doorJson;
+                doorData.getJSON(doorJson);
+                FirebaseJsonData val;
+                if (doorJson.get(val, "action") && val.success) {
+                    String action = val.stringValue;
+                    action.toLowerCase();
+                    snprintf(command.action, sizeof(command.action), "%s", action.c_str());
+                } else {
+                    snprintf(command.action, sizeof(command.action), "invalid");
+                }
+                if (doorJson.get(val, "ts") && val.success) {
+                    command.timestampMs = val.doubleValue;
+                    command.hasTimestamp = true;
+                }
+                if (doorJson.get(val, "src") && val.success && val.stringValue.length() > 0) {
+                    snprintf(command.source, sizeof(command.source), "%s", val.stringValue.c_str());
+                } else {
+                    snprintf(command.source, sizeof(command.source), "app");
+                }
+            }
+            if (s_doorCommandQueue != nullptr) {
+                xQueueSend(s_doorCommandQueue, &command, 0);
+            }
+        }
         return;
     }
 

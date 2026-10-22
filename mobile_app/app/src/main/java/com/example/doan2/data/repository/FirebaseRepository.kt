@@ -262,19 +262,18 @@ class FirebaseRepository(
     // 7. Observe /alerts/door
     fun unlockKeypad(onResult: ((Boolean, String?) -> Unit)? = null) {
         val userEmail = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email ?: "app"
+        val timestamp = System.currentTimeMillis()
         val doorCmd = mapOf(
             "action" to "unlock_keypad",
-            "ts" to ServerValue.TIMESTAMP,
+            "ts" to timestamp,
             "src" to "app",
             "who" to userEmail
         )
-        val updates = mapOf<String, Any>(
-            "commands/door" to doorCmd,
-            "devices/state/keypad_locked" to false,
-            "door/keypad_locked" to false
-        )
-        database.reference.updateChildren(updates)
+        // Direct setValue on commands/door so ESP32 stream receives PUT event on /door with valid timestamp
+        database.getReference("commands/door").setValue(doorCmd)
             .addOnSuccessListener {
+                database.getReference("devices/state/keypad_locked").setValue(false)
+                database.getReference("door/keypad_locked").setValue(false)
                 logWebAction("door", "Mở khóa bàn phím", userEmail, "Mở khóa bàn phím ngoài", "")
                 onResult?.invoke(true, null)
             }
