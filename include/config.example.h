@@ -45,6 +45,7 @@
 #define PIN_KEYPAD_COL_3 2
 
 #define PIN_DHT        16
+#define PIN_SR501      10  // Chân OUT cảm biến PIR HC-SR501 (mức HIGH khi có người, LOW khi không có)
 #define PIN_LD2410S_RX 10
 #define PIN_LD2410S_TX 11
 
@@ -58,7 +59,8 @@
 #define CURTAIN_SERVO_CLOSE_US 2000
 #define CURTAIN_SERVO_TURN_MS 720UL
 
-#define ENABLE_LD2410S       1
+#define ENABLE_SR501         1
+#define ENABLE_LD2410S       0
 #define LD2410S_RX_PIN      PIN_LD2410S_RX
 #define LD2410S_TX_PIN      PIN_LD2410S_TX
 #define LD2410S_BAUD_RATE   115200

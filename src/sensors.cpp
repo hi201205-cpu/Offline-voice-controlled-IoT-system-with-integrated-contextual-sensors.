@@ -70,6 +70,9 @@ static const uint8_t s_ld2410sStandardHead[] = {0xF4, 0xF3, 0xF2, 0xF1};
 static const uint8_t s_ld2410sStandardTail[] = {0xF8, 0xF7, 0xF6, 0xF5};
 static uint8_t s_ld2410sBuffer[LD2410S_BUFFER_SIZE];
 static size_t s_ld2410sBufferSize = 0;
+#endif
+
+#if ENABLE_LD2410S || ENABLE_SR501
 static bool s_presenceDetected = false;
 static bool s_presenceDataValid = false;
 static uint8_t s_presenceState = 0;
@@ -78,6 +81,8 @@ static bool s_lastLoggedPresence = false;
 static uint16_t s_lastLoggedDistanceCm = 0;
 static uint32_t s_lastPresenceLogMs = 0;
 #endif
+
+#if ENABLE_LD2410S
 
 static void ld2410s_drop_front() {
     if (s_ld2410sBufferSize == 0) return;
@@ -165,7 +170,6 @@ static void ld2410s_process_buffer() {
     }
 }
 
-#if ENABLE_LD2410S
 static void ld2410s_read() {
     while (Serial1.available() > 0) {
         uint8_t byte = static_cast<uint8_t>(Serial1.read());
@@ -233,6 +237,16 @@ void sensorsInit() {
                   LD2410S_RX_PIN, LD2410S_TX_PIN);
 #endif
 
+#if ENABLE_SR501
+    pinMode(PIN_SR501, INPUT);
+    s_presenceDataValid = true;
+    s_presenceDetected = (digitalRead(PIN_SR501) == HIGH);
+    s_presenceState = s_presenceDetected ? 2 : 0;
+    s_presenceDistanceCm = 0;
+    LOG("[SR501] PIR sensor ready — OUT=GPIO%d (initial=%s)\n",
+        PIN_SR501, s_presenceDetected ? "HIGH" : "LOW");
+#endif
+
     s_readQueue = xQueueCreate(1, sizeof(uint8_t));
     if (s_readQueue == nullptr) {
         LOG("[SENSOR] Khong tao duoc read queue\n");
@@ -290,6 +304,22 @@ void sensorsUpdate() {
                    s_presenceDetected != candidate) {
             s_presenceDetected = candidate;
         }
+    }
+#elif ENABLE_SR501
+    bool motion = (digitalRead(PIN_SR501) == HIGH);
+    s_rawPresenceDetected = motion;
+    s_presenceDataValid = true;
+    s_presenceDistanceCm = 0;
+
+    if (motion != s_presenceCandidate) {
+        s_presenceCandidate = motion;
+        s_presenceCandidateSinceMs = now;
+    } else if (now - s_presenceCandidateSinceMs >= 150 && s_presenceDetected != motion) {
+        s_presenceDetected = motion;
+        s_presenceState = motion ? 2 : 0;
+        LOG("[SR501] %s (GPIO %d = %s)\n",
+            motion ? "Co nguoi (Motion detected)" : "Khong co nguoi (Idle)",
+            PIN_SR501, motion ? "HIGH" : "LOW");
     }
 #endif
 
@@ -393,7 +423,7 @@ bool sensorsDataValid() {
 }
 
 bool sensorsPresenceDetected() {
-#if ENABLE_LD2410S
+#if ENABLE_LD2410S || ENABLE_SR501
     return s_presenceDetected;
 #else
     return false;
@@ -401,7 +431,7 @@ bool sensorsPresenceDetected() {
 }
 
 bool sensorsPresenceDataValid() {
-#if ENABLE_LD2410S
+#if ENABLE_LD2410S || ENABLE_SR501
     return s_presenceDataValid;
 #else
     return false;
@@ -409,7 +439,7 @@ bool sensorsPresenceDataValid() {
 }
 
 uint8_t sensorsPresenceState() {
-#if ENABLE_LD2410S
+#if ENABLE_LD2410S || ENABLE_SR501
     return s_presenceState;
 #else
     return 0;
@@ -417,7 +447,7 @@ uint8_t sensorsPresenceState() {
 }
 
 uint16_t sensorsPresenceDistanceCm() {
-#if ENABLE_LD2410S
+#if ENABLE_LD2410S || ENABLE_SR501
     return s_presenceDistanceCm;
 #else
     return 0;
