@@ -1,0 +1,130 @@
+<resources>
+    <string name="app_name">Nhà thông minh</string>
+
+    <!-- Login Screen -->
+    <string name="login_title">Đăng nhập</string>
+    <string name="login_subtitle">Hệ thống quản lý Nhà thông minh</string>
+    <string name="email">Email</string>
+    <string name="password">Mật khẩu</string>
+    <string name="login_button">Đăng nhập</string>
+    <string name="remember_login">Ghi nhớ đăng nhập</string>
+    <string name="error_empty_email">Vui lòng nhập Email</string>
+    <string name="error_invalid_email">Email không đúng định dạng</string>
+    <string name="error_empty_password">Vui lòng nhập Mật khẩu</string>
+    <string name="error_login_failed">Đăng nhập thất bại. Vui lòng kiểm tra lại Email và Mật khẩu.</string>
+    <string name="error_auth_generic">Đã có lỗi xảy ra: %1$s</string>
+
+    <!-- Navigation / Tabs -->
+    <string name="tab_home">Nhà</string>
+    <string name="tab_door">Cửa</string>
+    <string name="tab_auto">Tự động hóa</string>
+    <string name="tab_history">Lịch sử</string>
+    <string name="tab_settings">Cài đặt</string>
+
+    <!-- Banner & Alerts -->
+    <string name="banner_device_disconnected">Thiết bị có thể đang mất kết nối</string>
+    <string name="alert_door_wrong_pass">Nhập sai mật khẩu cửa %1$d lần lúc %2$s</string>
+    <string name="btn_ack">Đã xem</string>
+    <string name="device_not_responding">Thiết bị không phản hồi</string>
+    <string name="processing">Đang xử lý...</string>
+
+    <!-- Home Tab -->
+    <string name="greeting">Xin chào!</string>
+    <string name="header_summary_format">Nhiệt độ %1$.1f °C · Độ ẩm %2$.0f%% · %3$s</string>
+    <string name="presence_present">Có người trong phòng</string>
+    <string name="presence_leaving">Sắp vắng phòng</string>
+    <string name="presence_absent">Không có người</string>
+    <string name="tile_temp_hum">Nhiệt độ &amp; Độ ẩm</string>
+    <string name="tile_presence">Hiện diện</string>
+    <string name="last_motion_format">Chuyển động lúc %1$s</string>
+    <string name="no_motion_yet">Chưa có chuyển động</string>
+    <string name="tile_light">Đèn phòng</string>
+    <string name="tile_fan">Quạt</string>
+    <string name="tile_curtain">Rèm cửa</string>
+    <string name="tile_garden">Đèn sân</string>
+    <string name="tile_door">Cửa chính</string>
+    <string name="tile_auto">Tự động hóa</string>
+    <string name="tile_voice">Nhận diện giọng nói &amp; LED</string>
+    <string name="state_on">Bật</string>
+    <string name="state_off">Tắt</string>
+    <string name="state_open">Mở</string>
+    <string name="state_closed">Đóng</string>
+    <string name="mode_auto">Tự động</string>
+    <string name="mode_manual">Thủ công</string>
+    <string name="light_level_format">Mức sáng: %1$d%%</string>
+    <string name="chart_title">Lịch sử Nhiệt độ &amp; Độ ẩm (200 điểm gần nhất)</string>
+    <string name="chart_close">Đóng</string>
+    <string name="garden_settings_title">Cài đặt Đèn sân</string>
+    <string name="garden_mode">Chế độ hoạt động</string>
+    <string name="garden_dark_below">Ngưỡng tối (bật đèn): %1$d%%</string>
+    <string name="garden_bright_above">Ngưỡng sáng (tắt đèn): %1$d%%</string>
+    <string name="garden_error_threshold">Ngưỡng tối phải nhỏ hơn ngưỡng sáng</string>
+    <string name="btn_save">Lưu</string>
+
+    <!-- Door Tab -->
+    <string name="door_status_open">Cửa đang mở</string>
+    <string name="door_status_closed">Cửa đang đóng</string>
+    <string name="btn_close_door">Đóng cửa</string>
+    <string name="btn_open_door">Mở cửa</string>
+    <string name="biometric_prompt_title">Xác nhận mở cửa</string>
+    <string name="biometric_prompt_subtitle">Vui lòng xác thực sinh trắc học hoặc khóa màn hình để mở cửa</string>
+    <string name="dialog_confirm_open_title">Xác nhận mở cửa</string>
+    <string name="dialog_confirm_open_msg">Bạn có chắc chắn muốn mở cửa không?</string>
+    <string name="dialog_confirm">Xác nhận</string>
+    <string name="dialog_cancel">Hủy</string>
+    <string name="passcode_section_title">Quản lý mật khẩu bàn phím</string>
+    <string name="btn_add_passcode">Thêm mật khẩu</string>
+    <string name="add_passcode_dialog_title">Thêm mật khẩu mới</string>
+    <string name="passcode_name_label">Tên mật khẩu</string>
+    <string name="passcode_code_label">Mã số (4-8 chữ số)</string>
+    <string name="created_at_format">Tạo lúc: %1$s</string>
+    <string name="dialog_delete_passcode_title">Xóa mật khẩu</string>
+    <string name="dialog_delete_passcode_msg">Bạn có chắc chắn muốn xóa mật khẩu \"%1$s\" không?</string>
+    <string name="btn_delete">Xóa</string>
+    <string name="error_passcode_min_count">Không thể xóa khi chỉ còn 1 mật khẩu</string>
+    <string name="error_invalid_passcode_name">Vui lòng nhập tên mật khẩu</string>
+    <string name="error_invalid_passcode_code">Mã số phải có từ 4 đến 8 chữ số</string>
+    <string name="passcode_added_success">Đã thêm mật khẩu thành công</string>
+    <string name="passcode_deleted_success">Đã xóa mật khẩu thành công</string>
+    <string name="passcode_pending_timeout">Thiết bị chưa xử lý, kiểm tra kết nối</string>
+    <string name="passcode_notice">Ghi chú: Mã chỉ truyền qua Firebase trong thời gian rất ngắn và được ESP32 băm rồi xóa.</string>
+
+    <!-- History Tab -->
+    <string name="chip_all">Tất cả</string>
+    <string name="chip_door">Cửa</string>
+    <string name="chip_auto">Tự động hóa</string>
+    <string name="chip_voice">Giọng nói</string>
+    <string name="empty_history">Chưa có dữ liệu lịch sử</string>
+    <string name="log_door_open">Cửa mở</string>
+    <string name="log_door_close">Cửa đóng</string>
+    <string name="log_door_wrong_password">Nhập sai mật khẩu</string>
+    <string name="log_door_lockout">Khóa nhập do sai nhiều lần</string>
+    <string name="log_src_keypad">bàn phím</string>
+    <string name="log_src_button">nút trong nhà</string>
+    <string name="log_src_web">web</string>
+    <string name="log_src_app">ứng dụng</string>
+    <string name="log_src_auto">tự đóng</string>
+    <string name="log_by_who">Bởi: %1$s</string>
+    <string name="log_src_format">Nguồn: %1$s</string>
+    <string name="log_auto_fan_on">Tự bật quạt</string>
+    <string name="log_auto_fan_off">Tự tắt quạt</string>
+    <string name="log_auto_light_off">Tự tắt đèn</string>
+    <string name="log_auto_garden_on">Tự bật đèn sân (trời tối)</string>
+    <string name="log_auto_garden_off">Tự tắt đèn sân (trời sáng)</string>
+    <string name="log_auto_reason">Lý do: %1$s</string>
+    <string name="log_voice_keyword">Từ khóa: %1$s</string>
+    <string name="log_voice_confidence">Độ tin cậy: %1$.1f%%</string>
+
+    <!-- Settings Tab -->
+    <string name="settings_title">Cài đặt</string>
+    <string name="section_auto_config">Cấu hình Tự động hóa</string>
+    <string name="switch_enable_auto">Bật tự động hóa</string>
+    <string name="label_fan_temp">Ngưỡng bật quạt: %1$.1f °C</string>
+    <string name="label_no_person_mins">Thời gian không người tắt thiết bị: %1$d phút</string>
+    <string name="btn_save_auto_config">Lưu cấu hình tự động</string>
+    <string name="auto_config_save_info">Thiết bị áp dụng trong khoảng 30 giây</string>
+    <string name="section_account">Tài khoản</string>
+    <string name="user_email_format">Email: %1$s</string>
+    <string name="btn_logout">Đăng xuất</string>
+    <string name="permission_denied_msg">Không có quyền truy cập dữ liệu Firebase. Vui lòng kiểm tra lại cấu hình Firebase Rules.</string>
+</resources>
