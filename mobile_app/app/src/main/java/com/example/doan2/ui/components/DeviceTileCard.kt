@@ -7,14 +7,15 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -29,7 +30,6 @@ fun DeviceTileCard(
     statusText: String,
     icon: ImageVector,
     isOn: Boolean,
-    subtitleText: String? = null,
     isProcessing: Boolean = false,
     isErrorText: Boolean = false,
     enabled: Boolean = true,
@@ -49,8 +49,8 @@ fun DeviceTileCard(
 
     val cardFillColor by animateColorAsState(
         targetValue = when {
-            !enabled -> if (isDark) Color(0xFF0F172A).copy(alpha = 0.5f) else Color(0xFFE2E8F0).copy(alpha = 0.6f)
-            isOn -> if (isDark) Color(0xFF162A45).copy(alpha = 0.9f) else Color(0xFFD4EAFC).copy(alpha = 0.95f)
+            !enabled -> if (isDark) Color(0xFF0F172A).copy(alpha = 0.5f) else Color(0xFFF1F5F9)
+            isOn -> if (isDark) Color(0xFF162A45).copy(alpha = 0.9f) else Color(0xFFE8F4FD)
             else -> if (isDark) GlassFillDark else GlassFillLight
         },
         animationSpec = tween(250),
@@ -103,7 +103,7 @@ fun DeviceTileCard(
                         color = if (isOn && enabled) {
                             AuroraAccentStart.copy(alpha = if (isDark) 0.35f else 0.22f)
                         } else {
-                            if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFF152C45).copy(alpha = 0.08f)
+                            if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFFEBF2F7)
                         },
                         modifier = Modifier.size(40.dp)
                     ) {
@@ -135,22 +135,32 @@ fun DeviceTileCard(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Column {
+                    val titleColor = if (isOn && enabled) {
+                        if (isDark) Color.White else MaterialTheme.colorScheme.onBackground
+                    } else {
+                        MaterialTheme.colorScheme.onBackground
+                    }
+
+                    val subtitleColor = when {
+                        isErrorText -> StateError
+                        isProcessing -> AuroraAccentEnd
+                        isOn && enabled -> AuroraAccentStart
+                        else -> MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f)
+                    }
+
                     Text(
                         text = title,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        minLines = 2,
-                        maxLines = 2,
-                        lineHeight = 18.sp,
+                        color = titleColor,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = displayText,
-                        fontSize = 13.sp,
-                        fontWeight = if (isErrorText) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isErrorText) StateError else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                        fontSize = 12.sp,
+                        color = subtitleColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -163,8 +173,8 @@ fun DeviceTileCard(
                                 .fillMaxWidth()
                                 .height(28.dp)
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(Color.White.copy(alpha = 0.1f))
-                                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                                .background(if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFFEBF2F7))
+                                .border(1.dp, if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFFD6E4F0), RoundedCornerShape(14.dp))
                                 .padding(2.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -187,7 +197,7 @@ fun DeviceTileCard(
                                     text = "Thủ công",
                                     fontSize = 11.sp,
                                     fontWeight = if (isManual) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isManual) Color.White else TextSecondaryDark
+                                    color = if (isManual) Color.White else if (isDark) TextSecondaryDark else TextSecondaryLight
                                 )
                             }
 
@@ -204,20 +214,10 @@ fun DeviceTileCard(
                                     text = "Tự động",
                                     fontSize = 11.sp,
                                     fontWeight = if (isAuto) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isAuto) Color.White else TextSecondaryDark
+                                    color = if (isAuto) Color.White else if (isDark) TextSecondaryDark else TextSecondaryLight
                                 )
                             }
                         }
-                    } else if (!subtitleText.isNullOrEmpty() && !isProcessing && !isErrorText) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = subtitleText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = TextTertiaryDark,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
                     }
                 }
             }

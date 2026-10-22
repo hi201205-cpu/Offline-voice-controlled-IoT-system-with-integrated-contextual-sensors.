@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,7 +22,10 @@ class MainActivity : FragmentActivity() {
         setContent {
             val themeController = remember { com.example.doan2.ui.theme.ThemeController(applicationContext) }
             Doan2Theme(themeController = themeController) {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     val authViewModel: AuthViewModel = viewModel()
                     val authState by authViewModel.uiState.collectAsState()
 

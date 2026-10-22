@@ -48,7 +48,7 @@ import com.example.doan2.ui.theme.AuroraAccentEnd
 
 import com.example.doan2.ui.theme.AuroraAccentStart
 
-import com.example.doan2.ui.theme.StateError
+import com.example.doan2.ui.theme.*
 
 import com.example.doan2.viewmodel.AutomationViewModel
 
@@ -69,6 +69,12 @@ fun AutomationScreen(
     val uiState by automationViewModel.uiState.collectAsState()
 
     val context = LocalContext.current
+    val themeController = LocalThemeController.current
+    val isDark = when (themeController.themeMode) {
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+        AppThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
 
     var ruleToDelete by remember { mutableStateOf<AutoRuleItem?>(null) }
 
@@ -292,9 +298,9 @@ fun AutomationScreen(
 
                                     shape = RoundedCornerShape(16.dp),
 
-                                    color = Color.White.copy(alpha = 0.05f),
+                                    color = if (isDark) Color.White.copy(alpha = 0.05f) else SubCardBgLight,
 
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.1f) else SubCardBorderLight),
 
                                     modifier = Modifier.fillMaxWidth()
 

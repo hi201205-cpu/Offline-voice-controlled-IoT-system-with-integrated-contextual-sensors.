@@ -49,6 +49,15 @@ fun SettingsScreen(
     val themeController = LocalThemeController.current
 
     val isMaster = uiState.userProfile?.role == "master" || uiState.userEmail?.equals("xhai2005@gmail.com", ignoreCase = true) == true
+    val isDark = when (themeController.themeMode) {
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+        AppThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
+    val dividerColor = if (isDark) Color.White.copy(alpha = 0.1f) else DividerLight
+    val subCardBg = if (isDark) Color.White.copy(alpha = 0.05f) else SubCardBgLight
+    val subCardBorder = if (isDark) Color.White.copy(alpha = 0.1f) else SubCardBorderLight
+    val pillBg = if (isDark) Color.White.copy(alpha = 0.08f) else SubCardBgLight
 
     var memberToUnpair by remember { mutableStateOf<UserProfile?>(null) }
     var expandedMemberUids by remember { mutableStateOf(setOf<String>()) }
@@ -173,13 +182,13 @@ fun SettingsScreen(
 
                     if (isThemeExpanded) {
                         Spacer(modifier = Modifier.height(14.dp))
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        HorizontalDivider(color = dividerColor)
                         Spacer(modifier = Modifier.height(14.dp))
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+                                .background(pillBg, RoundedCornerShape(14.dp))
                                 .padding(4.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
@@ -226,7 +235,7 @@ fun SettingsScreen(
 
                         // Font size settings matching Web
                         Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                        HorizontalDivider(color = dividerColor)
                         Spacer(modifier = Modifier.height(14.dp))
 
                         Text(
@@ -246,7 +255,7 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+                                .background(pillBg, RoundedCornerShape(14.dp))
                                 .padding(4.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
@@ -351,7 +360,7 @@ fun SettingsScreen(
 
                         if (isKeypadExpanded) {
                             Spacer(modifier = Modifier.height(14.dp))
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                            HorizontalDivider(color = dividerColor)
                             Spacer(modifier = Modifier.height(12.dp))
 
                             Row(
@@ -391,8 +400,8 @@ fun SettingsScreen(
                                     passcodes.forEach { item ->
                                         Surface(
                                             shape = RoundedCornerShape(14.dp),
-                                            color = Color.White.copy(alpha = 0.05f),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                                            color = subCardBg,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, subCardBorder),
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Row(
@@ -505,7 +514,7 @@ fun SettingsScreen(
 
                         if (isMembersExpanded) {
                             Spacer(modifier = Modifier.height(14.dp))
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                            HorizontalDivider(color = dividerColor)
                             Spacer(modifier = Modifier.height(14.dp))
 
                         // Generate Invite Code (1 time use)
@@ -565,8 +574,8 @@ fun SettingsScreen(
                                     val isExpanded = expandedMemberUids.contains(member.uid)
                                     Surface(
                                         shape = RoundedCornerShape(16.dp),
-                                        color = Color.White.copy(alpha = 0.05f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isExpanded) AuroraAccentStart.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f)),
+                                        color = subCardBg,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isExpanded) AuroraAccentStart.copy(alpha = 0.5f) else subCardBorder),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Column(modifier = Modifier.padding(14.dp)) {
@@ -629,7 +638,7 @@ fun SettingsScreen(
 
                                             if (isExpanded) {
                                                 Spacer(modifier = Modifier.height(10.dp))
-                                                HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                                                HorizontalDivider(color = dividerColor)
                                                 Spacer(modifier = Modifier.height(10.dp))
 
                                                 Text(
@@ -820,7 +829,7 @@ fun SettingsScreen(
 
                     if (isChangePassExpanded) {
                         Spacer(modifier = Modifier.height(14.dp))
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        HorizontalDivider(color = dividerColor)
                         Spacer(modifier = Modifier.height(14.dp))
 
                         if (isGoogleAccount) {
@@ -828,7 +837,7 @@ fun SettingsScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                                    .background(subCardBg, RoundedCornerShape(16.dp))
                                     .padding(14.dp)
                             ) {
                                 Row(
@@ -1074,7 +1083,7 @@ fun SettingsScreen(
 
                     if (isProfileExpanded) {
                         Spacer(modifier = Modifier.height(14.dp))
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        HorizontalDivider(color = dividerColor)
                         Spacer(modifier = Modifier.height(14.dp))
 
                     // Họ và tên
@@ -1171,7 +1180,7 @@ fun SettingsScreen(
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                    HorizontalDivider(color = dividerColor)
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Nút đăng xuất

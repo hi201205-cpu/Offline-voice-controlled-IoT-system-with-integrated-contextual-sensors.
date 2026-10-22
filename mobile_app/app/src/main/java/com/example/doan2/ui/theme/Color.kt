@@ -24,10 +24,14 @@ val GlassFillDark = Color(0xFF0D1B2D).copy(alpha = 0.85f)
 val GlassBorderStartDark = Color(0xFF97BBDE).copy(alpha = 0.25f)
 val GlassBorderEndDark = Color(0xFF97BBDE).copy(alpha = 0.10f)
 
-// Glass Tokens - Light (Clearly defined card framing)
-val GlassFillLight = Color(0xFFFFFFFF).copy(alpha = 0.88f)
-val GlassBorderStartLight = Color(0xFF366795).copy(alpha = 0.28f)
-val GlassBorderEndLight = Color(0xFF366795).copy(alpha = 0.14f)
+// Glass Tokens - Light (Solid white card framing matching web, no text alpha artifact)
+val GlassFillLight = Color(0xFFFFFFFF)
+val GlassBorderStartLight = Color(0xFFD6E4F0)
+val GlassBorderEndLight = Color(0xFFD6E4F0)
+
+val SubCardBgLight = Color(0xFFF4F8FC)
+val SubCardBorderLight = Color(0xFFDCE7F2)
+val DividerLight = Color(0xFFE2E8F0)
 
 // Text Colors
 val TextPrimaryDark = Color(0xFFEEF6FF)

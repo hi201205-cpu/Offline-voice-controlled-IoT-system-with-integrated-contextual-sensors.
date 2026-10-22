@@ -77,8 +77,8 @@ fun GlassCard(
         shape = shape,
         color = defaultFill,
         border = BorderStroke(borderWidth, borderBrush),
-        tonalElevation = if (isDark) 0.dp else 1.dp,
-        shadowElevation = if (isDark) 0.dp else 4.dp,
+        tonalElevation = 0.dp,
+        shadowElevation = if (isDark) 0.dp else 2.dp,
         modifier = modifier
             .graphicsLayer {
                 scaleX = scale

@@ -410,8 +410,8 @@ fun DoorScreen(
                             Button(
                                 onClick = { doorViewModel.confirmDeletePasscode(item) },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White.copy(alpha = 0.12f),
-                                    contentColor = Color.White
+                                    containerColor = StateError.copy(alpha = 0.15f),
+                                    contentColor = StateError
                                 ),
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),

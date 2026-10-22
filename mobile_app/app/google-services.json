@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "828571400201",
+    "firebase_url": "https://do-an-2-f791a-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "do-an-2-f791a",
+    "storage_bucket": "do-an-2-f791a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:828571400201:android:201174a94ba1019def20d8",
+        "android_client_info": {
+          "package_name": "com.example.doan2"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "828571400201-7kvu9sfvd44p74e0kfpa57b00dnqqdgr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.doan2",
+            "certificate_hash": "2619781316f3c3aac7c83e15cc491e03b279fcf9"
+          }
+        },
+        {
+          "client_id": "828571400201-c5c12h0hcbcuku4avqqgjf6hlsaml0fu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmNwu9LFCdL8Y72SGTuvz9-v9v3GM0jfU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "828571400201-c5c12h0hcbcuku4avqqgjf6hlsaml0fu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -43,8 +43,9 @@ fun PillSwitch(
     }
 
     val offColor = if (isDark) Color(0xFF526174) else Color(0xFF9EACBA)
+    val disabledColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color(0xFFE2E8F0)
     val trackBrush = if (!enabled) {
-        Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.08f)))
+        Brush.horizontalGradient(listOf(disabledColor, disabledColor))
     } else if (checked) {
         Brush.horizontalGradient(listOf(Color(0xFF38BDF8), Color(0xFF6366F1)))
     } else {

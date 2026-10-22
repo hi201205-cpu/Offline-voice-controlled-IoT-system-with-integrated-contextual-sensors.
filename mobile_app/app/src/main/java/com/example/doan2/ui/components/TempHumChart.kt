@@ -97,8 +97,8 @@ fun TempHumChartDialog(
     Dialog(onDismissRequest = onDismiss) {
         GlassCard(
             shape = RoundedCornerShape(24.dp),
-            fillColor = Color(0xFF131B2E),
-            borderColor = Color.White.copy(alpha = 0.25f),
+            fillColor = dialogBg,
+            borderColor = dialogBorder,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(4.dp)
@@ -113,7 +113,7 @@ fun TempHumChartDialog(
                     text = "Lịch sử Nhiệt độ & Độ ẩm",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimaryDark
+                    color = textPrimary
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -123,7 +123,7 @@ fun TempHumChartDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(38.dp)
-                        .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                        .background(tabContainer, RoundedCornerShape(10.dp))
                         .padding(3.dp)
                 ) {
                     Box(
@@ -183,7 +183,7 @@ fun TempHumChartDialog(
                             text = "Nhiệt độ (°C)",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = TextPrimaryDark
+                            color = textPrimary
                         )
                     }
 
@@ -198,7 +198,7 @@ fun TempHumChartDialog(
                             text = "Độ ẩm (%)",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = TextPrimaryDark
+                            color = textPrimary
                         )
                     }
                 }
@@ -208,7 +208,7 @@ fun TempHumChartDialog(
                 // Canvas Chart with Smooth Splines and Gradient Fills
                 val tempColor = Color(0xFFFF6B6B)
                 val humColor = Color(0xFF00B4D8)
-                val gridColor = Color.White.copy(alpha = 0.10f)
+                val gridColor = gridLineColor
 
                 val sortedPoints = displayPoints
                 val maxTemp = (sortedPoints.maxOfOrNull { it.temp } ?: 40.0) + 1.2
@@ -362,9 +362,9 @@ fun TempHumChartDialog(
                         .padding(horizontal = 4.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = leftLabel, fontSize = 10.sp, color = TextSecondaryDark)
-                    Text(text = midLabel, fontSize = 10.sp, color = TextSecondaryDark.copy(alpha = 0.7f))
-                    Text(text = rightLabel, fontSize = 10.sp, color = TextSecondaryDark)
+                    Text(text = leftLabel, fontSize = 10.sp, color = textSecondary)
+                    Text(text = midLabel, fontSize = 10.sp, color = textSecondary.copy(alpha = 0.7f))
+                    Text(text = rightLabel, fontSize = 10.sp, color = textSecondary)
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -388,20 +388,21 @@ fun TempHumChartDialog(
                     // Max Box
                     GlassCard(
                         shape = RoundedCornerShape(12.dp),
-                        fillColor = Color.White.copy(alpha = 0.07f),
+                        fillColor = statFill,
+                        borderColor = statBorder,
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(
                             modifier = Modifier.padding(8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(text = "Cao nhất", fontSize = 11.sp, color = TextSecondaryDark)
+                            Text(text = "Cao nhất", fontSize = 11.sp, color = textSecondary)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "${statMaxT}°C · ${statMaxH}%",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimaryDark
+                                color = textPrimary
                             )
                         }
                     }
@@ -409,20 +410,21 @@ fun TempHumChartDialog(
                     // Min Box
                     GlassCard(
                         shape = RoundedCornerShape(12.dp),
-                        fillColor = Color.White.copy(alpha = 0.07f),
+                        fillColor = statFill,
+                        borderColor = statBorder,
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(
                             modifier = Modifier.padding(8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(text = "Thấp nhất", fontSize = 11.sp, color = TextSecondaryDark)
+                            Text(text = "Thấp nhất", fontSize = 11.sp, color = textSecondary)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "${statMinT}°C · ${statMinH}%",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimaryDark
+                                color = textPrimary
                             )
                         }
                     }
@@ -430,20 +432,21 @@ fun TempHumChartDialog(
                     // Avg Box
                     GlassCard(
                         shape = RoundedCornerShape(12.dp),
-                        fillColor = Color.White.copy(alpha = 0.07f),
+                        fillColor = statFill,
+                        borderColor = statBorder,
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(
                             modifier = Modifier.padding(8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(text = "Trung bình", fontSize = 11.sp, color = TextSecondaryDark)
+                            Text(text = "Trung bình", fontSize = 11.sp, color = textSecondary)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "${statAvgT}°C · ${statAvgH}%",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimaryDark
+                                color = textPrimary
                             )
                         }
                     }
