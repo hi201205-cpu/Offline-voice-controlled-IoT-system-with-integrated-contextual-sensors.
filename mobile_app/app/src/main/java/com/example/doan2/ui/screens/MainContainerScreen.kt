@@ -85,6 +85,13 @@ fun MainContainerScreen(
     val isMaster = profile?.role == "master" || authState.currentUserEmail?.equals("xhai2005@gmail.com", ignoreCase = true) == true
     val isPaired = profile?.isPaired == true || isMaster
 
+    val themeController = LocalThemeController.current
+    val isDark = when (themeController.themeMode) {
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+        AppThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
+
     AuroraBackground {
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
@@ -96,10 +103,11 @@ fun MainContainerScreen(
                         ?: "Bạn"
 
                     GlassCard(
-                        shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
+                        shape = RoundedCornerShape(20.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .statusBarsPadding()
+                            .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 4.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -114,11 +122,12 @@ fun MainContainerScreen(
                             ) {
                                 Text(
                                     text = "$greetingText, $displayName!",
-                                    fontSize = 16.sp,
+                                    fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onBackground,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
 
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -126,9 +135,9 @@ fun MainContainerScreen(
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = when {
-                                        isMaster -> StateOk.copy(alpha = 0.25f)
-                                        !isPaired -> StateWarning.copy(alpha = 0.25f)
-                                        else -> AuroraAccentStart.copy(alpha = 0.25f)
+                                        isMaster -> if (isDark) StateOk.copy(alpha = 0.25f) else Color(0xFFD1FAE5)
+                                        !isPaired -> if (isDark) StateWarning.copy(alpha = 0.25f) else Color(0xFFFEF3C7)
+                                        else -> if (isDark) AuroraAccentStart.copy(alpha = 0.25f) else Color(0xFFE0F2FE)
                                     }
                                 ) {
                                     Text(
@@ -140,11 +149,11 @@ fun MainContainerScreen(
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = when {
-                                            isMaster -> StateOk
-                                            !isPaired -> StateWarning
-                                            else -> AuroraAccentEnd
+                                            isMaster -> if (isDark) StateOk else Color(0xFF059669)
+                                            !isPaired -> if (isDark) StateWarning else Color(0xFFD97706)
+                                            else -> if (isDark) AuroraAccentEnd else Color(0xFF0284C7)
                                         },
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                     )
                                 }
                             }

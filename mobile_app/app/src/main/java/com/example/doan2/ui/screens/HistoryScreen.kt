@@ -42,6 +42,13 @@ fun HistoryScreen(
 ) {
     val uiState by historyViewModel.uiState.collectAsState()
 
+    val themeController = LocalThemeController.current
+    val isDark = when (themeController.themeMode) {
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+        AppThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
+
     val filterLabels = listOf(
         "Tất cả",
         "Giọng nói",
@@ -88,11 +95,22 @@ fun HistoryScreen(
                 FilterChip(
                     selected = uiState.selectedFilterIndex == index,
                     onClick = { historyViewModel.setFilterIndex(index) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = AuroraAccentStart,
+                        selectedLabelColor = Color.White,
+                        containerColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color(0xFFF1F5F9),
+                        labelColor = if (isDark) TextSecondaryDark else TextPrimaryLight
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = uiState.selectedFilterIndex == index,
+                        borderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFFD6E4F0),
+                        selectedBorderColor = AuroraAccentStart
+                    ),
                     label = {
                         Text(
                             text = filterLabels[index],
-                            fontWeight = if (uiState.selectedFilterIndex == index) FontWeight.Bold else FontWeight.Medium,
-                            color = if (uiState.selectedFilterIndex == index) Color.White else MaterialTheme.colorScheme.onBackground
+                            fontWeight = if (uiState.selectedFilterIndex == index) FontWeight.Bold else FontWeight.Medium
                         )
                     },
                     shape = RoundedCornerShape(20.dp)

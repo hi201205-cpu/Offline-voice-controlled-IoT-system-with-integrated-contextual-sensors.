@@ -2,6 +2,7 @@ package com.example.doan2.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,7 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,6 +32,13 @@ fun ConnectionBanner(
 ) {
     val nowMs = System.currentTimeMillis()
     val ageSec = if (lastSeen == 0L) 0L else if (lastSeen > 2_000_000_000L) (nowMs - lastSeen) / 1000L else (nowMs / 1000L) - lastSeen
+
+    val themeController = LocalThemeController.current
+    val isDark = when (themeController.themeMode) {
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+        AppThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
 
     // Slow pulse animation on online status dot
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -47,8 +57,8 @@ fun ConnectionBanner(
         if (isDisconnected) {
             GlassCard(
                 shape = RoundedCornerShape(16.dp),
-                fillColor = DoorAlertRedBg,
-                borderColor = StateError.copy(alpha = 0.5f),
+                fillColor = if (isDark) DoorAlertRedBg else Color(0xFFFEE2E2),
+                borderColor = if (isDark) StateError.copy(alpha = 0.5f) else Color(0xFFFCA5A5),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -62,13 +72,13 @@ fun ConnectionBanner(
                     Icon(
                         imageVector = Icons.Default.Warning,
                         contentDescription = stringResource(R.string.banner_device_disconnected),
-                        tint = StateError,
+                        tint = if (isDark) StateError else Color(0xFFDC2626),
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = stringResource(R.string.banner_device_disconnected),
-                        color = StateError,
+                        color = if (isDark) StateError else Color(0xFFDC2626),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -84,31 +94,47 @@ fun ConnectionBanner(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val badgeBg = if (isDisconnected) {
+                if (isDark) StateError.copy(alpha = 0.2f) else Color(0xFFFEE2E2)
+            } else {
+                if (isDark) StateOk.copy(alpha = 0.2f) else Color(0xFFDCFCE7)
+            }
+
+            val badgeBorder = if (isDisconnected) {
+                if (isDark) StateError.copy(alpha = 0.4f) else Color(0xFFFCA5A5)
+            } else {
+                if (isDark) StateOk.copy(alpha = 0.4f) else Color(0xFF86EFAC)
+            }
+
+            val contentColor = if (isDisconnected) {
+                if (isDark) StateError else Color(0xFFDC2626)
+            } else {
+                if (isDark) StateOk else Color(0xFF15803D)
+            }
+
             GlassCard(
                 shape = RoundedCornerShape(12.dp),
-                fillColor = if (isDisconnected) StateError.copy(alpha = 0.2f) else StateOk.copy(alpha = 0.2f),
-                borderColor = if (isDisconnected) StateError.copy(alpha = 0.4f) else StateOk.copy(alpha = 0.4f)
+                fillColor = badgeBg,
+                borderColor = badgeBorder
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Pulsing Dot for Online
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(7.dp)
                             .scale(if (!isDisconnected) pulseScale else 1f)
-                            .background(
-                                color = if (isDisconnected) StateError else StateOk,
-                                shape = CircleShape
-                            )
+                            .clip(CircleShape)
+                            .background(color = contentColor, shape = CircleShape)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = if (isDisconnected) "ESP32: Offline" else "ESP32: Online (${if (ageSec >= 0) ageSec else 0} s)",
-                        fontSize = 11.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isDisconnected) StateError else StateOk
+                        color = contentColor
                     )
                 }
             }

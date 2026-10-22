@@ -35,6 +35,20 @@ fun TempHumChartDialog(
 ) {
     var selectedRange by remember { mutableStateOf("day") } // "day" or "week"
     val nowMs = remember { System.currentTimeMillis() }
+    val themeController = LocalThemeController.current
+    val isDark = when (themeController.themeMode) {
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+        AppThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
+    val dialogBg = if (isDark) Color(0xFF131B2E) else Color.White
+    val dialogBorder = if (isDark) Color.White.copy(alpha = 0.25f) else Color(0xFFD6E4F0)
+    val textPrimary = if (isDark) TextPrimaryDark else TextPrimaryLight
+    val textSecondary = if (isDark) TextSecondaryDark else TextSecondaryLight
+    val tabContainer = if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFFEBF2F7)
+    val gridLineColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color(0xFF2C5680).copy(alpha = 0.12f)
+    val statFill = if (isDark) Color.White.copy(alpha = 0.07f) else SubCardBgLight
+    val statBorder = if (isDark) Color.White.copy(alpha = 0.12f) else SubCardBorderLight
 
     val displayPoints = remember(points, selectedRange) {
         val isWeek = selectedRange == "week"
