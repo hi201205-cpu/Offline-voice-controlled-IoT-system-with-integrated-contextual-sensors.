@@ -65,35 +65,38 @@ class AuthRepository(
 
 
     fun signIn(email: String, pass: String, onResult: (Boolean, String?) -> Unit) {
-
-        if (email.isBlank() || pass.isBlank()) {
-
+        val trimmedEmail = email.trim().lowercase()
+        val trimmedPass = pass.trim()
+        if (trimmedEmail.isBlank() || trimmedPass.isBlank()) {
             onResult(false, "Email và mật khẩu không được để trống")
-
             return
-
         }
 
-        auth.signInWithEmailAndPassword(email.trim(), pass)
-
+        auth.signInWithEmailAndPassword(trimmedEmail, trimmedPass)
             .addOnSuccessListener { result ->
-
                 val uid = result.user?.uid ?: return@addOnSuccessListener onResult(true, null)
-
-                val userEmail = result.user?.email ?: email.trim()
-
+                val userEmail = result.user?.email ?: trimmedEmail
                 ensureUserRecord(uid, userEmail)
-
                 onResult(true, null)
-
             }
-
             .addOnFailureListener { exc ->
-
-                onResult(false, exc.localizedMessage ?: "Đăng nhập thất bại")
-
+                val msg = when {
+                    exc.message?.contains("user-not-found", ignoreCase = true) == true ->
+                        "Email này chưa đăng ký tài khoản trong hệ thống."
+                    exc.message?.contains("wrong-password", ignoreCase = true) == true ||
+                    exc.message?.contains("invalid-credential", ignoreCase = true) == true ||
+                    exc.message?.contains("INVALID_LOGIN_CREDENTIALS", ignoreCase = true) == true ->
+                        "Mật khẩu không chính xác hoặc tài khoản Google này chưa thiết lập mật khẩu trong ứng dụng."
+                    exc.message?.contains("invalid-email", ignoreCase = true) == true ->
+                        "Địa chỉ email không đúng định dạng."
+                    exc.message?.contains("user-disabled", ignoreCase = true) == true ->
+                        "Tài khoản này đã bị vô hiệu hóa."
+                    exc.message?.contains("too-many-requests", ignoreCase = true) == true ->
+                        "Đã thử đăng nhập sai quá nhiều lần. Vui lòng thử lại sau vài phút hoặc dùng Đăng nhập với Google."
+                    else -> exc.localizedMessage ?: "Đăng nhập thất bại"
+                }
+                onResult(false, msg)
             }
-
     }
 
 
@@ -506,148 +509,143 @@ class AuthRepository(
 
 
 
-    fun isGoogleAccount(): Boolean {
+    fun hasGoogleProvider(): Boolean {
         val user = auth.currentUser ?: return false
-        val providers = user.providerData.map { it.providerId }
-        return providers.contains("google.com") && !providers.contains("password")
+        return user.providerData.any { it.providerId == "google.com" }
     }
 
+    fun hasPasswordProvider(): Boolean {
+        val user = auth.currentUser ?: return false
+        return user.providerData.any { it.providerId == "password" }
+    }
 
+    fun isGoogleOnlyAccount(): Boolean {
+        return hasGoogleProvider() && !hasPasswordProvider()
+    }
+
+    fun isGoogleAccount(): Boolean = isGoogleOnlyAccount()
+
+    fun reloadUser(onComplete: (Boolean) -> Unit) {
+        val user = auth.currentUser
+        if (user == null) {
+            onComplete(false)
+            return
+        }
+        user.reload().addOnCompleteListener { task ->
+            onComplete(task.isSuccessful)
+        }
+    }
+
+    fun setupPasswordForGoogleAccount(password: String, onResult: (Boolean, String?) -> Unit) {
+        val user = auth.currentUser
+        if (user == null) {
+            onResult(false, "Vui lòng đăng nhập lại")
+            return
+        }
+        val email = user.email
+        if (email.isNullOrBlank()) {
+            onResult(false, "Không tìm thấy thông tin email của tài khoản")
+            return
+        }
+        if (password.length < 6) {
+            onResult(false, "Mật khẩu phải có ít nhất 6 ký tự")
+            return
+        }
+
+        val credential = EmailAuthProvider.getCredential(email.trim().lowercase(), password)
+        user.linkWithCredential(credential)
+            .addOnSuccessListener {
+                user.reload().addOnCompleteListener {
+                    onResult(true, "Thiết lập mật khẩu thành công! Giờ bạn có thể đăng nhập bằng cả Google và Email & Mật khẩu này.")
+                }
+            }
+            .addOnFailureListener { exc ->
+                val errMsg = exc.message ?: ""
+                if (errMsg.contains("provider-already-linked", ignoreCase = true) ||
+                    errMsg.contains("already linked", ignoreCase = true) ||
+                    errMsg.contains("credential-already-in-use", ignoreCase = true)) {
+                    user.updatePassword(password)
+                        .addOnSuccessListener {
+                            user.reload().addOnCompleteListener {
+                                onResult(true, "Cập nhật mật khẩu mới thành công!")
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            onResult(false, e.localizedMessage ?: "Cập nhật mật khẩu thất bại")
+                        }
+                } else {
+                    onResult(false, exc.localizedMessage ?: "Thiết lập mật khẩu thất bại")
+                }
+            }
+    }
 
     fun changePassword(
-
         currentPass: String,
-
         newPass: String,
-
         confirmPass: String,
-
         onResult: (Boolean, String?) -> Unit
-
     ) {
-
         val user = auth.currentUser
-
         if (user == null) {
-
             onResult(false, "Vui lòng đăng nhập lại")
-
             return
-
         }
-
-
-
-        // Check if Google Sign-In account (google.com provider, without password provider)
-
-        val providers = user.providerData.map { it.providerId }
-
-        val isGoogleOnly = providers.contains("google.com") && !providers.contains("password")
-
-        if (isGoogleOnly) {
-
-            onResult(false, "Tài khoản của bạn đăng nhập bằng Google, vui lòng quản lý mật khẩu qua tài khoản Google của bạn.")
-
-            return
-
-        }
-
-
-
-        if (currentPass.isBlank()) {
-
-            onResult(false, "Vui lòng nhập mật khẩu hiện tại")
-
-            return
-
-        }
-
-
-
-        if (newPass.length < 6) {
-
-            onResult(false, "Mật khẩu mới phải có ít nhất 6 ký tự")
-
-            return
-
-        }
-
-
-
-        if (newPass != confirmPass) {
-
-            onResult(false, "Mật khẩu mới và xác nhận mật khẩu không khớp nhau")
-
-            return
-
-        }
-
-
-
-        if (newPass == currentPass) {
-
-            onResult(false, "Mật khẩu mới phải khác mật khẩu hiện tại")
-
-            return
-
-        }
-
-
 
         val userEmail = user.email
-
         if (userEmail.isNullOrBlank()) {
-
             onResult(false, "Không tìm thấy thông tin email người dùng")
-
             return
-
         }
 
+        if (newPass.length < 6) {
+            onResult(false, "Mật khẩu mới phải có ít nhất 6 ký tự")
+            return
+        }
 
+        if (newPass != confirmPass) {
+            onResult(false, "Mật khẩu mới và xác nhận mật khẩu không khớp nhau")
+            return
+        }
 
-        val credential = EmailAuthProvider.getCredential(userEmail, currentPass)
+        if (newPass == currentPass) {
+            onResult(false, "Mật khẩu mới phải khác mật khẩu hiện tại")
+            return
+        }
 
+        if (!hasPasswordProvider()) {
+            setupPasswordForGoogleAccount(newPass, onResult)
+            return
+        }
 
+        if (currentPass.isBlank()) {
+            onResult(false, "Vui lòng nhập mật khẩu hiện tại")
+            return
+        }
+
+        val credential = EmailAuthProvider.getCredential(userEmail.trim().lowercase(), currentPass)
 
         user.reauthenticate(credential)
-
             .addOnSuccessListener {
-
                 user.updatePassword(newPass)
-
                     .addOnSuccessListener {
-
-                        onResult(true, "Đổi mật khẩu thành công! Mật khẩu mới đã có hiệu lực.")
-
+                        user.reload().addOnCompleteListener {
+                            onResult(true, "Đổi mật khẩu thành công! Mật khẩu mới đã có hiệu lực.")
+                        }
                     }
-
                     .addOnFailureListener { exc ->
-
                         onResult(false, exc.localizedMessage ?: "Cập nhật mật khẩu thất bại")
-
                     }
-
             }
-
             .addOnFailureListener { exc ->
-
                 val msg = when {
-
                     exc.message?.contains("WRONG_PASSWORD", ignoreCase = true) == true ||
-
+                    exc.message?.contains("wrong-password", ignoreCase = true) == true ||
                     exc.message?.contains("invalid-credential", ignoreCase = true) == true ||
-
                     exc.message?.contains("invalid-password", ignoreCase = true) == true -> "Mật khẩu hiện tại không chính xác"
-
                     else -> exc.localizedMessage ?: "Xác thực lại thất bại, kiểm tra mật khẩu hiện tại"
-
                 }
-
                 onResult(false, msg)
-
             }
-
     }
 
 

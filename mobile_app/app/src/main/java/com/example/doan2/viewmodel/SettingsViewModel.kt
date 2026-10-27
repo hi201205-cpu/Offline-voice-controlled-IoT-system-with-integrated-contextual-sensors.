@@ -32,7 +32,11 @@ data class SettingsUiState(
 
     // Change Password States
     val isGoogleAccount: Boolean = false,
+    val hasGoogleProvider: Boolean = false,
+    val hasPasswordProvider: Boolean = false,
     val isSendingResetEmail: Boolean = false,
+    val isSettingUpPassword: Boolean = false,
+    val isReloadingSecurity: Boolean = false,
     val currentPasswordInput: String = "",
     val newPasswordInput: String = "",
     val confirmPasswordInput: String = "",
@@ -96,6 +100,8 @@ class SettingsViewModel(
                 _uiState.value = _uiState.value.copy(members = list)
             }
         }
+
+        refreshUserSecurityState(showToast = false)
     }
 
     fun onCurrentPasswordChanged(input: String) {
@@ -120,6 +126,59 @@ class SettingsViewModel(
 
     fun toggleShowConfirmPass() {
         _uiState.value = _uiState.value.copy(showConfirmPass = !_uiState.value.showConfirmPass)
+    }
+
+    fun refreshUserSecurityState(showToast: Boolean = false) {
+        _uiState.value = _uiState.value.copy(isReloadingSecurity = true)
+        authRepository.reloadUser { success ->
+            val hasGoogle = authRepository.hasGoogleProvider()
+            val hasPass = authRepository.hasPasswordProvider()
+            val isGoogleOnly = authRepository.isGoogleOnlyAccount()
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+                    isReloadingSecurity = false,
+                    isGoogleAccount = isGoogleOnly,
+                    hasGoogleProvider = hasGoogle,
+                    hasPasswordProvider = hasPass,
+                    userEmail = authRepository.currentUserEmail,
+                    toastMessage = if (showToast) {
+                        if (hasPass) "Đã cập nhật: Tài khoản đã có mật khẩu đăng nhập!"
+                        else "Tài khoản hiện chỉ đăng nhập qua Google, chưa có mật khẩu."
+                    } else _uiState.value.toastMessage
+                )
+            }
+        }
+    }
+
+    fun setupPasswordDirectly() {
+        val state = _uiState.value
+        val pass = state.newPasswordInput
+        val confirm = state.confirmPasswordInput
+
+        if (pass.length < 6) {
+            _uiState.value = state.copy(toastMessage = "Mật khẩu mới phải có ít nhất 6 ký tự")
+            return
+        }
+        if (pass != confirm) {
+            _uiState.value = state.copy(toastMessage = "Mật khẩu xác nhận không khớp")
+            return
+        }
+
+        _uiState.value = state.copy(isSettingUpPassword = true)
+        authRepository.setupPasswordForGoogleAccount(pass) { success, msg ->
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+                    isSettingUpPassword = false,
+                    toastMessage = msg,
+                    newPasswordInput = if (success) "" else _uiState.value.newPasswordInput,
+                    confirmPasswordInput = if (success) "" else _uiState.value.confirmPasswordInput,
+                    currentPasswordInput = ""
+                )
+                if (success) {
+                    refreshUserSecurityState(showToast = false)
+                }
+            }
+        }
     }
 
     fun sendGooglePasswordSetupEmail() {
