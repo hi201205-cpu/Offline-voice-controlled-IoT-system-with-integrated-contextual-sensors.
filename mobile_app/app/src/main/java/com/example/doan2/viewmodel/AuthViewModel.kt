@@ -81,10 +81,7 @@ class AuthViewModel(
     fun loginOrRegister(onSuccess: () -> Unit) {
         val currentState = _uiState.value
 
-        if (currentState.isSignUpMode && currentState.fullName.isBlank()) {
-            _uiState.value = currentState.copy(errorMessage = "Vui lòng nhập Họ và tên chủ nhà")
-            return
-        }
+
 
         if (currentState.email.isBlank()) {
             _uiState.value = currentState.copy(errorMessage = "Vui lòng nhập Email")

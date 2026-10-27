@@ -5,6 +5,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -122,17 +126,35 @@ fun LoginScreen(
                         .verticalScroll(scrollState),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = AuroraAccentStart.copy(alpha = 0.25f),
-                        modifier = Modifier.size(64.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(AuroraAccentStart, AuroraAccentEnd)
+                                ),
+                                shape = RoundedCornerShape(22.dp)
+                            )
+                            .padding(2.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = if (isDark) listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                                        else listOf(Color.White, Color(0xFFF0F9FF))
+                                    ),
+                                    shape = RoundedCornerShape(20.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Home,
                                 contentDescription = stringResource(R.string.login_title),
-                                tint = AuroraAccentEnd,
-                                modifier = Modifier.size(36.dp)
+                                tint = AuroraAccentStart,
+                                modifier = Modifier.size(38.dp)
                             )
                         }
                     }
@@ -206,29 +228,7 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Field 1: Họ và tên chủ nhà (Only in Sign Up Mode)
-                    if (uiState.isSignUpMode) {
-                        OutlinedTextField(
-                            value = uiState.fullName,
-                            onValueChange = { authViewModel.onFullNameChanged(it) },
-                            label = { Text("Họ và tên chủ nhà") },
-                            placeholder = { Text("Nguyễn Văn A") },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.AccountCircle,
-                                    contentDescription = "Họ và tên"
-                                )
-                            },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Text,
-                                imeAction = ImeAction.Next
-                            ),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
+
 
                     // Field 2: Email Input
                     OutlinedTextField(
@@ -371,12 +371,10 @@ fun LoginScreen(
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (uiState.isSignUpMode) "Tạo tài khoản mới" else "Đăng nhập hệ thống",
+                                    text = if (uiState.isSignUpMode) "Đăng ký tài khoản" else "Đăng nhập hệ thống",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "→", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -422,11 +420,10 @@ fun LoginScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.AccountCircle,
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_google_logo),
                                 contentDescription = "Google",
-                                tint = AuroraAccentEnd,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
@@ -439,12 +436,27 @@ fun LoginScreen(
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
-                    Text(
-                        text = "Tài khoản tự động lưu & xác thực bảo mật qua Firebase Auth.",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = "Bảo mật & xác thực an toàn qua Firebase Auth",
+                            fontSize = 11.5.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
             }
         }

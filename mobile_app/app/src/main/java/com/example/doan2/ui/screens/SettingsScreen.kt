@@ -1,7 +1,9 @@
 package com.example.doan2.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -755,16 +757,15 @@ fun SettingsScreen(
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isGoogleAccount) Color(0x2634A853) else AuroraAccentEnd.copy(alpha = 0.2f),
+                                color = if (isGoogleAccount) Color.White.copy(alpha = 0.15f) else AuroraAccentEnd.copy(alpha = 0.2f),
                                 modifier = Modifier.size(40.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     if (isGoogleAccount) {
-                                        Text(
-                                            text = "G",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 19.sp,
-                                            color = Color(0xFF4285F4)
+                                        Image(
+                                            painter = painterResource(id = R.drawable.ic_google_logo),
+                                            contentDescription = "Google",
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     } else {
                                         Icon(
@@ -779,26 +780,31 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = if (isGoogleAccount) "Bảo mật & Mật khẩu tài khoản" else "Đổi mật khẩu tài khoản",
+                                        text = if (isGoogleAccount) "Bảo mật tài khoản" else "Đổi mật khẩu tài khoản",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
                                     if (isGoogleAccount) {
-                                        Box(
-                                            modifier = Modifier
-                                                .background(Color(0x2634A853), RoundedCornerShape(6.dp))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0x2634A853)
                                         ) {
                                             Text(
                                                 text = "Đã bảo vệ",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF34A853)
+                                                color = Color(0xFF34A853),
+                                                softWrap = false,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
                                             )
                                         }
                                     }
@@ -919,16 +925,31 @@ fun SettingsScreen(
                                     enabled = !uiState.isSendingResetEmail,
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF34A853)),
                                     shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(44.dp)
+                                        .defaultMinSize(minHeight = 44.dp)
                                 ) {
-                                    Text(
-                                        text = if (uiState.isSendingResetEmail) "Đang gửi email..." else "Gửi email thiết lập mật khẩu đăng nhập thủ công",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Mail,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (uiState.isSendingResetEmail) "Đang gửi email..." else "Gửi email thiết lập mật khẩu",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                    }
                                 }
                             }
                         } else {
