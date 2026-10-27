@@ -1,7 +1,10 @@
 package com.example.doan2.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.background
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.clickable
@@ -839,84 +842,40 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(14.dp))
 
                         if (isGoogleAccount) {
-                            // Google Account Security View (matching Web & image)
+                            // Clean, minimal Google Security View
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .background(subCardBg, RoundedCornerShape(16.dp))
-                                    .padding(14.dp)
+                                    .padding(16.dp)
                             ) {
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .background(Color.White, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "G",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 16.sp,
-                                            color = Color(0xFF4285F4)
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color(0xFF34A853),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Đăng nhập qua Google (google.com)",
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        text = uiState.userEmail ?: "Tài khoản Google",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
-                                    Box(
-                                        modifier = Modifier
-                                            .background(Color(0x2634A853), RoundedCornerShape(6.dp))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = "Đã bảo vệ",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF34A853)
-                                        )
-                                    }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
 
                                 Text(
-                                    text = "Tài khoản của bạn được liên kết và chứng thực trực tiếp qua tài khoản Google. Bạn không có mật khẩu riêng trên hệ thống này nên không cần đổi mật khẩu tại đây.",
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp,
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                    text = "Tài khoản đăng nhập trực tiếp qua Google và chưa có mật khẩu riêng. Bạn có thể tạo mật khẩu riêng nếu muốn đăng nhập thủ công bằng Email & Mật khẩu.",
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 18.sp,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
                                 )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // Callout Box
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(AuroraAccentStart.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
-                                        .padding(12.dp)
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = "Bạn muốn đăng nhập thủ công bằng Email & Mật khẩu?",
-                                            fontSize = 12.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = AuroraAccentStart
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "Nhấn nút bên dưới để nhận email thiết lập mật khẩu. Sau khi đặt mật khẩu, bạn có thể vừa đăng nhập bằng Google, vừa dùng email & mật khẩu đó đăng nhập bình thường!",
-                                            fontSize = 11.5.sp,
-                                            lineHeight = 15.sp,
-                                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-                                        )
-                                    }
-                                }
 
                                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -925,7 +884,7 @@ fun SettingsScreen(
                                     enabled = !uiState.isSendingResetEmail,
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF34A853)),
                                     shape = RoundedCornerShape(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .defaultMinSize(minHeight = 44.dp)
@@ -938,12 +897,12 @@ fun SettingsScreen(
                                             imageVector = Icons.Default.Mail,
                                             contentDescription = null,
                                             tint = Color.White,
-                                            modifier = Modifier.size(17.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = if (uiState.isSendingResetEmail) "Đang gửi email..." else "Gửi email thiết lập mật khẩu",
-                                            fontSize = 13.sp,
+                                            text = if (uiState.isSendingResetEmail) "Đang gửi email..." else "Gửi email tạo mật khẩu đăng nhập",
+                                            fontSize = 13.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White,
                                             maxLines = 1,
@@ -1107,11 +1066,21 @@ fun SettingsScreen(
                         HorizontalDivider(color = dividerColor)
                         Spacer(modifier = Modifier.height(14.dp))
 
-                    // Họ và tên
+                    var profileNameError by remember { mutableStateOf<String?>(null) }
+                    var profilePhoneError by remember { mutableStateOf<String?>(null) }
+                    var profileDobError by remember { mutableStateOf<String?>(null) }
+
+                    // Họ và tên (Bắt buộc *)
                     OutlinedTextField(
                         value = profileName,
-                        onValueChange = { profileName = it },
-                        label = { Text("Họ và tên") },
+                        onValueChange = {
+                            profileName = it
+                            if (profileNameError != null && it.isNotBlank()) profileNameError = null
+                        },
+                        label = { Text("Họ và tên *") },
+                        placeholder = { Text("Ví dụ: Nguyễn Văn A") },
+                        isError = profileNameError != null,
+                        supportingText = profileNameError?.let { { Text(it, color = StateError, fontSize = 11.5.sp) } },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -1119,49 +1088,91 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Số điện thoại
+                    // Số điện thoại (Bắt buộc *)
                     OutlinedTextField(
                         value = profilePhone,
-                        onValueChange = { profilePhone = it },
-                        label = { Text("Số điện thoại") },
+                        onValueChange = { input ->
+                            val digitsOnly = input.filter { it.isDigit() }
+                            profilePhone = digitsOnly
+                            if (profilePhoneError != null && digitsOnly.isNotBlank()) profilePhoneError = null
+                        },
+                        label = { Text("Số điện thoại * (10 chữ số)") },
+                        placeholder = { Text("Ví dụ: 0912345678") },
+                        isError = profilePhoneError != null,
+                        supportingText = profilePhoneError?.let { { Text(it, color = StateError, fontSize = 11.5.sp) } },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Ngày sinh & Giới tính trong cùng 1 hàng
+                    // Ngày sinh (dd/MM/yyyy)
+                    OutlinedTextField(
+                        value = profileDob,
+                        onValueChange = {
+                            profileDob = it
+                            if (profileDobError != null) profileDobError = null
+                        },
+                        label = { Text("Ngày sinh (ngày/tháng/năm)") },
+                        placeholder = { Text("Ví dụ: 15/08/2000") },
+                        isError = profileDobError != null,
+                        supportingText = profileDobError?.let { { Text(it, color = StateError, fontSize = 11.5.sp) } },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Giới tính (Lựa chọn Nam, Nữ, Khác)
+                    Text(
+                        text = "Giới tính",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedTextField(
-                            value = profileDob,
-                            onValueChange = { profileDob = it },
-                            label = { Text("Ngày sinh (dd/mm/yyyy)") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1.2f)
-                        )
-
-                        OutlinedTextField(
-                            value = profileGender,
-                            onValueChange = { profileGender = it },
-                            label = { Text("Giới tính") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(0.8f)
-                        )
+                        listOf("Nam", "Nữ", "Khác").forEach { g ->
+                            val selected = profileGender.equals(g, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (selected) AuroraAccentStart else (if (isDark) Color.White.copy(alpha = 0.08f) else Color(0xFFF1F5F9)),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (selected) AuroraAccentStart else (if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFFCBD5E1))
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp)
+                                    .clickable { profileGender = g }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = g,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selected) Color.White else MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                            }
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // Địa chỉ
                     OutlinedTextField(
                         value = profileAddress,
                         onValueChange = { profileAddress = it },
                         label = { Text("Địa chỉ nơi ở") },
+                        placeholder = { Text("Ví dụ: Hà Nội, Việt Nam") },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -1172,13 +1183,47 @@ fun SettingsScreen(
                     // Nút cập nhật hồ sơ
                     Button(
                         onClick = {
+                            var hasError = false
+                            val tName = profileName.trim()
+                            val tPhone = profilePhone.trim()
+                            val tDob = profileDob.trim()
+
+                            if (tName.isBlank()) {
+                                profileNameError = "Họ và tên là bắt buộc, không được để trống"
+                                hasError = true
+                            } else {
+                                profileNameError = null
+                            }
+
+                            if (tPhone.isBlank()) {
+                                profilePhoneError = "Số điện thoại là bắt buộc, không được để trống"
+                                hasError = true
+                            } else if (!Regex("""^0\d{9}$""").matches(tPhone)) {
+                                profilePhoneError = "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0"
+                                hasError = true
+                            } else {
+                                profilePhoneError = null
+                            }
+
+                            if (tDob.isNotBlank() && !Regex("""^\d{1,2}/\d{1,2}/\d{4}$""").matches(tDob)) {
+                                profileDobError = "Định dạng ngày sinh phải là ngày/tháng/năm (ví dụ: 15/08/2000)"
+                                hasError = true
+                            } else {
+                                profileDobError = null
+                            }
+
+                            if (hasError) {
+                                Toast.makeText(context, "Vui lòng nhập đúng và đủ các thông tin bắt buộc (*)", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
                             isSavingProfile = true
                             settingsViewModel.updateUserProfile(
-                                name = profileName,
-                                phone = profilePhone,
-                                dob = profileDob,
-                                gender = profileGender,
-                                address = profileAddress
+                                name = tName,
+                                phone = tPhone,
+                                dob = tDob,
+                                gender = profileGender.ifBlank { "Khác" },
+                                address = profileAddress.trim()
                             ) { success, _ ->
                                 isSavingProfile = false
                             }
