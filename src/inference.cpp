@@ -4,15 +4,22 @@
 //  Luồng dữ liệu:
 //    audio_capture → callback(16000 mẫu mỗi 200ms)
 //      → inference_run()
-//        → run_classifier() [MFCC + model + Performance Calibration]
+//        → run_classifier() [MFCC + model]
 //          → kết quả label + confidence
 // ============================================================
 
 #include "inference.h"
+
+// Tự động nhận diện header thư viện xuất từ Edge Impulse
+#if __has_include(<KWS-Vietnamese-Research_inferencing.h>)
+#include <KWS-Vietnamese-Research_inferencing.h>
+#elif __has_include(<KWS-Vietnamese-command_inferencing.h>)
 #include <KWS-Vietnamese-command_inferencing.h>
+#else
+#include <edge-impulse-sdk/classifier/ei_run_classifier.h>
+#endif
 
 // Kiểm tra WINDOW_SAMPLES phải khớp với model EI
-// Nếu sai → lỗi ngay lúc build, không phải lúc chạy
 static_assert(
     WINDOW_SAMPLES == EI_CLASSIFIER_RAW_SAMPLE_COUNT,
     "WINDOW_SAMPLES trong config.h phải bằng EI_CLASSIFIER_RAW_SAMPLE_COUNT (16000)"
@@ -26,27 +33,18 @@ static const int16_t *s_audioWindow = nullptr;
 
 // ============================================================
 //  Callback cấp dữ liệu cho EI DSP
-//
-//  EI không đọc buffer trực tiếp mà gọi callback này
-//  để lấy từng đoạn float. Convert int16 → float tại đây.
 // ============================================================
 
-static int ei_audio_signal_get_data(size_t offset,size_t length,float *out) {
+static int ei_audio_signal_get_data(size_t offset, size_t length, float *out) {
     numpy::int16_to_float(s_audioWindow + offset, out, length);
     return EIDSP_OK;
 }
 
 // ============================================================
 //  inference_init
-//
-//  Bắt buộc gọi run_classifier_init() để khởi tạo
-//  post-processing block, bao gồm Performance Calibration.
-//  Nếu bỏ qua → output toàn 0.00 dù model chạy bình thường.
 // ============================================================
 
 void inference_init() {
-    // Khởi tạo post-processing (Performance Calibration)
-    // Bắt buộc dù dùng run_classifier() thông thường
     run_classifier_init();
 
     LOG("[INFERENCE] Model info:\n");
@@ -54,7 +52,12 @@ void inference_init() {
     LOG("  Frequency : %d Hz\n", EI_CLASSIFIER_FREQUENCY);
     LOG("  Window    : %d ms\n",
         EI_CLASSIFIER_RAW_SAMPLE_COUNT * 1000 / EI_CLASSIFIER_FREQUENCY);
-    LOG("  Perf.Cal  : threshold=0.3166  suppression=864ms\n");
+
+#if EI_CLASSIFIER_CALIBRATION_ENABLED
+    LOG("  Perf.Cal  : Enabled\n");
+#else
+    LOG("  Perf.Cal  : Disabled (Standard threshold mode: %.2f)\n", COMMAND_CONFIDENCE_THRESHOLD);
+#endif
 
 #if DEBUG_INFERENCE
     LOG("  Labels    : ");
@@ -67,30 +70,16 @@ void inference_init() {
 
 // ============================================================
 //  inference_run
-//
-//  Tham số:
-//    audioWindow : 16000 mẫu PCM 16-bit (window 1000ms)
-//                  lấy từ audio_get_window() của audio_capture
-//    outLabel    : [ra] index class thắng
-//    outConf     : [ra] confidence class thắng (0.0 – 1.0)
-//
-//  Trả về:
-//    true  → nhận ra lệnh hợp lệ
-//              (không phải noise, confidence > 0.01)
-//    false → noise, dưới ngưỡng, hoặc lỗi inference
 // ============================================================
 
 bool inference_run(const int16_t *audioWindow, int *outLabel, float *outConf) {
 
-    // Gắn window vào biến static để callback truy cập được
     s_audioWindow = audioWindow;
 
-    // Tạo signal cho Edge Impulse
     signal_t signal;
     signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;  // 16000
     signal.get_data     = &ei_audio_signal_get_data;
 
-    // Chạy MFCC + model + Performance Calibration
     ei_impulse_result_t result = {0};
     EI_IMPULSE_ERROR err = run_classifier(&signal, &result, false);
 
@@ -99,15 +88,7 @@ bool inference_run(const int16_t *audioWindow, int *outLabel, float *outConf) {
         return false;
     }
 
-    const char *detectedLabel = result.postprocessed_output.perf_cal_output.detected_label;
-    if (detectedLabel == nullptr) {
-        *outLabel = -1;
-        *outConf  = 0.0f;
-        LOG("[INFERENCE] Calibration chưa xác nhận lệnh → bỏ qua\n");
-        return false;
-    }
-
-    // Log timing — nếu DSP=0ms và Inf=0ms thì model không chạy
+    // Log timing
     LOG("[INFERENCE] DSP=%.1fms Inf=%.1fms | ",
         result.timing.dsp,
         result.timing.classification);
@@ -130,19 +111,31 @@ bool inference_run(const int16_t *audioWindow, int *outLabel, float *outConf) {
         }
     }
 
-    // Ghi kết quả ra ngoài
     *outLabel = bestIndex;
     *outConf  = bestConf;
 
-    if (strcmp(result.classification[bestIndex].label, detectedLabel) != 0) {
-        LOG("[INFERENCE] Nhãn calibration không khớp output → bỏ qua\n");
+#if EI_CLASSIFIER_CALIBRATION_ENABLED
+    const char *detectedLabel = result.postprocessed_output.perf_cal_output.detected_label;
+    if (detectedLabel == nullptr || strcmp(result.classification[bestIndex].label, detectedLabel) != 0) {
+        LOG("[INFERENCE] Calibration chưa xác nhận hoặc nhãn không khớp → bỏ qua\n");
+        *outLabel = -1;
+        *outConf  = 0.0f;
+        return false;
+    }
+#endif
+
+    // Nếu nhãn thắng là NOISE hoặc UNKNOWN -> bỏ qua ngay lập tức
+    if (bestIndex == LABEL_NOISE || bestIndex == LABEL_UNKNOWN) {
+        LOG("[INFERENCE] Noise hoặc Unknown (conf=%.1f%%) → bỏ qua\n", bestConf * 100.0f);
         *outLabel = -1;
         *outConf  = 0.0f;
         return false;
     }
 
-    if (bestIndex == LABEL_NOISE || bestConf < 0.01f) {
-        LOG("[INFERENCE] Noise hoặc confidence thấp → bỏ qua\n");
+    // Kiểm tra ngưỡng tin cậy tối thiểu
+    if (bestConf < COMMAND_CONFIDENCE_THRESHOLD) {
+        LOG("[INFERENCE] Độ tin cậy thấp (%.1f%% < %.1f%%) → bỏ qua\n",
+            bestConf * 100.0f, COMMAND_CONFIDENCE_THRESHOLD * 100.0f);
         *outLabel = -1;
         *outConf  = 0.0f;
         return false;

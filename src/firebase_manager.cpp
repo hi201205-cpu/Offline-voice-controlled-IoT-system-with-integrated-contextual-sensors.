@@ -167,7 +167,7 @@ static uint32_t      s_lastAutoPendingReadMs = 0;
 
 static const char* LABEL_NAMES[] = {
     "bat_den", "bat_het", "bat_quat", "noise",
-    "tat_den", "tat_het", "tat_quat"
+    "tat_den", "tat_het", "tat_quat", "unknown"
 };
 
 static const char* wifi_status_name(wl_status_t status) {
@@ -517,7 +517,7 @@ static void firebase_do_update(const FbUpdateMsg& msg) {
     bool stateChanged = (msg.relay1 != s_prevRelay1 ||
                          msg.relay2 != s_prevRelay2);
 
-    const char* labelName  = (msg.label >= 0 && msg.label < 7)
+    const char* labelName  = (msg.label >= 0 && msg.label < LABEL_COUNT)
                               ? LABEL_NAMES[msg.label] : "unknown";
     const char* sourceName = (msg.source == CMD_SOURCE_VOICE)
                               ? "voice" : "remote";
@@ -688,8 +688,8 @@ static void firebase_apply_device_command(const DeviceCommand& command) {
 
         case 4:
         {
-            if (command.label < 0 || command.label >= 7 ||
-                command.label == LABEL_NOISE) return;
+            if (command.label < 0 || command.label >= LABEL_COUNT ||
+                command.label == LABEL_NOISE || command.label == LABEL_UNKNOWN) return;
             bool relay1Before = get_relay_state(1);
             bool relay2Before = get_relay_state(2);
             execute_command_from(command.label, 1.0f, RELAY_SOURCE_MANUAL);
@@ -711,8 +711,8 @@ static void firebase_apply_device_command(const DeviceCommand& command) {
 
 static void firebase_do_voice_log(const VoiceLogRecord& record) {
     if (!s_firebaseReady || !wifi_connected() || !Firebase.ready() ||
-        record.label < 0 || record.label >= 7 ||
-        record.label == LABEL_NOISE) {
+        record.label < 0 || record.label >= LABEL_COUNT ||
+        record.label == LABEL_NOISE || record.label == LABEL_UNKNOWN) {
         return;
     }
 
@@ -1900,7 +1900,7 @@ void firebase_queue_door_command_result(const char* action, const char* source,
 }
 
 bool firebase_queue_voice_log(int label, float confidence, bool executed, time_t timestamp) {
-    if (label < 0 || label >= 7 || label == LABEL_NOISE ||
+    if (label < 0 || label >= LABEL_COUNT || label == LABEL_NOISE || label == LABEL_UNKNOWN ||
         confidence < 0.0f || confidence > 1.0f) {
         return false;
     }

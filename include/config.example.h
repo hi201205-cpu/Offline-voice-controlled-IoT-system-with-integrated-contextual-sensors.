@@ -139,11 +139,14 @@
 #define LABEL_TAT_DEN      4
 #define LABEL_TAT_HET      5
 #define LABEL_TAT_QUAT     6
+#define LABEL_UNKNOWN      7
+#define LABEL_COUNT        8
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║  7. NGƯỠNG INFERENCE & COOLDOWN                         ║
 // ╚══════════════════════════════════════════════════════════╝
 
+#define COMMAND_CONFIDENCE_THRESHOLD 0.65f   // Ngưỡng tin cậy tối thiểu cho lệnh hợp lệ
 #define COMMAND_COOLDOWN_MS 1000
 
 // ╔══════════════════════════════════════════════════════════╗

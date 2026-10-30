@@ -62,6 +62,7 @@
 #define EI_CLASSIFIER_CEVA_NPN                   15
 #define EI_CLASSIFIER_NORDIC_AXON                16
 #define EI_CLASSIFIER_VLM_CONNECTOR              17
+#define EI_CLASSIFIER_QAIC                       18
 
 #define EI_CLASSIFIER_SENSOR_UNKNOWN             255
 #define EI_CLASSIFIER_SENSOR_MICROPHONE          1
@@ -84,11 +85,11 @@
 #define EI_CLASSIFIER_DATATYPE_UINT8             3
 #define EI_CLASSIFIER_DATATYPE_INT8              9
 
-#define EI_CLASSIFIER_PROJECT_ID                 999903
-#define EI_CLASSIFIER_PROJECT_OWNER              "nguyenthao01"
-#define EI_CLASSIFIER_PROJECT_NAME               "KWS-Vietnamese-command"
-#define EI_CLASSIFIER_PROJECT_DEPLOY_VERSION     21
-#define EI_CLASSIFIER_NN_INPUT_FRAME_SIZE        637
+#define EI_CLASSIFIER_PROJECT_ID                 1152015
+#define EI_CLASSIFIER_PROJECT_OWNER              "hi201205"
+#define EI_CLASSIFIER_PROJECT_NAME               "KWS-Vietnamese-Research"
+#define EI_CLASSIFIER_PROJECT_DEPLOY_VERSION     1
+#define EI_CLASSIFIER_NN_INPUT_FRAME_SIZE        650
 #define EI_CLASSIFIER_RAW_SAMPLE_COUNT           16000
 #define EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME      1
 #define EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE       (EI_CLASSIFIER_RAW_SAMPLE_COUNT * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME)
@@ -97,8 +98,8 @@
 #define EI_CLASSIFIER_RESIZE_MODE                EI_CLASSIFIER_RESIZE_NONE
 #define EI_CLASSIFIER_INPUT_FRAMES               0
 #define EI_CLASSIFIER_INTERVAL_MS                0.0625
-#define EI_CLASSIFIER_NN_OUTPUT_COUNT            7
-#define EI_CLASSIFIER_LABEL_COUNT                7
+#define EI_CLASSIFIER_NN_OUTPUT_COUNT            8
+#define EI_CLASSIFIER_LABEL_COUNT                8
 #define EI_CLASSIFIER_SINGLE_FEATURE_INPUT       1
 #define EI_CLASSIFIER_FREQUENCY                  16000
 #define EI_CLASSIFIER_SENSOR                     EI_CLASSIFIER_SENSOR_MICROPHONE
@@ -116,8 +117,8 @@
 #define EI_CLASSIFIER_LOAD_FFT_32                1
 #define EI_CLASSIFIER_LOAD_FFT_64                0
 #define EI_CLASSIFIER_LOAD_FFT_128               0
-#define EI_CLASSIFIER_LOAD_FFT_256               0
-#define EI_CLASSIFIER_LOAD_FFT_512               1
+#define EI_CLASSIFIER_LOAD_FFT_256               1
+#define EI_CLASSIFIER_LOAD_FFT_512               0
 #define EI_CLASSIFIER_LOAD_FFT_1024              0
 #define EI_CLASSIFIER_LOAD_FFT_2048              0
 #define EI_CLASSIFIER_LOAD_FFT_4096              0
@@ -126,15 +127,16 @@
 #define EI_DSP_PARAMS_GENERATED                  1
 
 #define EI_CLASSIFIER_INFERENCING_ENGINE            EI_CLASSIFIER_TFLITE
-#define EI_CLASSIFIER_COMPILED                      0
-#define EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER       1
+#define EI_CLASSIFIER_COMPILED                      1
+#define EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER       0
 #define EI_CLASSIFIER_QUANTIZATION_ENABLED          1
 #define EI_CLASSIFIER_HAS_VISUAL_ANOMALY            0
 #define EI_CLASSIFIER_HAS_MODEL_VARIABLES           1
 #define EI_CLASSIFIER_HAS_DATA_NORMALIZATION        0
-#define EI_CLASSIFIER_CALIBRATION_ENABLED           1
+#define EI_CLASSIFIER_CALIBRATION_ENABLED           0
 #define EI_CLASSIFIER_OBJECT_TRACKING_ENABLED       0
-#define EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE     8876
+#define EI_CLASSIFIER_OBJECT_TRACKING_SORT_ENABLED  0
+#define EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE     6265
 #define EI_CLASSIFIER_LOAD_IMAGE_SCALING            0
 #define EI_CLASSIFIER_DSP_AXES_INDEX_TYPE           uint8_t
 #define EI_CLASSIFIER_HR_ENABLED                    0
@@ -163,6 +165,7 @@
 #define EI_HAS_YOLOV11                              0
 #define EI_HAS_QC_FACE_DET_LITE                     0
 #define EI_HAS_PADDLEOCR_DETECTOR                   0
+#define EI_HAS_QC_YOLOX                             0
 
 #ifndef EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW
 #define EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW    4
@@ -171,8 +174,8 @@
 #define EI_CLASSIFIER_SLICE_SIZE                 (EI_CLASSIFIER_RAW_SAMPLE_COUNT / EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW)
 
 #define EI_STUDIO_VERSION_MAJOR             1
-#define EI_STUDIO_VERSION_MINOR             93
-#define EI_STUDIO_VERSION_PATCH             3
+#define EI_STUDIO_VERSION_MINOR             97
+#define EI_STUDIO_VERSION_PATCH             1
 
 #if ((EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) ||      (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_DRPAI)) &&      EI_CLASSIFIER_USE_FULL_TFLITE == 1
 
@@ -352,11 +355,7 @@ typedef struct {
 } ei_dsp_config_eeg_t;
 
 typedef struct {
-    char* detected_label;
-} ei_perf_cal_output_t;
-
-typedef struct {
-    ei_perf_cal_output_t perf_cal_output;
+    int:0;
 } ei_post_processing_output_t;
 
 #endif // _EI_CLASSIFIER_MODEL_METADATA_H_
