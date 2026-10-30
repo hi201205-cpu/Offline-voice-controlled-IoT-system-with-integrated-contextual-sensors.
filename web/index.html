@@ -919,90 +919,66 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
             </div>
           </summary>
           <div class="settings-accordion-body" id="cardSecuritySettings">
-            <!-- Trạng thái 1: Tài khoản đăng nhập qua Google (Chưa tạo mật khẩu riêng) -->
-            <div id="googleAccountSecurityWrap" class="hidden" style="padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel);">
-              <div style="display:flex;align-items:flex-start;gap:14px;">
-                <div style="width:40px;height:40px;border-radius:12px;background:white;display:grid;place-items:center;flex-shrink:0;">
-                  <svg viewBox="0 0 24 24" style="width:22px;height:22px;">
+            <!-- Shopee Standard: Thẻ tổng quan phương thức đăng nhập -->
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel);margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:38px;height:38px;border-radius:10px;background:white;display:grid;place-items:center;flex-shrink:0;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                   </svg>
                 </div>
-                <div style="flex:1;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                      <b style="font-size:14.5px;">Đăng nhập qua Google (google.com)</b>
-                      <span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Đã bảo vệ</span>
-                    </div>
-                    <button type="button" class="btn-refresh-security" id="btnRefreshGoogleSecurity" title="Làm mới trạng thái xác thực từ Firebase" style="display:inline-flex;align-items:center;gap:5px;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 9px;font-size:11.5px;color:var(--accent);cursor:pointer;">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                      <span>Làm mới trạng thái</span>
-                    </button>
-                  </div>
-                  <p class="meta" style="font-size:12.5px;margin:6px 0 12px;line-height:1.5;">
-                    Tài khoản của bạn đang đăng nhập qua Google và chưa có mật khẩu riêng. Bạn có thể <b>tạo mật khẩu trực tiếp ngay tại đây</b> để đăng nhập bằng Email &amp; Mật khẩu:
-                  </p>
-                  <!-- Form tạo mật khẩu trực tiếp trong web cho tài khoản Google -->
-                  <form id="formDirectSetupGooglePass" onsubmit="return false;" style="display:grid;gap:11px;max-width:440px;padding:14px;background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:12px;">
-                    <div>
-                      <label for="directGooglePass" style="margin:0 0 4px;font-size:12px;font-weight:600;">Mật khẩu mới (tối thiểu 6 ký tự)</label>
-                      <div class="auth-input-wrap">
-                        <input type="password" id="directGooglePass" placeholder="Nhập mật khẩu mới muốn tạo" minlength="6" required>
-                        <button type="button" class="auth-toggle-pwd" id="toggleDirectGooglePass" aria-label="Hiện mật khẩu"></button>
-                      </div>
-                    </div>
-                    <div>
-                      <label for="directGooglePassConfirm" style="margin:0 0 4px;font-size:12px;font-weight:600;">Xác nhận mật khẩu mới</label>
-                      <div class="auth-input-wrap">
-                        <input type="password" id="directGooglePassConfirm" placeholder="Nhập lại mật khẩu mới" minlength="6" required>
-                        <button type="button" class="auth-toggle-pwd" id="toggleDirectGooglePassConfirm" aria-label="Hiện mật khẩu"></button>
-                      </div>
-                    </div>
-                    <div id="directSetupPassMsg" class="meta" style="font-size:12px;min-height:16px;"></div>
-                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:4px;">
-                      <button type="submit" class="primary" id="btnDirectSetupGooglePass" style="padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;background:#34A853;border-color:#34A853;">
-                        Tạo &amp; Lưu mật khẩu ngay
-                      </button>
-                      <button type="button" class="ghost" id="btnSendGoogleResetPass" style="padding:8px 12px;border-radius:10px;font-size:12px;color:var(--accent);">
-                        Gửi email tạo mật khẩu
-                      </button>
-                    </div>
-                  </form>
+                <div>
+                  <div style="font-size:13.5px;font-weight:600;" id="secEmailDisplay">Tài khoản Google</div>
+                  <div style="font-size:11.5px;color:var(--mute);" id="secLinkStatusDesc">Đã liên kết đăng nhập an toàn</div>
                 </div>
+              </div>
+              <div id="securityAccountBadge" style="display:flex;align-items:center;gap:8px;">
+                <span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Đã bảo vệ</span>
               </div>
             </div>
 
-            <!-- Trạng thái 2: Form đổi mật khẩu cho tài khoản có Mật khẩu (Email/Password) -->
-            <div id="passwordAccountSecurityWrap">
-              <div id="securityAccountBadge" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;"></div>
+            <!-- Form đổi/cập nhật mật khẩu chuẩn Shopee -->
+            <div style="padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel);">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <h4 style="margin:0;font-size:14px;font-weight:700;">Cập nhật mật khẩu tài khoản</h4>
+                <button type="button" class="btn-refresh-security" id="btnRefreshGoogleSecurity" title="Làm mới trạng thái từ máy chủ" style="background:none;border:0;color:var(--accent);font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                  ↻ Đồng bộ
+                </button>
+              </div>
+              <p class="meta" style="font-size:12px;margin:0 0 14px;line-height:1.5;" id="secPassHintText">
+                Bạn có thể cập nhật mật khẩu mới bất cứ lúc nào để đăng nhập linh hoạt bằng cả Google và Email &amp; Mật khẩu.
+              </p>
+
               <form id="formChangePassword" onsubmit="return false;" style="display:grid;gap:12px;max-width:480px;">
-                <div>
-                  <label for="oldPassword" style="margin:0 0 4px;">Mật khẩu hiện tại</label>
+                <!-- Ô mật khẩu hiện tại (Chỉ hiện khi tài khoản đăng nhập thường không qua Google) -->
+                <div id="wrapOldPassword" class="hidden">
+                  <label for="oldPassword" style="margin:0 0 4px;font-size:12px;">Mật khẩu hiện tại</label>
                   <div class="auth-input-wrap">
-                    <input type="password" id="oldPassword" placeholder="Nhập mật khẩu đang dùng" autocomplete="current-password" required>
+                    <input type="password" id="oldPassword" placeholder="Nhập mật khẩu đang dùng" autocomplete="current-password">
                     <button type="button" class="auth-toggle-pwd" id="toggleOldPass" aria-label="Hiện mật khẩu"></button>
                   </div>
                 </div>
                 <div>
-                  <label for="newPassword" style="margin:0 0 4px;">Mật khẩu mới (tối thiểu 6 ký tự)</label>
+                  <label for="newPassword" style="margin:0 0 4px;font-size:12px;">Mật khẩu mới (tối thiểu 6 ký tự)</label>
                   <div class="auth-input-wrap">
-                    <input type="password" id="newPassword" placeholder="Nhập mật khẩu mới" autocomplete="new-password" minlength="6" required>
+                    <input type="password" id="newPassword" placeholder="Nhập mật khẩu mới muốn đặt" autocomplete="new-password" minlength="6" required>
                     <button type="button" class="auth-toggle-pwd" id="toggleNewPass" aria-label="Hiện mật khẩu"></button>
                   </div>
                 </div>
                 <div>
-                  <label for="confirmNewPassword" style="margin:0 0 4px;">Xác nhận mật khẩu mới</label>
+                  <label for="confirmNewPassword" style="margin:0 0 4px;font-size:12px;">Xác nhận mật khẩu mới</label>
                   <div class="auth-input-wrap">
                     <input type="password" id="confirmNewPassword" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password" minlength="6" required>
                     <button type="button" class="auth-toggle-pwd" id="toggleConfirmPass" aria-label="Hiện mật khẩu"></button>
                   </div>
                 </div>
-                <div id="changePassMsg" class="meta" style="font-size:12.5px;min-height:18px;"></div>
-                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-                  <button type="submit" class="primary" id="btnSubmitChangePass" style="padding:9px 20px;border-radius:12px;font-weight:600;">Cập nhật mật khẩu mới</button>
-                  <button type="button" id="btnForgotPassInSettings" class="ghost" style="padding:8px 12px;font-size:12.5px;color:var(--accent);">
+                <div id="changePassMsg" class="meta" style="font-size:12px;min-height:16px;"></div>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding-top:4px;">
+                  <button type="submit" class="primary" id="btnSubmitChangePass" style="padding:9px 20px;border-radius:12px;font-weight:600;">Lưu mật khẩu mới</button>
+                  <button type="button" id="btnForgotPassInSettings" class="ghost" style="padding:8px 12px;font-size:12px;color:var(--accent);">
                     Quên mật khẩu? Gửi email khôi phục
                   </button>
                 </div>
@@ -1212,7 +1188,27 @@ if (btnGoogleSignIn) {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
-      const result = await signInWithPopup(auth, provider);
+      let result = null;
+      try {
+        result = await signInWithPopup(auth, provider);
+      } catch (popErr) {
+        if (popErr.code === "auth/account-exists-with-different-credential") {
+          // Trường hợp 2 (Cách A): Tài khoản đã có mật khẩu từ trước, tự động hỗ trợ liên kết hợp nhất
+          const pendingCred = GoogleAuthProvider.credentialFromError(popErr);
+          const email = popErr.customData?.email || "";
+          const pass = prompt(`Tài khoản "${email}" đã được đăng ký bằng Email & Mật khẩu từ trước.\nVui lòng nhập mật khẩu của bạn để liên kết nhanh với Google:`);
+          if (pass) {
+            const userCred = await signInWithEmailAndPassword(auth, email.toLowerCase(), pass);
+            await linkWithCredential(userCred.user, pendingCred);
+            result = userCred;
+            showToast("Đã liên kết tài khoản Google và Mật khẩu thành công!");
+          } else {
+            throw popErr;
+          }
+        } else {
+          throw popErr;
+        }
+      }
       const user = result.user;
 
       // Kiểm tra xem đã có bản ghi user trong Realtime Database chưa
@@ -1488,7 +1484,7 @@ if (formUserProfile) {
   };
 }
 
-// ---- Cập nhật hiển thị Bảo mật & Mật khẩu tài khoản theo Auth Provider ----
+// ---- Cập nhật hiển thị Bảo mật & Mật khẩu tài khoản (Chuẩn Shopee) ----
 async function reloadAndCheckSecurity(showToastAlert = false) {
   const user = auth.currentUser;
   if (!user) return;
@@ -1496,12 +1492,7 @@ async function reloadAndCheckSecurity(showToastAlert = false) {
     await user.reload();
     updateSecuritySection(auth.currentUser);
     if (showToastAlert) {
-      const hasPass = auth.currentUser.providerData && auth.currentUser.providerData.some(p => p.providerId === "password");
-      if (hasPass) {
-        showToast("Đã cập nhật: Tài khoản đã có mật khẩu đăng nhập!");
-      } else {
-        showToast("Tài khoản hiện chỉ đăng nhập qua Google, chưa có mật khẩu.");
-      }
+      showToast("Đã đồng bộ trạng thái tài khoản từ máy chủ.");
     }
   } catch (e) {
     console.warn("Lỗi reload user security:", e);
@@ -1513,44 +1504,42 @@ function updateSecuritySection(user) {
   const isGoogle = user.providerData && user.providerData.some(p => p.providerId === "google.com");
   const hasPassword = user.providerData && user.providerData.some(p => p.providerId === "password");
 
-  const googleWrap = $("googleAccountSecurityWrap");
-  const passWrap = $("passwordAccountSecurityWrap");
-  const subTitle = $("authSecuritySubtitle");
+  const emailDisp = $("secEmailDisplay");
+  const statusDesc = $("secLinkStatusDesc");
   const badgeEl = $("securityAccountBadge");
+  const wrapOldPass = $("wrapOldPassword");
+  const oldPassInput = $("oldPassword");
+  const hintText = $("secPassHintText");
+  const subTitle = $("authSecuritySubtitle");
 
-  if (isGoogle && !hasPassword) {
-    // Tài khoản đăng nhập qua Google (chưa có password riêng)
-    if (googleWrap) googleWrap.classList.remove("hidden");
-    if (passWrap) passWrap.classList.add("hidden");
-    if (subTitle) {
-      subTitle.textContent = "Tài khoản Google chưa có mật khẩu riêng. Bạn có thể tạo mật khẩu đăng nhập bên dưới.";
-    }
+  if (emailDisp) emailDisp.textContent = user.email || "Tài khoản của bạn";
+
+  if (isGoogle && hasPassword) {
+    if (statusDesc) statusDesc.textContent = "Google + Mật khẩu (Hợp nhất hai phương thức)";
+    if (badgeEl) badgeEl.innerHTML = `<span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Google + Mật khẩu</span>`;
+  } else if (isGoogle) {
+    if (statusDesc) statusDesc.textContent = "Đăng nhập trực tiếp qua Google (Chính chủ)";
+    if (badgeEl) badgeEl.innerHTML = `<span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Google</span>`;
   } else {
-    // Tài khoản Email/Password (hoặc tài khoản Google đã liên kết mật khẩu)
-    if (googleWrap) googleWrap.classList.add("hidden");
-    if (passWrap) passWrap.classList.remove("hidden");
-    if (subTitle) {
-      subTitle.textContent = "Cập nhật mật khẩu đăng nhập cho tài khoản của bạn.";
-    }
-    if (badgeEl) {
-      if (isGoogle) {
-        badgeEl.innerHTML = `
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Google + Mật khẩu</span>
-            <span class="meta" style="font-size:12px;">Đã liên kết xác thực hai phương thức</span>
-          </div>
-          <button type="button" id="btnRefreshPassSecurity" title="Làm mới trạng thái xác thực" style="display:inline-flex;align-items:center;gap:4px;background:none;border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:11px;color:var(--accent);cursor:pointer;">
-            ↻ Làm mới
-          </button>
-        `;
-        const btnRef = $("btnRefreshPassSecurity");
-        if (btnRef) btnRef.onclick = () => reloadAndCheckSecurity(true);
-      } else {
-        badgeEl.innerHTML = `
-          <span class="mock-label" style="background:rgba(0,180,216,0.15);color:#0096c7;font-weight:700;">Email &amp; Mật khẩu</span>
-        `;
-      }
-    }
+    if (statusDesc) statusDesc.textContent = "Đăng nhập bằng Email & Mật khẩu";
+    if (badgeEl) badgeEl.innerHTML = `<span class="mock-label" style="background:rgba(0,180,216,0.15);color:#0096c7;font-weight:700;">Mật khẩu</span>`;
+  }
+
+  if (subTitle) {
+    subTitle.textContent = "Quản lý liên kết Google và mật khẩu bảo vệ tài khoản của bạn.";
+  }
+
+  // Chuẩn Shopee: Nếu người dùng đang đăng nhập bằng Google, danh tính đã được Google xác minh chính chủ
+  // nên cho phép đổi/đặt mật khẩu mới trực tiếp mà không cần gõ mật khẩu cũ.
+  // Chỉ yêu cầu mật khẩu cũ khi người dùng đăng nhập bằng Email/Pass thông thường.
+  if (isGoogle) {
+    if (wrapOldPass) wrapOldPass.classList.add("hidden");
+    if (oldPassInput) oldPassInput.removeAttribute("required");
+    if (hintText) hintText.textContent = "Phiên Google đã được xác thực chính chủ. Bạn có thể đặt mật khẩu mới trực tiếp bên dưới để đăng nhập bằng cả 2 cách.";
+  } else {
+    if (wrapOldPass) wrapOldPass.classList.remove("hidden");
+    if (oldPassInput) oldPassInput.setAttribute("required", "true");
+    if (hintText) hintText.textContent = "Vui lòng nhập mật khẩu hiện tại và mật khẩu mới để cập nhật.";
   }
 }
 
@@ -1564,100 +1553,102 @@ if (secAccordion) {
   });
 }
 
-// Bắt sự kiện nút Làm mới trạng thái Google
 const btnRefreshGoogle = $("btnRefreshGoogleSecurity");
 if (btnRefreshGoogle) {
   btnRefreshGoogle.onclick = () => reloadAndCheckSecurity(true);
 }
 
-// Xử lý Tạo & Liên kết mật khẩu trực tiếp cho tài khoản Google ngay trong web
-const formDirectSetupGooglePass = $("formDirectSetupGooglePass");
-if (formDirectSetupGooglePass) {
-  formDirectSetupGooglePass.onsubmit = async (evt) => {
+// Xử lý Lưu mật khẩu mới (Chuẩn Shopee: Tự động phát hiện phiên để update hoặc link)
+const formChangePassword = $("formChangePassword");
+if (formChangePassword) {
+  formChangePassword.onsubmit = async (evt) => {
     evt.preventDefault();
     const user = auth.currentUser;
-    const msgEl = $("directSetupPassMsg");
-    const btn = $("btnDirectSetupGooglePass");
+    const msgEl = $("changePassMsg");
+    const btn = $("btnSubmitChangePass");
     if (!user || !user.email) return;
 
-    const pass = $("directGooglePass").value;
-    const confirm = $("directGooglePassConfirm").value;
+    const isGoogle = user.providerData && user.providerData.some(p => p.providerId === "google.com");
+    const hasPassword = user.providerData && user.providerData.some(p => p.providerId === "password");
+    const oldPass = $("oldPassword") ? $("oldPassword").value : "";
+    const newPass = $("newPassword").value;
+    const confirmNewPass = $("confirmNewPassword").value;
 
     msgEl.textContent = "";
     msgEl.style.color = "var(--mute)";
 
-    if (pass.length < 6) {
+    if (newPass.length < 6) {
       msgEl.style.color = "var(--bad)";
       msgEl.textContent = "Mật khẩu mới phải có ít nhất 6 ký tự.";
-      $("directGooglePass").focus();
+      $("newPassword").focus();
       return;
     }
 
-    if (pass !== confirm) {
+    if (newPass !== confirmNewPass) {
       msgEl.style.color = "var(--bad)";
       msgEl.textContent = "Xác nhận mật khẩu mới không khớp!";
-      $("directGooglePassConfirm").focus();
+      $("confirmNewPassword").focus();
       return;
     }
 
     btn.disabled = true;
     btn.textContent = "Đang lưu mật khẩu...";
-    msgEl.textContent = "Đang liên kết phương thức mật khẩu với tài khoản Google...";
 
     try {
       const emailLower = user.email.trim().toLowerCase();
-      const credential = EmailAuthProvider.credential(emailLower, pass);
-      
-      try {
-        await linkWithCredential(user, credential);
-      } catch (linkErr) {
-        if (linkErr.code === "auth/provider-already-linked" || linkErr.code === "auth/credential-already-in-use") {
-          await updatePassword(user, pass);
-        } else {
-          throw linkErr;
+
+      if (!isGoogle && hasPassword) {
+        // Trường hợp đăng nhập thuần bằng Password: Cần xác thực mật khẩu cũ
+        if (!oldPass) {
+          msgEl.style.color = "var(--bad)";
+          msgEl.textContent = "Vui lòng nhập mật khẩu hiện tại.";
+          btn.disabled = false;
+          btn.textContent = "Lưu mật khẩu mới";
+          $("oldPassword").focus();
+          return;
+        }
+        const credential = EmailAuthProvider.credential(emailLower, oldPass);
+        await reauthenticateWithCredential(user, credential);
+        await updatePassword(user, newPass);
+      } else {
+        // Trường hợp phiên Google (Chuẩn Shopee: Cho phép đặt/đổi mật khẩu nhanh chóng)
+        const credential = EmailAuthProvider.credential(emailLower, newPass);
+        try {
+          await linkWithCredential(user, credential);
+        } catch (linkErr) {
+          // Nếu đã link từ trước thì gọi updatePassword
+          if (linkErr.code === "auth/provider-already-linked" || linkErr.code === "auth/credential-already-in-use") {
+            await updatePassword(user, newPass);
+          } else {
+            throw linkErr;
+          }
         }
       }
 
       await user.reload();
       updateSecuritySection(auth.currentUser);
 
-      msgEl.style.color = "var(--good)";
-      msgEl.textContent = "✓ Thiết lập mật khẩu thành công! Giờ bạn có thể đăng nhập bằng cả Google và Email & Mật khẩu này.";
-      showToast("Thiết lập mật khẩu thành công! Giờ bạn có thể đăng nhập bằng cả Google và Email & Mật khẩu.");
-      alert("Thiết lập mật khẩu thành công!\n\nTừ bây giờ, bạn có thể đăng nhập vào hệ thống bằng cả tài khoản Google hoặc nhập thủ công Email: " + user.email + " và mật khẩu bạn vừa tạo.");
+      if ($("oldPassword")) $("oldPassword").value = "";
+      $("newPassword").value = "";
+      $("confirmNewPassword").value = "";
 
-      $("directGooglePass").value = "";
-      $("directGooglePassConfirm").value = "";
+      msgEl.style.color = "var(--good)";
+      msgEl.innerHTML = "✓ Lưu mật khẩu thành công! Giờ bạn có thể dùng cả Google và Email &amp; Mật khẩu này để đăng nhập.";
+      showToast("Lưu mật khẩu mới thành công!");
+      alert("Lưu mật khẩu thành công! Mật khẩu mới đã có hiệu lực cho tài khoản của bạn.");
 
     } catch (e) {
-      console.error("Lỗi liên kết mật khẩu:", e);
+      console.error("Lỗi cập nhật mật khẩu:", e);
       msgEl.style.color = "var(--bad)";
-      msgEl.textContent = "Thiết lập mật khẩu thất bại: " + formatAuthError(e);
+      if (e.code === "auth/invalid-credential" || e.code === "auth/wrong-password") {
+        msgEl.textContent = "Mật khẩu hiện tại không chính xác!";
+        if ($("oldPassword")) $("oldPassword").focus();
+      } else {
+        msgEl.textContent = formatAuthError(e);
+      }
     } finally {
       btn.disabled = false;
-      btn.textContent = "Tạo & Lưu mật khẩu ngay";
-    }
-  };
-}
-
-// Xử lý gửi email thiết lập mật khẩu cho tài khoản Google
-const btnSendGoogleResetPass = $("btnSendGoogleResetPass");
-if (btnSendGoogleResetPass) {
-  btnSendGoogleResetPass.onclick = async () => {
-    const user = auth.currentUser;
-    if (!user || !user.email) return;
-    btnSendGoogleResetPass.disabled = true;
-    btnSendGoogleResetPass.textContent = "Đang gửi email...";
-    try {
-      await sendPasswordResetEmail(auth, user.email.trim().toLowerCase());
-      alert(`Đã gửi email thiết lập mật khẩu tới ${user.email}!\n\nBạn hãy mở email và nhấp vào liên kết để đặt mật khẩu mới. Sau khi đặt, nhấn nút "Làm mới trạng thái" ở trên để cập nhật ngay!`);
-      showToast("Đã gửi email thiết lập mật khẩu. Vui lòng kiểm tra hộp thư!");
-    } catch (e) {
-      console.error("Lỗi gửi email reset pass:", e);
-      alert("Không thể gửi email: " + formatAuthError(e));
-    } finally {
-      btnSendGoogleResetPass.disabled = false;
-      btnSendGoogleResetPass.textContent = "Gửi email tạo mật khẩu";
+      btn.textContent = "Lưu mật khẩu mới";
     }
   };
 }
@@ -1671,12 +1662,13 @@ if (btnForgotInSettings) {
     if (!confirm(`Hệ thống sẽ gửi liên kết khôi phục mật khẩu tới email: ${user.email}.\nBạn có muốn tiếp tục?`)) return;
     try {
       await sendPasswordResetEmail(auth, user.email.trim().toLowerCase());
-      showToast("Đã gửi email khôi phục mật khẩu thành công.");
+      showToast("Đã gửi email khôi phục mật khẩu.");
       alert(`Đã gửi email khôi phục mật khẩu tới ${user.email}!\nVui lòng kiểm tra hộp thư (cả mục Spam/Thư rác).`);
     } catch (e) {
       alert("Không thể gửi email: " + formatAuthError(e));
     }
   };
+}
 }
 
 // ---- Xử lý Đổi mật khẩu trong Cài đặt ----
