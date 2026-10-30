@@ -1499,50 +1499,53 @@ async function reloadAndCheckSecurity(showToastAlert = false) {
   }
 }
 
-function updateSecuritySection(user) {
-  if (!user) return;
-  const isGoogle = user.providerData && user.providerData.some(p => p.providerId === "google.com");
-  const hasPassword = user.providerData && user.providerData.some(p => p.providerId === "password");
-
-  const emailDisp = $("secEmailDisplay");
-  const statusDesc = $("secLinkStatusDesc");
-  const badgeEl = $("securityAccountBadge");
-  const wrapOldPass = $("wrapOldPassword");
-  const oldPassInput = $("oldPassword");
-  const hintText = $("secPassHintText");
-  const subTitle = $("authSecuritySubtitle");
-
-  if (emailDisp) emailDisp.textContent = user.email || "Tài khoản của bạn";
-
-  if (isGoogle && hasPassword) {
-    if (statusDesc) statusDesc.textContent = "Google + Mật khẩu (Hợp nhất hai phương thức)";
-    if (badgeEl) badgeEl.innerHTML = `<span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Google + Mật khẩu</span>`;
-  } else if (isGoogle) {
-    if (statusDesc) statusDesc.textContent = "Đăng nhập trực tiếp qua Google (Chính chủ)";
-    if (badgeEl) badgeEl.innerHTML = `<span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Google</span>`;
-  } else {
-    if (statusDesc) statusDesc.textContent = "Đăng nhập bằng Email & Mật khẩu";
-    if (badgeEl) badgeEl.innerHTML = `<span class="mock-label" style="background:rgba(0,180,216,0.15);color:#0096c7;font-weight:700;">Mật khẩu</span>`;
-  }
-
-  if (subTitle) {
-    subTitle.textContent = "Quản lý liên kết Google và mật khẩu bảo vệ tài khoản của bạn.";
-  }
-
-  // Chuẩn Shopee: Nếu người dùng đang đăng nhập bằng Google, danh tính đã được Google xác minh chính chủ
-  // nên cho phép đổi/đặt mật khẩu mới trực tiếp mà không cần gõ mật khẩu cũ.
-  // Chỉ yêu cầu mật khẩu cũ khi người dùng đăng nhập bằng Email/Pass thông thường.
-  if (isGoogle) {
-    if (wrapOldPass) wrapOldPass.classList.add("hidden");
-    if (oldPassInput) oldPassInput.removeAttribute("required");
-    if (hintText) hintText.textContent = "Phiên Google đã được xác thực chính chủ. Bạn có thể đặt mật khẩu mới trực tiếp bên dưới để đăng nhập bằng cả 2 cách.";
-  } else {
-    if (wrapOldPass) wrapOldPass.classList.remove("hidden");
-    if (oldPassInput) oldPassInput.setAttribute("required", "true");
-    if (hintText) hintText.textContent = "Vui lòng nhập mật khẩu hiện tại và mật khẩu mới để cập nhật.";
-  }
-}
-
+function updateSecuritySection(user) {
+  if (!user) return;
+  const isGoogle = user.providerData && user.providerData.some(p => p.providerId === "google.com");
+  const hasPassword = user.providerData && user.providerData.some(p => p.providerId === "password");
+
+  const emailDisp = $("secEmailDisplay");
+  const statusDesc = $("secLinkStatusDesc");
+  const badgeEl = $("securityAccountBadge");
+  const wrapOldPass = $("wrapOldPassword");
+  const oldPassInput = $("oldPassword");
+  const hintText = $("secPassHintText");
+  const subTitle = $("authSecuritySubtitle");
+  const submitBtn = $("btnSubmitChangePass");
+
+  if (emailDisp) emailDisp.textContent = user.email || "Tài khoản của bạn";
+
+  if (isGoogle && hasPassword) {
+    if (statusDesc) statusDesc.textContent = "Google + Mật khẩu (Hợp nhất hai phương thức)";
+    if (badgeEl) badgeEl.innerHTML = `<span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Google + Mật khẩu</span>`;
+  } else if (isGoogle) {
+    if (statusDesc) statusDesc.textContent = "Đăng nhập trực tiếp qua Google (Chính chủ)";
+    if (badgeEl) badgeEl.innerHTML = `<span class="mock-label" style="background:rgba(52,168,83,0.15);color:#34A853;font-weight:700;">Google</span>`;
+  } else {
+    if (statusDesc) statusDesc.textContent = "Đăng nhập bằng Email & Mật khẩu";
+    if (badgeEl) badgeEl.innerHTML = `<span class="mock-label" style="background:rgba(0,180,216,0.15);color:#0096c7;font-weight:700;">Mật khẩu</span>`;
+  }
+
+  if (subTitle) {
+    subTitle.textContent = "Quản lý liên kết Google và mật khẩu bảo vệ tài khoản của bạn.";
+  }
+
+  // Phương án B (Nghiêm ngặt): Nếu tài khoản ĐÃ CÓ MẬT KHẨU (kể cả đăng nhập qua Google hay Email)
+  // BẮT BUỘC phải nhập mật khẩu hiện tại mới cho đổi.
+  // Chỉ khi tài khoản thuần Google chưa từng có mật khẩu riêng thì mới chỉ hiển thị tạo mật khẩu mới.
+  if (hasPassword) {
+    if (wrapOldPass) wrapOldPass.classList.remove("hidden");
+    if (oldPassInput) oldPassInput.setAttribute("required", "true");
+    if (hintText) hintText.textContent = "Nhập mật khẩu hiện tại và mật khẩu mới để đổi mật khẩu tài khoản:";
+    if (submitBtn) submitBtn.textContent = "Đổi mật khẩu";
+  } else {
+    if (wrapOldPass) wrapOldPass.classList.add("hidden");
+    if (oldPassInput) oldPassInput.removeAttribute("required");
+    if (hintText) hintText.textContent = "Tài khoản Google chưa tạo mật khẩu riêng. Bạn có thể tạo mật khẩu bên dưới để đăng nhập bằng Email & Mật khẩu:";
+    if (submitBtn) submitBtn.textContent = "Tạo & Lưu mật khẩu";
+  }
+}
+
 // Tự động reload security khi người dùng mở accordion Cài đặt Bảo mật
 const secAccordion = $("cardSecuritySettings")?.closest("details");
 if (secAccordion) {
@@ -1594,37 +1597,36 @@ if (formChangePassword) {
     btn.disabled = true;
     btn.textContent = "Đang lưu mật khẩu...";
 
-    try {
-      const emailLower = user.email.trim().toLowerCase();
-
-      if (!isGoogle && hasPassword) {
-        // Trường hợp đăng nhập thuần bằng Password: Cần xác thực mật khẩu cũ
-        if (!oldPass) {
-          msgEl.style.color = "var(--bad)";
-          msgEl.textContent = "Vui lòng nhập mật khẩu hiện tại.";
-          btn.disabled = false;
-          btn.textContent = "Lưu mật khẩu mới";
-          $("oldPassword").focus();
-          return;
-        }
-        const credential = EmailAuthProvider.credential(emailLower, oldPass);
-        await reauthenticateWithCredential(user, credential);
-        await updatePassword(user, newPass);
-      } else {
-        // Trường hợp phiên Google (Chuẩn Shopee: Cho phép đặt/đổi mật khẩu nhanh chóng)
-        const credential = EmailAuthProvider.credential(emailLower, newPass);
-        try {
-          await linkWithCredential(user, credential);
-        } catch (linkErr) {
-          // Nếu đã link từ trước thì gọi updatePassword
-          if (linkErr.code === "auth/provider-already-linked" || linkErr.code === "auth/credential-already-in-use") {
-            await updatePassword(user, newPass);
-          } else {
-            throw linkErr;
-          }
-        }
-      }
-
+    try {
+      const emailLower = user.email.trim().toLowerCase();
+
+      if (hasPassword) {
+        // Phương án B: Nếu tài khoản đã có mật khẩu (kể cả vào bằng Google hay Email) -> Bắt buộc nhập mật khẩu hiện tại
+        if (!oldPass) {
+          msgEl.style.color = "var(--bad)";
+          msgEl.textContent = "Vui lòng nhập mật khẩu hiện tại (mật khẩu cũ) để đổi mật khẩu.";
+          btn.disabled = false;
+          btn.textContent = "Đổi mật khẩu";
+          if ($("oldPassword")) $("oldPassword").focus();
+          return;
+        }
+        const credential = EmailAuthProvider.credential(emailLower, oldPass);
+        await reauthenticateWithCredential(user, credential);
+        await updatePassword(user, newPass);
+      } else {
+        // Tài khoản chưa từng có mật khẩu (đăng nhập Google lần đầu) -> Liên kết mật khẩu mới
+        const credential = EmailAuthProvider.credential(emailLower, newPass);
+        try {
+          await linkWithCredential(user, credential);
+        } catch (linkErr) {
+          if (linkErr.code === "auth/provider-already-linked" || linkErr.code === "auth/credential-already-in-use") {
+            await updatePassword(user, newPass);
+          } else {
+            throw linkErr;
+          }
+        }
+      }
+
       await user.reload();
       updateSecuritySection(auth.currentUser);
 

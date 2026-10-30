@@ -892,10 +892,10 @@ fun SettingsScreen(
 
                         // Form Cập nhật / Đổi mật khẩu hợp nhất
                         Text(
-                            text = if (isGoogleAccount)
-                                "Phiên Google đã được xác thực chính chủ. Bạn có thể lưu mật khẩu mới bên dưới để đăng nhập linh hoạt bằng cả 2 cách:"
+                            text = if (hasPass)
+                                "Nhập mật khẩu hiện tại và mật khẩu mới để đổi mật khẩu tài khoản:"
                             else
-                                "Nhập mật khẩu hiện tại và mật khẩu mới để cập nhật mật khẩu đăng nhập:",
+                                "Tài khoản Google chưa tạo mật khẩu riêng. Bạn có thể tạo mật khẩu bên dưới để đăng nhập bằng Email & Mật khẩu:",
                             fontSize = 12.5.sp,
                             lineHeight = 18.sp,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
@@ -903,8 +903,8 @@ fun SettingsScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Ô mật khẩu hiện tại (Chỉ hiện khi tài khoản thuần Password)
-                        if (!isGoogleAccount) {
+                        // Ô mật khẩu hiện tại (Phương án B: Bắt buộc hiện khi tài khoản đã có mật khẩu)
+                        if (hasPass) {
                             OutlinedTextField(
                                 value = uiState.currentPasswordInput,
                                 onValueChange = { settingsViewModel.onCurrentPasswordChanged(it) },
@@ -971,10 +971,10 @@ fun SettingsScreen(
 
                         Button(
                             onClick = {
-                                if (isGoogleAccount) {
-                                    settingsViewModel.setupPasswordDirectly()
-                                } else {
+                                if (hasPass) {
                                     settingsViewModel.submitChangePassword()
+                                } else {
+                                    settingsViewModel.setupPasswordDirectly()
                                 }
                             },
                             enabled = !uiState.isChangingPassword && !uiState.isSettingUpPassword,
@@ -985,7 +985,12 @@ fun SettingsScreen(
                                 .height(46.dp)
                         ) {
                             Text(
-                                text = if (uiState.isChangingPassword || uiState.isSettingUpPassword) "Đang lưu..." else "Lưu mật khẩu mới",
+                                text = if (uiState.isChangingPassword || uiState.isSettingUpPassword)
+                                    "Đang lưu..."
+                                else if (hasPass)
+                                    "Đổi mật khẩu"
+                                else
+                                    "Tạo & Lưu mật khẩu",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
