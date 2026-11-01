@@ -595,11 +595,11 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
         </main>
       </section>
       <section class="view" id="automationView" data-view="automation">
-        <div class="page-title"><div><h2>Tự động hóa</h2><p>Tạo quy tắc để ngôi nhà phản hồi đúng lúc</p></div><button type="button" id="testAutomation">Chạy thử</button></div>
+        <div class="page-title"><div><h2>Tự động hóa</h2></div><button type="button" id="testAutomation">Chạy thử</button></div>
         <section class="card">
-          <div class="switch-line"><span><b>Bật tự động hóa</b><span class="meta">Quản lý trạng thái toàn bộ quy tắc</span></span><input type="checkbox" id="automationMaster" aria-label="Bật hoặc tắt toàn bộ quy tắc tự động hóa"></div>
+          <div class="switch-line"><span><b>Bật tự động hóa</b></span><input type="checkbox" id="automationMaster" aria-label="Bật hoặc tắt toàn bộ quy tắc tự động hóa"></div>
           <div class="rule-list" id="ruleList"></div>
-          <div class="meta" id="automationSummary"></div>
+          <div class="meta" id="automationSummary" style="font-size:13.5px;font-weight:600;margin:18px 0 14px;color:var(--mute);"></div>
           <button type="button" class="primary" id="addRule">＋ Thêm quy tắc</button>
         </section>
         
@@ -670,7 +670,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
             </div>
             <div class="settings-section">
               <label class="switch-line">
-                <span>Tắt hiệu ứng chuyển động</span>
+                <span style="font-size:14px;font-weight:600;">Tắt hiệu ứng chuyển động</span>
                 <input type="checkbox" id="reduceAnimations">
               </label>
             </div>
@@ -681,8 +681,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
                 <option value="16">Lớn (16px)</option>
                 <option value="18">Rất lớn (18px)</option>
               </select>
-              <p class="meta" style="margin-top:6px;font-size:12px;">Tự động phóng to thu nhỏ toàn bộ giao diện, cỡ chữ và các thẻ hiển thị.</p>
-            </div>
+                          </div>
           </div>
         </details>
 
@@ -702,8 +701,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               </div>
             </div>
             <div class="settings-accordion-right">
-              <span id="profileProviderBadge" class="mock-label" style="font-weight:600;">Đang tải...</span>
-              <svg class="settings-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            <svg class="settings-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
           </summary>
           <div class="settings-accordion-body" id="cardUserProfileSettings">
@@ -798,8 +796,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
             <div id="passcodeList" class="passcode-list">
               <p class="meta">Đang tải danh sách mật khẩu...</p>
             </div>
-            <p class="meta" style="margin-top:12px;font-size:12px;">Mật khẩu được lưu trữ an toàn bằng hàm băm SHA-256 trong bộ nhớ NVS của ESP32.</p>
-          </div>
+                      </div>
         </details>
 
         <!-- Thẻ 4: Liên kết thiết bị & Quản trị ngôi nhà -->
@@ -866,7 +863,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               </div>
               <span class="mock-label">Hệ thống ESP32</span>
             </div>
-            <p class="meta" style="margin-top:12px;font-size:12px;">Bảo mật: Chỉ tài khoản Master (xhai2005@gmail.com) mới có quyền tạo mã mời và quản lý phân quyền thành viên.</p>
+            <p class="meta hidden" id="masterOnlyNote" style="margin-top:12px;font-size:12px;">Bảo mật: Chỉ tài khoản Master (xhai2005@gmail.com) mới có quyền tạo mã mời và quản lý phân quyền thành viên.</p>
           </div>
         </details>
 
@@ -1722,11 +1719,18 @@ async function checkUserDeviceLink(user) {
       masterSection.classList.toggle("hidden", currentUserRole !== "master");
     }
     const masterMembersSec = $("masterMembersSection");
+    const masterNote = $("masterOnlyNote");
+    if (masterNote) {
+      masterNote.classList.toggle("hidden", currentUserRole !== "master");
+    }
     if (masterMembersSec) {
       masterMembersSec.classList.toggle("hidden", currentUserRole !== "master");
     }
 
     // Nếu là Master, tải danh sách các thành viên đã liên kết
+    if (typeof currentPasscodes !== "undefined" && Object.keys(currentPasscodes).length > 0) {
+      renderPasscodes(currentPasscodes);
+    }
     if (currentUserRole === "master") {
       listenSharedMembers();
       // Khôi phục theo dõi mã mời active nếu có
@@ -4319,14 +4323,16 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       list.innerHTML = `<p class="meta">Chưa có mật khẩu nào được lưu.</p>`;
       return;
     }
+    const isMaster = (currentUserRole === "master" || window.currentUserRole === "master");
     list.innerHTML = ids.map(id => {
       const item = currentPasscodes[id] || {};
       const name = item.name || id;
       const dateStr = item.created_ts ? new Date(item.created_ts).toLocaleString("vi-VN") : "";
+      const metaSpan = isMaster ? `<span>ID: ${escapeAttribute(id)}${dateStr ? " · " + dateStr : ""}</span>` : "";
       return `<div class="passcode-item">
         <div>
           <b>${escapeAttribute(name)}</b>
-          <span>ID: ${escapeAttribute(id)}${dateStr ? " · " + dateStr : ""}</span>
+          ${metaSpan}
         </div>
         <button type="button" class="passcode-del" data-del-passcode="${escapeAttribute(id)}" data-passcode-name="${escapeAttribute(name)}" aria-label="Xóa mật khẩu ${escapeAttribute(name)}">Xóa</button>
       </div>`;
