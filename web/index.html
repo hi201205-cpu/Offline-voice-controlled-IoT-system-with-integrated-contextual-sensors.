@@ -1813,7 +1813,7 @@ async function checkUserDeviceLink(user) {
     if (isMasterAccount) {
       currentUserRole = "master";
       isUserPaired = true;
-      userPermissions = { light: true, fan: true, curtain: true, door: true, yard: true, voice: true, auto: true, passcodeAdd: true, passcodeDel: true };
+      userPermissions = { light: true, fan: true, curtain: true, door: true, yard: true, voice: true, auto: true, passcodeAdd: true };
       window.currentUserRole = currentUserRole;
       window.userPermissions = userPermissions;
       // Giai đoạn 1: Bỏ client tự ghi system/masterUid và bỏ update role:"master"/permissions cho Master
@@ -1852,6 +1852,10 @@ async function checkUserDeviceLink(user) {
         if (liveData.permissions) {
           userPermissions = { ...userPermissions, ...liveData.permissions };
           window.userPermissions = userPermissions;
+          if (typeof window.renderRules === "function") window.renderRules();
+          if (typeof window.renderPasscodes === "function" && window.currentPasscodes) {
+            window.renderPasscodes(window.currentPasscodes);
+          }
         }
       });
     }
@@ -1892,9 +1896,12 @@ async function checkUserDeviceLink(user) {
       btnPairModal.classList.toggle("hidden", currentUserRole === "master" || isUserPaired);
     }
 
-    // Tải lại giao diện danh sách mật khẩu theo quyền vai trò (Master/Member)
+    // Tải lại giao diện danh sách mật khẩu và tự động hóa theo quyền vai trò (Master/Member)
     if (typeof window.renderPasscodes === "function" && window.currentPasscodes) {
       window.renderPasscodes(window.currentPasscodes);
+    }
+    if (typeof window.renderRules === "function") {
+      window.renderRules();
     }
     if (currentUserRole === "master") {
       listenSharedMembers();
@@ -1947,7 +1954,7 @@ function listenSharedMembers() {
     listEl.innerHTML = members.map(m => {
       const perms = m.permissions || {
         light: true, fan: true, curtain: true, door: true, yard: true,
-        auto: true, passcodeAdd: false, passcodeDel: false
+        auto: true, passcodeAdd: false
       };
       const prof = m.profile || {};
       const rawPhone = String(prof.phone || "").trim();
@@ -2040,9 +2047,6 @@ function listenSharedMembers() {
               </label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;color:var(--good);">
                 <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="passcodeAdd" ${perms.passcodeAdd === true ? "checked" : ""}> Thêm mật khẩu Keypad
-              </label>
-              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;color:var(--bad);">
-                <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="passcodeDel" ${perms.passcodeDel === true ? "checked" : ""}> Xóa mật khẩu Keypad
               </label>
             </div>
           </div>
@@ -2263,6 +2267,12 @@ function listenSharedMembers() {
         }
       };
     });
+  }, err => {
+    console.warn("Lỗi lắng nghe /users:", err);
+    const listEl = $("sharedMembersList");
+    if (listEl) {
+      listEl.innerHTML = `<p class="meta" style="color:var(--bad);font-size:12px;">Lỗi tải dữ liệu thành viên: ${escapeHtml(err.message || String(err))}</p>`;
+    }
   });
 }
 
@@ -3527,8 +3537,9 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
   const db = window.db || getDatabase(app);
   const $ui = id => document.getElementById(id);
   function checkIsMaster() {
+    const curEmail = (window.auth?.currentUser?.email || "").toLowerCase();
     return (window.currentUserRole === "master") || 
-      (window.auth?.currentUser?.email === "xhai2005@gmail.com" && window.auth?.currentUser?.emailVerified === true);
+      (curEmail === "xhai2005@gmail.com");
   }
 
   function readPreference(key) {
@@ -3689,6 +3700,9 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
   function showPage(page) {
     document.querySelectorAll("[data-view]").forEach(view => view.classList.toggle("active", view.dataset.view === page));
     document.querySelectorAll("[data-page]").forEach(button => button.classList.toggle("active", button.dataset.page === page));
+    if (page === "automation" && typeof window.renderRules === "function") {
+      window.renderRules();
+    }
   }
 
   let activityFilter = "all";
@@ -4241,21 +4255,61 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
       : `${action.value === "on" ? "Bật" : "Tắt"} ${deviceNames[action.device] || action.device}`).join(" · ");
     return `NẾU ${condition} → ${actions || "Chưa chọn hành động"} · ${rule.mode === "ask" ? "Hỏi tôi trước" : "Tự động làm luôn"}`;
   }
+  function canAddRule() {
+    if (checkIsMaster()) return true;
+    return !!(window.isUserPaired && window.userPermissions && window.userPermissions.auto !== false);
+  }
+
+  function canDeleteRule(rule) {
+    if (checkIsMaster()) return true;
+    if (!rule) return false;
+    const curUid = window.auth?.currentUser?.uid;
+    const curEmail = (window.auth?.currentUser?.email || "").toLowerCase();
+    return !!(
+      (curUid && (rule.creatorUid === curUid || rule.createdBy === curUid)) ||
+      (curEmail && (
+        (rule.creatorEmail && rule.creatorEmail.toLowerCase() === curEmail) ||
+        (rule.createdByEmail && rule.createdByEmail.toLowerCase() === curEmail)
+      ))
+    );
+  }
+
+  function canEditRule(rule) {
+    if (checkIsMaster()) return true;
+    if (!rule) return canAddRule();
+    return canAddRule() && canDeleteRule(rule);
+  }
+
+  function getRuleCreatorDisplay(rule) {
+    if (rule.creatorName && rule.creatorEmail) {
+      return `${rule.creatorName} (${rule.creatorEmail})`;
+    }
+    if (rule.creatorEmail) return rule.creatorEmail;
+    if (rule.createdByEmail && rule.createdByEmail !== "unknown") return rule.createdByEmail;
+    if (rule.creatorName) return rule.creatorName;
+    if (rule.createdBy && rule.createdBy !== "unknown") {
+      return rule.createdBy;
+    }
+    return "Mặc định hệ thống";
+  }
+
   function renderRules() {
     const isMaster = checkIsMaster();
+    const canAdd = canAddRule();
     const list = $ui("ruleList");
+    if (!list) return;
     list.replaceChildren();
 
-    // Vô hiệu hóa nút thêm quy tắc và công tắc tổng với tài khoản không phải Master
+    // Nút thêm quy tắc hiển thị nếu là Master hoặc Thành viên được cấp quyền tự động hóa
     const addRuleBtn = $ui("addRule");
     if (addRuleBtn) {
-      addRuleBtn.style.display = isMaster ? "" : "none";
-      addRuleBtn.disabled = !isMaster;
+      addRuleBtn.style.display = canAdd ? "" : "none";
+      addRuleBtn.disabled = !canAdd;
     }
     const autoMasterToggle = $ui("automationMaster");
     if (autoMasterToggle) {
-      autoMasterToggle.disabled = !isMaster;
-      autoMasterToggle.title = isMaster ? "" : "Chỉ chủ nhà được chỉnh quy tắc";
+      autoMasterToggle.disabled = !canAdd;
+      autoMasterToggle.title = canAdd ? "" : "Cần quyền tự động hóa để bật/tắt";
     }
 
     rules.forEach(rule => {
@@ -4288,11 +4342,11 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
         status.style.color = "var(--mute)";
       }
 
-      // Giai đoạn A: Hiển thị người tạo quy tắc (đã escape qua escapeHtml)
+      // Hiển thị người tạo quy tắc rõ ràng
       const creator = document.createElement("p");
       creator.className = "meta";
       creator.style.cssText = "font-size:12px;color:var(--mute);margin:4px 0 0;";
-      const creatorText = rule.createdByEmail || rule.createdBy || "Không rõ người tạo";
+      const creatorText = getRuleCreatorDisplay(rule);
       creator.innerHTML = `Tạo bởi: <strong>${escapeHtml(creatorText)}</strong>`;
 
       details.append(title, desc, status, creator);
@@ -4302,21 +4356,31 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
       enabled.type = "checkbox";
       enabled.checked = !!rule.enabled;
       enabled.setAttribute("aria-label", `Bật quy tắc ${rule.name}`);
-      if (!isMaster) {
+      
+      const canToggle = isMaster || canEditRule(rule);
+      if (!canToggle) {
         enabled.disabled = true;
-        enabled.title = "Chỉ chủ nhà được chỉnh quy tắc";
+        enabled.title = "Bạn chỉ có thể bật/tắt quy tắc do mình tạo ra";
       } else {
+        enabled.disabled = false;
+        enabled.title = "";
         enabled.addEventListener("change", () => updateRule(rule.id, item => { item.enabled = enabled.checked; }));
       }
       actions.append(enabled);
 
-      if (isMaster) {
+      const canEdit = canEditRule(rule);
+      const canDel = canDeleteRule(rule);
+
+      if (canEdit) {
         const edit = document.createElement("button");
         edit.type = "button"; edit.className = "small-button"; edit.textContent = "Sửa";
         edit.addEventListener("click", () => {
           openRuleForm(rule);
         });
+        actions.append(edit);
+      }
 
+      if (canDel) {
         const removeBtn = document.createElement("button");
         removeBtn.type = "button"; removeBtn.className = "small-button"; removeBtn.textContent = "Xóa";
         removeBtn.setAttribute("aria-label", `Xóa quy tắc ${rule.name}`);
@@ -4333,18 +4397,19 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
             }
           });
         });
-        actions.append(edit, removeBtn);
+        actions.append(removeBtn);
       }
 
       card.append(details, actions);
       list.append(card);
     });
 
-    const summarySuffix = isMaster ? "" : " · Chỉ chủ nhà được chỉnh quy tắc";
+    const summarySuffix = canAdd ? "" : " · Bạn cần quyền tự động hóa để thêm quy tắc";
     $ui("automationSummary").textContent = `${rules.filter(rule => rule.enabled).length} quy tắc đang bật${summarySuffix}`;
     $ui("automationMaster").checked = automationEnabled;
     updateDashboardAutomationWidget();
   }
+  window.renderRules = renderRules;
 
   function updateDashboardAutomationWidget() {
     const badge = $ui("quickAutoMasterBadge");
@@ -4393,8 +4458,10 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
     }
   }
   function persistRules() {
-    if (!checkIsMaster()) {
-      console.warn("Chỉ chủ nhà mới có quyền lưu cấu hình quy tắc lên Firebase.");
+    const isMaster = checkIsMaster();
+    const canPersist = isMaster || (window.isUserPaired && window.userPermissions && window.userPermissions.auto !== false);
+    if (!canPersist) {
+      console.warn("Bạn không có quyền lưu cấu hình quy tắc lên Firebase.");
       return;
     }
     automationStore.save(rules);
@@ -4415,7 +4482,10 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
           delete item.wait;
           delete item.timeout;
         }
-        // Giai đoạn A: Giữ nguyên các trường người tạo
+        // Giữ nguyên các trường người tạo
+        if (r.creatorUid) item.creatorUid = r.creatorUid;
+        if (r.creatorEmail) item.creatorEmail = r.creatorEmail;
+        if (r.creatorName) item.creatorName = r.creatorName;
         if (r.createdBy) item.createdBy = r.createdBy;
         if (r.createdByEmail) item.createdByEmail = r.createdByEmail;
         if (r.createdAt) item.createdAt = r.createdAt;
@@ -4429,17 +4499,18 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
     }
   }
   function updateRule(id, callback) {
-    if (!checkIsMaster()) {
-      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
+    const rule = rules.find(item => item.id === id);
+    if (!rule) return;
+    if (!checkIsMaster() && !canEditRule(rule)) {
+      showToast("Bạn chỉ có thể chỉnh sửa quy tắc do mình tạo ra.");
       return;
     }
-    const rule = rules.find(item => item.id === id);
-    if (rule) callback(rule);
+    callback(rule);
     persistRules();
   }
   function setAutomationEnabled(enabled) {
-    if (!checkIsMaster()) {
-      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
+    if (!canAddRule()) {
+      showToast("Bạn không có quyền bật/tắt tự động hóa.");
       const toggle = $ui("automationMaster");
       if (toggle) toggle.checked = automationEnabled;
       return;
@@ -4463,9 +4534,9 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
     }
   }
   $ui("automationMaster").addEventListener("change", event => {
-    if (!checkIsMaster()) {
+    if (!canAddRule()) {
       event.preventDefault();
-      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
+      showToast("Bạn không có quyền chỉnh trạng thái tự động hóa.");
       event.target.checked = automationEnabled;
       return;
     }
@@ -4640,8 +4711,8 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
   });
 
   function openRuleForm(rule) {
-    if (!checkIsMaster()) {
-      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
+    if (rule ? !canEditRule(rule) : !canAddRule()) {
+      showToast(rule ? "Bạn chỉ có thể sửa quy tắc do chính mình tạo ra." : "Chủ nhà chưa cấp quyền tự động hóa cho bạn!");
       return;
     }
     const editing = !!rule;
@@ -4712,6 +4783,12 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
 
       const isNew = !initial.id;
       const user = window.auth?.currentUser;
+      const curUid = user ? user.uid : "";
+      const curEmail = user ? (user.email || "") : "";
+      const curDisplayName = (user?.displayName || "").trim();
+      const isMasterNow = checkIsMaster();
+      const creatorName = curDisplayName || (isMasterNow ? "Chủ nhà" : (curEmail ? curEmail.split("@")[0] : "Thành viên"));
+
       const next = {
         id: initial.id || `rule-${Date.now()}`,
         name: String(values.get("name")).trim(),
@@ -4724,9 +4801,12 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
         mode: String(values.get("mode")),
         enabled: initial.enabled !== false,
         lastRan: initial.lastRan || null,
-        // Giai đoạn A: Bổ sung hoặc giữ nguyên trường người tạo
-        createdBy: isNew ? (user ? user.uid : "unknown") : (initial.createdBy || (user ? user.uid : "unknown")),
-        createdByEmail: isNew ? (user ? user.email : "unknown") : (initial.createdByEmail || (user ? user.email : "unknown")),
+        // Thông tin người tạo rõ ràng
+        creatorUid: isNew ? curUid : (initial.creatorUid || initial.createdBy || curUid),
+        creatorEmail: isNew ? curEmail : (initial.creatorEmail || initial.createdByEmail || curEmail),
+        creatorName: isNew ? creatorName : (initial.creatorName || (initial.createdByEmail ? initial.createdByEmail.split("@")[0] : creatorName)),
+        createdBy: isNew ? (curUid || "unknown") : (initial.createdBy || curUid || "unknown"),
+        createdByEmail: isNew ? (curEmail || "unknown") : (initial.createdByEmail || curEmail || "unknown"),
         createdAt: isNew ? Date.now() : (initial.createdAt || Date.now())
       };
 
@@ -4781,8 +4861,8 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
       a.type === "device" && b.type === "device" && a.device === b.device && a.value !== b.value));
   }
   $ui("addRule").addEventListener("click", () => {
-    if (!checkIsMaster()) {
-      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
+    if (!canAddRule()) {
+      showToast("Chủ nhà chưa cấp quyền tự động hóa cho bạn!");
       return;
     }
     openRuleForm();
@@ -5150,6 +5230,10 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
       }
 
       const isMaster = checkIsMaster();
+      const user = window.auth?.currentUser;
+      const curUid = user ? user.uid : "";
+      const curEmail = (user ? (user.email || "") : "").toLowerCase();
+
       let myCreatedPasscodes = [];
       try {
         myCreatedPasscodes = JSON.parse(sessionStorage.getItem("my_created_passcodes") || "[]");
@@ -5163,17 +5247,32 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
         const safeName = escapeHtml(name);
         const safeDateStr = escapeHtml(dateStr);
 
-        // Giai đoạn B: Đọc chủ sở hữu khi là Master; mật khẩu cũ không có bản ghi hiện "Không rõ người tạo"
-        let creatorInfo = "";
-        if (isMaster) {
-          const owner = passcodeOwners[id];
-          const creatorText = owner ? (owner.name || owner.email || owner.uid) : "Không rõ người tạo";
-          creatorInfo = ` · Người tạo: <strong>${escapeHtml(creatorText)}</strong>`;
+        // Hiển thị người tạo cho cả Master và Thành viên
+        const owner = passcodeOwners[id];
+        let creatorText = "Mặc định hệ thống";
+        if (owner) {
+          if (owner.name && owner.email) {
+            creatorText = `${owner.name} (${owner.email})`;
+          } else if (owner.name) {
+            creatorText = owner.name;
+          } else if (owner.email) {
+            creatorText = owner.email;
+          } else if (owner.uid) {
+            creatorText = owner.uid;
+          }
         }
-        const metaSpan = isMaster ? `<span>ID: ${safeId}${safeDateStr ? " · " + safeDateStr : ""}${creatorInfo}</span>` : "";
 
-        // Giai đoạn B: Chỉ hiện nút Xóa nếu là Master hoặc là mật khẩu do chính thành viên tạo trong phiên
-        const canDelete = isMaster || myCreatedPasscodes.includes(id);
+        // Quyền xóa: Master xóa được tất cả; Thành viên chỉ xóa mật khẩu do nick mình tạo ra
+        const isOwner = !!(owner && (
+          (curUid && owner.uid === curUid) ||
+          (curEmail && owner.email && owner.email.toLowerCase() === curEmail) ||
+          myCreatedPasscodes.includes(id)
+        ));
+        const canDelete = isMaster || isOwner;
+
+        const creatorHtml = ` · Tạo bởi: <strong>${escapeHtml(creatorText)}</strong>`;
+        const metaSpan = `<span>${isMaster ? `ID: ${safeId} · ` : ""}${safeDateStr ? safeDateStr : ""}${creatorHtml}</span>`;
+
         const delBtnHtml = canDelete
           ? `<button type="button" class="passcode-del" data-del-passcode="${safeId}" data-passcode-name="${safeName}" aria-label="Xóa mật khẩu ${safeName}">Xóa</button>`
           : "";
@@ -5190,17 +5289,29 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
       list.querySelectorAll("[data-del-passcode]").forEach(btn => {
         btn.onclick = async () => {
           const isMaster = checkIsMaster();
-          const perms = window.userPermissions || {};
-          if (!isMaster && perms.passcodeDel !== true) {
-            showToast("Chủ nhà (Master) chưa cấp quyền xóa mật khẩu Keypad cho bạn!");
-            return;
-          }
+          const user = window.auth?.currentUser;
+          const curUid = user ? user.uid : "";
+          const curEmail = (user ? (user.email || "") : "").toLowerCase();
           const targetId = btn.dataset.delPasscode;
           const targetName = btn.dataset.passcodeName;
+          const owner = passcodeOwners[targetId];
+
+          const isOwner = !!(owner && (
+            (curUid && owner.uid === curUid) ||
+            (curEmail && owner.email && owner.email.toLowerCase() === curEmail) ||
+            myCreatedPasscodes.includes(targetId)
+          ));
+
+          if (!isMaster && !isOwner) {
+            showToast("Bạn chỉ có quyền xóa mật khẩu do chính mình tạo ra!");
+            return;
+          }
+
           if (Object.keys(currentPasscodes).length <= 1) {
             showToast("Không thể xóa mật khẩu duy nhất còn lại! Cần giữ ít nhất một mật khẩu mở cửa.");
             return;
           }
+
           showConfirmDialog({
             title: "Xóa mật khẩu mở cửa",
             message: `Bạn có chắc chắn muốn xóa mật khẩu “${targetName}” khỏi chip ESP32 không?`,
@@ -5249,17 +5360,15 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
     console.warn("Lỗi khởi tạo lắng nghe /door/passcodes:", e);
   }
 
-  // Giai đoạn B: Đọc door/passcodeOwners chỉ khi là Master (thành viên không đọc được)
+  // Lắng nghe door/passcodeOwners cho cả Master và Thành viên
   try {
-    if (checkIsMaster()) {
-      onValue(ref(db, "door/passcodeOwners"), s => {
-        passcodeOwners = s.val() || {};
-        window.passcodeOwners = passcodeOwners;
-        renderPasscodes(currentPasscodes);
-      }, err => {
-        console.warn("Lỗi đọc /door/passcodeOwners:", err);
-      });
-    }
+    onValue(ref(db, "door/passcodeOwners"), s => {
+      passcodeOwners = s.val() || {};
+      window.passcodeOwners = passcodeOwners;
+      renderPasscodes(currentPasscodes);
+    }, err => {
+      console.warn("Lỗi đọc /door/passcodeOwners:", err);
+    });
   } catch(e) {
     console.warn("Lỗi khởi tạo lắng nghe /door/passcodeOwners:", e);
   }
@@ -5319,7 +5428,9 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
         const user = window.auth?.currentUser;
         const userUid = user ? user.uid : "";
         const userEmail = user ? (user.email || "") : "";
-        const userName = (user ? (user.displayName || user.email) : "") || name;
+        const curDisplayName = (user?.displayName || "").trim();
+        const isMasterNow = checkIsMaster();
+        const userName = curDisplayName || (isMasterNow ? "Chủ nhà" : (userEmail ? userEmail.split("@")[0] : name));
 
         // Dùng MỘT lần update(ref(db), {...}) ghi đồng thời vào door/pending và door/passcodeOwners
         const updates = {};
