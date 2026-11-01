@@ -54,6 +54,7 @@ fun SettingsScreen(
     val themeController = LocalThemeController.current
 
     val isMaster = uiState.userProfile?.role == "master" || uiState.userEmail?.equals("xhai2005@gmail.com", ignoreCase = true) == true
+    val isPaired = uiState.userProfile?.isPaired == true || isMaster
     val isDark = when (themeController.themeMode) {
         AppThemeMode.LIGHT -> false
         AppThemeMode.DARK -> true
@@ -70,6 +71,8 @@ fun SettingsScreen(
     val pillBg = if (isDark) Color.White.copy(alpha = 0.08f) else SubCardBgLight
 
     var memberToUnpair by remember { mutableStateOf<UserProfile?>(null) }
+    var showSelfUnlinkDialog by remember { mutableStateOf(false) }
+    var isHomeLinkExpanded by remember { mutableStateOf(false) }
     var expandedMemberUids by remember { mutableStateOf(setOf<String>()) }
 
     var isThemeExpanded by remember { mutableStateOf(false) }
@@ -738,6 +741,125 @@ fun SettingsScreen(
                 }
             }
         }
+        } else if (isPaired) {
+            item {
+                GlassCard(
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isHomeLinkExpanded = !isHomeLinkExpanded },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = AuroraAccentEnd.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Home,
+                                            contentDescription = null,
+                                            tint = AuroraAccentEnd,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Liên kết ngôi nhà",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    Text(
+                                        text = "HOME-2026-ESP32 · Thành viên gia đình",
+                                        fontSize = 12.sp,
+                                        color = AuroraAccentEnd
+                                    )
+                                }
+                            }
+
+                            IconButton(
+                                onClick = { isHomeLinkExpanded = !isHomeLinkExpanded },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isHomeLinkExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (isHomeLinkExpanded) "Thu gọn" else "Mở rộng",
+                                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+
+                        if (isHomeLinkExpanded) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            HorizontalDivider(color = dividerColor)
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = subCardBg,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, subCardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Text(
+                                        text = "Mã định danh mô hình (Home ID)",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    Text(
+                                        text = uiState.userProfile?.pairedHome ?: "HOME-2026-ESP32",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AuroraAccentStart
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Bạn đang tham gia ngôi nhà này với vai trò Thành viên. Bạn có thể tự hủy liên kết tài khoản khỏi ngôi nhà bất cứ lúc nào mà không cần chờ Chủ nhà xóa.",
+                                        fontSize = 11.5.sp,
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            OutlinedButton(
+                                onClick = { showSelfUnlinkDialog = true },
+                                border = androidx.compose.foundation.BorderStroke(1.dp, StateError),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = StateError),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(42.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PersonRemove,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Hủy liên kết với ngôi nhà", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Section 5: Bảo mật & Mật khẩu tài khoản (Collapsible Accordion - Chuẩn Shopee)
@@ -1324,6 +1446,43 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { memberToUnpair = null }) {
+                    Text("Quay lại")
+                }
+            }
+        )
+    }
+
+    if (showSelfUnlinkDialog) {
+        AlertDialog(
+            onDismissRequest = { showSelfUnlinkDialog = false },
+            title = {
+                Text(
+                    text = "Xác nhận hủy liên kết ngôi nhà",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            },
+            text = {
+                Text(
+                    "Bạn có chắc chắn muốn hủy liên kết tài khoản khỏi ngôi nhà này không?\n\n• Sau khi hủy, bạn sẽ không thể điều khiển thiết bị hay theo dõi cảm biến nữa.\n• Muốn kết nối lại, bạn sẽ cần xin mã mời mới từ Chủ nhà.",
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSelfUnlinkDialog = false
+                        uiState.userProfile?.uid?.let { uid ->
+                            settingsViewModel.unpairSelf(uid)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StateError)
+                ) {
+                    Text("Hủy liên kết", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSelfUnlinkDialog = false }) {
                     Text("Quay lại")
                 }
             }

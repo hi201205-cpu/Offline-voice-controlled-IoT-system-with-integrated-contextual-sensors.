@@ -856,6 +856,22 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               <span class="mock-label">Hệ thống ESP32</span>
             </div>
             <p class="meta hidden" id="masterOnlyNote" style="margin-top:12px;font-size:12px;">Bảo mật: Chỉ tài khoản Master (xhai2005@gmail.com) mới có quyền tạo mã mời và quản lý phân quyền thành viên.</p>
+
+            <!-- Khu vực dành cho Thành viên gia đình: Tự hủy liên kết -->
+            <div id="memberLeaveSection" class="hidden" style="margin-top:14px;padding:16px;border:1px solid rgba(239,68,68,0.25);border-radius:16px;background:rgba(239,68,68,0.04);">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div style="max-width:440px;">
+                  <b style="font-size:14px;color:var(--ink);display:block;">Tự hủy liên kết khỏi ngôi nhà</b>
+                  <span class="meta" style="font-size:12px;margin:3px 0 0;display:block;color:var(--mute);line-height:1.5;">
+                    Bạn đang tham gia ngôi nhà này với vai trò Thành viên. Bạn có thể tự hủy liên kết tài khoản bất cứ lúc nào mà không cần chờ Chủ nhà xóa.
+                  </span>
+                </div>
+                <button type="button" id="btnMemberSelfUnlink" style="padding:9px 16px;border-radius:12px;font-size:13px;font-weight:600;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.35);cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all 0.2s ease;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  Hủy liên kết ngôi nhà
+                </button>
+              </div>
+            </div>
           </div>
         </details>
 
@@ -1642,6 +1658,7 @@ const DEFAULT_HOME_CODE = "HOME-2026-ESP32";
 const MASTER_EMAIL = "xhai2005@gmail.com";
 let currentUserRole = "member";
 let isUserPaired = false;
+let isSelfUnlinking = false;
 let userPermissions = { light: true, fan: true, curtain: true, door: true, yard: true, voice: true };
 
 // Kiểm tra quyền Master và trạng thái liên kết
@@ -1684,8 +1701,18 @@ async function checkUserDeviceLink(user) {
         if (livePaired !== isUserPaired) {
           isUserPaired = livePaired;
           applyDevicePairingUI(isUserPaired);
+          const memberLeaveSec = $("memberLeaveSection");
+          if (memberLeaveSec) {
+            memberLeaveSec.classList.toggle("hidden", currentUserRole === "master" || !isUserPaired);
+          }
+          const btnPairModal = $("btnOpenPairModal");
+          if (btnPairModal) {
+            btnPairModal.classList.toggle("hidden", currentUserRole === "master" || isUserPaired);
+          }
           if (!isUserPaired) {
-            showToast("Tài khoản của bạn đã bị Chủ nhà hủy liên kết khỏi ngôi nhà!");
+            if (!isSelfUnlinking) {
+              showToast("Tài khoản của bạn đã bị Chủ nhà hủy liên kết khỏi ngôi nhà!");
+            }
           }
         }
         if (liveData.permissions) {
@@ -1721,6 +1748,14 @@ async function checkUserDeviceLink(user) {
     }
     if (masterMembersSec) {
       masterMembersSec.classList.toggle("hidden", currentUserRole !== "master");
+    }
+    const memberLeaveSec = $("memberLeaveSection");
+    if (memberLeaveSec) {
+      memberLeaveSec.classList.toggle("hidden", currentUserRole === "master" || !isUserPaired);
+    }
+    const btnPairModal = $("btnOpenPairModal");
+    if (btnPairModal) {
+      btnPairModal.classList.toggle("hidden", currentUserRole === "master" || isUserPaired);
     }
 
     // Tải lại giao diện danh sách mật khẩu theo quyền vai trò (Master/Member)
@@ -1910,10 +1945,13 @@ function applyDevicePairingUI(paired) {
   const pairingBanner = $("devicePairingBanner");
 
   // Các thẻ trong Cài đặt cần ẩn khi chưa liên kết
-  const cardTheme = $("cardThemeSettings");
+  const accKeypad = $("accKeypadSettings");
+  const accHomeAdmin = $("accHomeAdminSettings");
   const cardKeypad = $("cardKeypadSettings");
   const cardHomeAdmin = $("cardHomeAdminSettings");
   const unlinkedNotice = $("settingsUnlinkedNotice");
+  const memberLeaveSec = $("memberLeaveSection");
+  const btnPairModal = $("btnOpenPairModal");
 
   if (!paired) {
     // CHƯA LIÊN KẾT:
@@ -1923,21 +1961,27 @@ function applyDevicePairingUI(paired) {
     if (automationView) automationView.classList.add("hidden");
     if (pairingBanner) pairingBanner.classList.remove("hidden");
 
-    // 2. Trong Cài đặt: Ẩn các phần của ngôi nhà/ESP32, chỉ giữ lại Thông tin cá nhân & Bảo mật
-    if (cardTheme) cardTheme.classList.add("hidden");
+    // 2. Trong Cài đặt: Ẩn các phần của ngôi nhà/ESP32, chỉ giữ lại Thông tin cá nhân & Bảo mật & Giao diện
+    if (accKeypad) accKeypad.classList.add("hidden");
+    if (accHomeAdmin) accHomeAdmin.classList.add("hidden");
     if (cardKeypad) cardKeypad.classList.add("hidden");
     if (cardHomeAdmin) cardHomeAdmin.classList.add("hidden");
     if (unlinkedNotice) unlinkedNotice.classList.remove("hidden");
+    if (memberLeaveSec) memberLeaveSec.classList.add("hidden");
+    if (btnPairModal) btnPairModal.classList.remove("hidden");
   } else {
     // ĐÃ LIÊN KẾT: Mở khóa toàn bộ
     if (unlinkedView) unlinkedView.classList.add("hidden");
     if (homeView) homeView.classList.remove("hidden");
     if (pairingBanner) pairingBanner.classList.add("hidden");
 
-    if (cardTheme) cardTheme.classList.remove("hidden");
+    if (accKeypad) accKeypad.classList.remove("hidden");
+    if (accHomeAdmin) accHomeAdmin.classList.remove("hidden");
     if (cardKeypad) cardKeypad.classList.remove("hidden");
     if (cardHomeAdmin) cardHomeAdmin.classList.remove("hidden");
     if (unlinkedNotice) unlinkedNotice.classList.add("hidden");
+    if (memberLeaveSec) memberLeaveSec.classList.toggle("hidden", currentUserRole === "master");
+    if (btnPairModal) btnPairModal.classList.add("hidden");
   }
 }
 
@@ -2226,6 +2270,61 @@ if (btnUnlinkedEnterCode) btnUnlinkedEnterCode.onclick = () => openDevicePairMod
 
 const btnSettingsPairNow = $("btnSettingsPairNow");
 if (btnSettingsPairNow) btnSettingsPairNow.onclick = () => openDevicePairModal(true);
+
+// Thành viên tự hủy liên kết khỏi ngôi nhà
+const btnMemberSelfUnlink = $("btnMemberSelfUnlink");
+if (btnMemberSelfUnlink) {
+  btnMemberSelfUnlink.onclick = async () => {
+    if (!currentUser) return;
+    const isMasterUser = (currentUserRole === "master" || (currentUser && currentUser.email && currentUser.email.toLowerCase() === MASTER_EMAIL.toLowerCase()));
+    if (isMasterUser) {
+      alert("Tài khoản Chủ nhà (Master) không thể hủy liên kết khỏi ngôi nhà của chính mình.");
+      return;
+    }
+    const confirmUnlink = confirm(
+      "Bạn có chắc chắn muốn hủy liên kết tài khoản khỏi ngôi nhà này không?\n\n" +
+      "• Sau khi hủy, bạn sẽ không thể theo dõi cảm biến hay điều khiển thiết bị nữa.\n" +
+      "• Muốn kết nối lại, bạn sẽ cần xin mã mời mới từ Chủ nhà."
+    );
+    if (!confirmUnlink) return;
+
+    btnMemberSelfUnlink.disabled = true;
+    const oldHtml = btnMemberSelfUnlink.innerHTML;
+    btnMemberSelfUnlink.textContent = "Đang hủy liên kết...";
+
+    try {
+      isSelfUnlinking = true;
+      // 1. Cập nhật Firebase xóa pairedHome của user
+      await update(ref(db, "users/" + currentUser.uid), {
+        pairedHome: null
+      });
+
+      // 2. Ghi nhật ký thao tác
+      try {
+        const uName = currentUser.displayName || currentUser.email || "Thành viên";
+        await push(ref(db, "logs/web"), {
+          type: "unpair",
+          title: "Thành viên tự hủy liên kết",
+          detail: `${uName} đã tự hủy liên kết khỏi ngôi nhà`,
+          user: uName,
+          ts: Date.now()
+        });
+      } catch (logErr) {
+        console.warn("Lỗi ghi log unpair:", logErr);
+      }
+
+      isUserPaired = false;
+      applyDevicePairingUI(false);
+      showToast("Đã hủy liên kết khỏi ngôi nhà thành công.");
+    } catch (err) {
+      alert("Lỗi khi hủy liên kết: " + (err.message || err));
+    } finally {
+      btnMemberSelfUnlink.disabled = false;
+      btnMemberSelfUnlink.innerHTML = oldHtml;
+      setTimeout(() => { isSelfUnlinking = false; }, 2000);
+    }
+  };
+}
 
 // Tự động xoay vòng dọn dẹp dữ liệu cũ (Rolling Window) để Firebase luôn dưới 1.000 bản ghi
 async function triggerAutoRollingCleanup() {

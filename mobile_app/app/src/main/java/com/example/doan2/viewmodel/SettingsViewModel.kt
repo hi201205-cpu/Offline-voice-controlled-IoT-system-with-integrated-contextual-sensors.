@@ -272,6 +272,16 @@ class SettingsViewModel(
         }
     }
 
+    fun unpairSelf(targetUid: String) {
+        firebaseRepository.unpairMember(targetUid) { success, err ->
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+                    toastMessage = if (success) "Đã hủy liên kết khỏi ngôi nhà thành công" else (err ?: "Lỗi khi hủy liên kết")
+                )
+            }
+        }
+    }
+
     fun onAutoEnabledChanged(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(
             autoConfig = _uiState.value.autoConfig.copy(enabled = enabled)
