@@ -2097,6 +2097,35 @@ function openDevicePairModal(isNewAccount = false) {
     submitBtn.textContent = "Đang kiểm tra mã...";
 
     try {
+      // 1. Kiểm tra nếu tài khoản là Chủ nhà (Master)
+      const isMasterUser = (currentUserRole === "master" || (currentUser && currentUser.email && currentUser.email.toLowerCase() === MASTER_EMAIL.toLowerCase()));
+      if (isMasterUser) {
+        errBox.textContent = "Bạn đang là Chủ nhà (Master) đã quản trị thiết bị này rồi, không cần nhập mã mời liên kết!";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Xác nhận liên kết";
+        return;
+      }
+
+      // 2. Kiểm tra nếu tài khoản hiện tại đã liên kết ngôi nhà này rồi
+      let alreadyPaired = isUserPaired;
+      if (currentUser) {
+        const uSnap = await get(ref(db, "users/" + currentUser.uid));
+        const uData = uSnap.val() || {};
+        if (uData.pairedHome === DEFAULT_HOME_CODE) {
+          alreadyPaired = true;
+        }
+      }
+
+      // Nếu người dùng nhập trực tiếp mã mô hình DEFAULT_HOME_CODE
+      if (code === DEFAULT_HOME_CODE) {
+        if (alreadyPaired) {
+          errBox.textContent = "Tài khoản của bạn đã được liên kết với ngôi nhà/thiết bị này rồi!";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Xác nhận liên kết";
+          return;
+        }
+      }
+
       // Kiểm tra mã mời 1 lần trong /invites/{code}
       const inviteSnap = await get(ref(db, "invites/" + code));
       const inviteData = inviteSnap.val();
@@ -2115,6 +2144,22 @@ function openDevicePairModal(isNewAccount = false) {
       }
 
       const validHome = inviteData.homeId || DEFAULT_HOME_CODE;
+
+      // NẾU TÀI KHOẢN ĐÃ LIÊN KẾT: THÔNG BÁO RÕ RÀNG VÀ DỪNG LẠI, TUYỆT ĐỐI KHÔNG GẠCH MÃ MỜI!
+      if (alreadyPaired) {
+        errBox.textContent = "Tài khoản của bạn đã được liên kết với thiết bị này rồi! Mã mời vẫn còn nguyên hiệu lực cho thành viên khác.";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Xác nhận liên kết";
+        return;
+      }
+
+      // Nếu chính người tạo mã mời nhập mã của chính mình
+      if (currentUser && inviteData.createdBy === currentUser.uid) {
+        errBox.textContent = "Bạn là người tạo mã mời này, không thể tự liên kết bằng mã của chính mình!";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Xác nhận liên kết";
+        return;
+      }
 
       // Cập nhật trạng thái 'used' ngay lập tức để Master nhận thông báo thời gian thực
       try {
@@ -2163,7 +2208,18 @@ const btnBannerPair = $("btnBannerPair");
 if (btnBannerPair) btnBannerPair.onclick = () => openDevicePairModal(false);
 
 const btnOpenPairModal = $("btnOpenPairModal");
-if (btnOpenPairModal) btnOpenPairModal.onclick = () => openDevicePairModal(false);
+if (btnOpenPairModal) btnOpenPairModal.onclick = () => {
+  const isMasterUser = (currentUserRole === "master" || (currentUser && currentUser.email && currentUser.email.toLowerCase() === MASTER_EMAIL.toLowerCase()));
+  if (isMasterUser) {
+    alert("Bạn đang là Chủ nhà (Master) đã quản trị thiết bị này rồi, không cần liên kết!");
+    return;
+  }
+  if (isUserPaired) {
+    alert("Tài khoản của bạn đã được liên kết với ngôi nhà/thiết bị này rồi!");
+    return;
+  }
+  openDevicePairModal(false);
+};
 
 const btnUnlinkedEnterCode = $("btnUnlinkedEnterCode");
 if (btnUnlinkedEnterCode) btnUnlinkedEnterCode.onclick = () => openDevicePairModal(true);
