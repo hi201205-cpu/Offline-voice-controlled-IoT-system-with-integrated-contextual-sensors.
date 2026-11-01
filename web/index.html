@@ -142,7 +142,7 @@ p{margin:8px 0}
 .card{min-width:0;padding:20px;border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,var(--panel),var(--glass-tint));box-shadow:var(--shadow);backdrop-filter:blur(16px);transition:border-color .2s,transform .2s}
 .card:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
 .sensor-card{cursor:pointer;position:relative;overflow:hidden}
-.sensor-values{display:flex;gap:26px;align-items:center}
+.sensor-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0 16px}
 .temp{font-size:46px;font-weight:700;line-height:1;letter-spacing:-2px}
 .temp small{font-size:17px;font-weight:500;color:var(--mute);letter-spacing:0}
 .sensor-stat{color:var(--mute);font-size:12px}
@@ -485,20 +485,50 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
                 <button type="button" class="small-button" data-card-range="week">7 ngày</button>
               </div>
             </div>
-            <div class="sensor-values">
-              <div class="temp"><span id="t">--</span><small> °C</small></div>
-              <div class="sensor-stat">Độ ẩm<strong><span id="h">--</span><small>%</small></strong></div>
-              <div class="sensor-stat" id="motionStatBox">
-                Chuyển động
-                <strong id="motionStatus" style="font-size:13px;display:flex;align-items:center;gap:6px;margin-top:2px;">
-                  <span id="motionDot" style="width:8px;height:8px;border-radius:50%;background:var(--mute, #94a3b8);display:inline-block;transition:background .3s, box-shadow .3s;"></span>
-                  <span id="motionText">Không có</span>
-                </strong>
-                <span id="motionTime" class="meta" style="font-size:11px;margin:2px 0 0;display:block;">Chưa phát hiện</span>
+            <div class="sensor-values" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0 16px;">
+              <!-- Nhiệt độ -->
+              <div class="stat-box" style="display:flex;flex-direction:column;justify-content:space-between;padding:12px 14px;border-radius:14px;background:var(--panel-raised);border:1px solid var(--line);min-width:0;min-height:78px;">
+                <div style="display:flex;align-items:center;gap:6px;color:var(--mute);font-size:12px;font-weight:600;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent,#37b8ff);flex-shrink:0;">
+                    <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+                  </svg>
+                  <span>Nhiệt độ</span>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:3px;white-space:nowrap;margin-top:6px;">
+                  <span id="t" style="font-size:26px;font-weight:700;color:var(--ink);line-height:1;">--</span>
+                  <span style="font-size:14px;font-weight:600;color:var(--mute);">°C</span>
+                </div>
               </div>
-              <div class="stat-box" id="cardRangeBadge" style="margin-left:auto;padding:6px 12px;font-size:12px;text-align:right;">
-                <span class="meta" style="margin:0;display:block;">Biên độ dao động</span>
-                <strong id="cardTempRange" style="font-size:14px;">--</strong>
+
+              <!-- Độ ẩm -->
+              <div class="stat-box" style="display:flex;flex-direction:column;justify-content:space-between;padding:12px 14px;border-radius:14px;background:var(--panel-raised);border:1px solid var(--line);min-width:0;min-height:78px;">
+                <div style="display:flex;align-items:center;gap:6px;color:var(--mute);font-size:12px;font-weight:600;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-2,#42e2de);flex-shrink:0;">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+                  </svg>
+                  <span>Độ ẩm</span>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:2px;white-space:nowrap;margin-top:6px;">
+                  <span id="h" style="font-size:26px;font-weight:700;color:var(--ink);line-height:1;">--</span>
+                  <span style="font-size:14px;font-weight:600;color:var(--mute);">%</span>
+                </div>
+              </div>
+
+              <!-- Chuyển động -->
+              <div class="stat-box" id="motionStatBox" style="display:flex;flex-direction:column;justify-content:space-between;padding:12px 14px;border-radius:14px;background:var(--panel-raised);border:1px solid var(--line);min-width:0;min-height:78px;">
+                <div style="display:flex;align-items:center;gap:6px;color:var(--mute);font-size:12px;font-weight:600;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--good,#5ce0b2);flex-shrink:0;">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  <span>Chuyển động</span>
+                </div>
+                <div style="margin-top:6px;">
+                  <div id="motionStatus" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                    <span id="motionDot" style="width:8px;height:8px;border-radius:50%;background:var(--mute,#94a3b8);display:inline-block;flex-shrink:0;transition:background .3s,box-shadow .3s;"></span>
+                    <strong id="motionText" style="font-size:16px;font-weight:700;color:var(--ink);line-height:1.2;">Không có</strong>
+                  </div>
+                  <span id="motionTime" class="meta" style="font-size:11px;margin:3px 0 0;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Chưa phát hiện</span>
+                </div>
               </div>
             </div>
             <div class="chart" style="height:210px;margin-top:14px;position:relative;">
