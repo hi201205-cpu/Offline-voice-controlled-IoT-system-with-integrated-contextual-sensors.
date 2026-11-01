@@ -1,0 +1,17 @@
+{
+  "name": "Nhà Thông Minh ESP32",
+  "short_name": "SmartHome",
+  "description": "Bảng điều khiển và quản trị ngôi nhà thông minh ESP32",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#0d1b2d",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
+

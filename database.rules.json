@@ -1,0 +1,163 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      ".read": "auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true",
+      "$uid": {
+        ".read": "auth.uid === $uid || (auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true)",
+        "email": {
+          ".write": "auth.uid === $uid"
+        },
+        "name": {
+          ".write": "auth.uid === $uid"
+        },
+        "profile": {
+          ".write": "auth.uid === $uid"
+        },
+        "createdAt": {
+          ".write": "auth.uid === $uid && !data.exists()"
+        },
+        "inviteCode": {
+          ".write": "auth.uid === $uid"
+        },
+        "pairedAt": {
+          ".write": "auth.uid === $uid"
+        },
+        "role": {
+          ".write": "auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true"
+        },
+        "permissions": {
+          ".write": "auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true"
+        },
+        "pairedHome": {
+          ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (auth.uid === $uid && newData.val() === 'HOME-2026-ESP32' && root.child('invites').child(newData.parent().child('inviteCode').val()).child('status').val() === 'active' && newData.parent().parent().parent().child('invites').child(newData.parent().child('inviteCode').val()).child('status').val() === 'used' && newData.parent().parent().parent().child('invites').child(newData.parent().child('inviteCode').val()).child('usedBy').val() === auth.uid)"
+        }
+      }
+    },
+    "invites": {
+      ".read": "auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true",
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true",
+        "status": {
+          ".write": "auth != null && data.val() === 'active' && newData.val() === 'used'"
+        },
+        "usedBy": {
+          ".write": "auth != null && !data.exists() && newData.val() === auth.uid"
+        },
+        "usedByEmail": {
+          ".write": "auth != null && !data.exists()"
+        },
+        "usedAt": {
+          ".write": "auth != null && !data.exists()"
+        }
+      }
+    },
+    "system": {
+      ".read": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
+      ".write": "auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true"
+    },
+    "commands": {
+      ".read": "false",
+      "light": {
+        ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('light').val() !== false)"
+      },
+      "fan": {
+        ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('fan').val() !== false)"
+      },
+      "curtain": {
+        ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('curtain').val() !== false)"
+      },
+      "voice": {
+        ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('voice').val() !== false)"
+      },
+      "yard": {
+        ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('yard').val() !== false)"
+      },
+      "garden": {
+        ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('yard').val() !== false)"
+      },
+      "door": {
+        ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('door').val() !== false)"
+      }
+    },
+    "devices": {
+      ".read": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
+      ".write": "false",
+      "state": {
+        "keypad_locked": {
+          ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('door').val() !== false)"
+        }
+      }
+    },
+    "sensors": {
+      ".read": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
+      ".write": "false"
+    },
+    "door": {
+      "passcodes": {
+        ".read": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
+        ".write": "false"
+      },
+      "passcodeOwners": {
+        ".read": "auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true",
+        "$id": {
+          ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && ((!data.exists() && newData.exists() && root.child('users').child(auth.uid).child('permissions').child('passcodeAdd').val() === true && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('uid').val() === auth.uid)))",
+          ".validate": "newData.hasChildren(['uid', 'email', 'name', 'ts']) && newData.child('uid').isString() && newData.child('email').isString() && newData.child('name').isString() && newData.child('ts').isNumber()"
+        }
+      },
+      "keypad_locked": {
+        ".read": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
+        ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('door').val() !== false)"
+      },
+      "pending": {
+        ".read": "false",
+        "$op": {
+          ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && ((newData.child('op').val() === 'add' && root.child('users').child(auth.uid).child('permissions').child('passcodeAdd').val() === true) || (newData.child('op').val() === 'delete' && root.child('users').child(auth.uid).child('permissions').child('passcodeDel').val() === true && root.child('door').child('passcodeOwners').child(newData.child('target').val()).child('uid').val() === auth.uid)))",
+          ".validate": "newData.hasChildren(['op']) && (newData.child('op').val() === 'add' || newData.child('op').val() === 'delete') && (newData.child('op').val() !== 'add' || (newData.child('code').isString() && newData.child('code').val().matches(/^[0-9]{4,8}$/) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 30)) && (newData.child('op').val() !== 'delete' || (newData.child('target').isString() && newData.child('target').val().length <= 48))"
+        }
+      }
+    },
+    "logs": {
+      ".read": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
+      "web": {
+        "$id": {
+          ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')"
+        }
+      },
+      "voice": {
+        ".write": "false"
+      },
+      "door": {
+        ".write": "false"
+      },
+      "auto": {
+        ".write": "false"
+      }
+    },
+    "config": {
+      ".read": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
+      ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true)"
+    },
+    "automation": {
+      ".read": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
+      "rules": {
+        ".write": "auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true"
+      },
+      "enabled": {
+        ".write": "auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true"
+      },
+      "status": {
+        ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('auto').val() !== false)"
+      },
+      "pending": {
+        "$id": {
+          "answer": {
+            ".write": "(auth.token.email === 'xhai2005@gmail.com' && auth.token.email_verified === true) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('auto').val() !== false)"
+          }
+        }
+      }
+    }
+  }
+}

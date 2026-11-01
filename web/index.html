@@ -4,11 +4,138 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nhà thông minh</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com https://accounts.google.com; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://lh3.googleusercontent.com; frame-src 'self' https://accounts.google.com https://*.firebaseapp.com;">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="chart.umd.min.js"></script>
 <script>
+  // Hàm escapeHtml dùng chung toàn bộ ứng dụng để chống XSS
+  function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
+    return String(value).replace(/[&<>"']/g, function(character) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[character];
+    });
+  }
+  window.escapeHtml = escapeHtml;
+  window.escapeAttribute = escapeHtml;
+
+  // Sinh chuỗi ngẫu nhiên bằng Web Cryptography API (dùng cho opId, command id)
+  function generateRandomAlphanumeric(length = 12) {
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    let result = "";
+    for (let i = 0; i < length; i++) {
+      result += chars[bytes[i] % chars.length];
+    }
+    return result;
+  }
+  window.generateRandomAlphanumeric = generateRandomAlphanumeric;
+
+  // TODO (Bảo mật nâng cao - ESP32 & Web): Viết sẵn hàm băm SHA-256 phía client (Web Crypto API)
+  // nhưng CHƯA BẬT để đảm bảo tương thích ngược với firmware ESP32 hiện tại.
+  // Đề xuất giao thức nâng cấp:
+  // 1. ESP32 sinh ngẫu nhiên chuỗi nonce gửi lên /door/challenge.
+  // 2. Web đọc nonce, băm SHA256(passcode + nonce) rồi gửi lên /door/pending.
+  // 3. ESP32 kết hợp mật mã đã lưu trong NVS với nonce để so khớp, không truyền mật mã gốc qua mạng.
+  async function hashPasscodeSHA256(rawCode, nonce = "") {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(rawCode + nonce);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+  window.hashPasscodeSHA256 = hashPasscodeSHA256;
+
+  // Hộp thoại xác nhận thống nhất toàn ứng dụng (thay thế confirm() gốc của browser)
+  function showConfirmDialog({ title = "Xác nhận", message = "", confirmText = "Đồng ý", cancelText = "Hủy bỏ", danger = false, onConfirm = null }) {
+    const root = document.getElementById("modalRoot");
+    if (!root) {
+      if (window.confirm(message)) { if (typeof onConfirm === "function") onConfirm(); }
+      return;
+    }
+    const safeTitle = escapeHtml(title);
+    const safeMessage = escapeHtml(message).replace(/\n/g, "<br>");
+    const safeConfirmText = escapeHtml(confirmText);
+    const safeCancelText = escapeHtml(cancelText);
+    const btnColor = danger ? "var(--bad, #ff4d4f)" : "var(--accent)";
+
+    root.innerHTML = `
+      <div class="modal-backdrop" role="presentation">
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialogTitle" style="max-width:440px;" tabindex="-1">
+          <div class="modal-head">
+            <h2 id="dialogTitle" style="font-size:1.15rem;display:flex;align-items:center;gap:8px;${danger ? 'color:var(--bad, #ff4d4f);' : ''}">
+              ${safeTitle}
+            </h2>
+            <button type="button" data-close-modal aria-label="Đóng">✕</button>
+          </div>
+          <div style="padding:10px 0 20px;font-size:13.5px;color:var(--ink);line-height:1.5;">
+            ${safeMessage}
+          </div>
+          <div class="form-actions" style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" data-close-modal>${safeCancelText}</button>
+            <button class="primary" type="button" id="btnDialogConfirmAction" style="background:${btnColor};border-color:${btnColor};">${safeConfirmText}</button>
+          </div>
+        </section>
+      </div>
+    `;
+
+    const close = () => {
+      document.removeEventListener("keydown", onKeyDown);
+      root.replaceChildren();
+    };
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("keydown", onKeyDown);
+
+    root.querySelectorAll("[data-close-modal]").forEach(b => b.onclick = close);
+    root.querySelector(".modal-backdrop").onclick = e => { if (e.target === e.currentTarget) close(); };
+
+    const confirmBtn = root.querySelector("#btnDialogConfirmAction");
+    if (confirmBtn) {
+      confirmBtn.focus();
+      confirmBtn.onclick = () => {
+        close();
+        if (typeof onConfirm === "function") onConfirm();
+      };
+    }
+  }
+  window.showConfirmDialog = showConfirmDialog;
+
+  // Hiển thị thông báo Toast góc màn hình không chặn luồng UI (thay thế alert)
+  function showToast(message, duration = 3500) {
+    const root = document.getElementById("toastRoot");
+    if (!root) return;
+    const toast = document.createElement("div");
+    toast.className = "toast-pill";
+    toast.style.cssText = "background:var(--panel-raised, #11243a);color:var(--ink, #fff);border:1px solid var(--line, rgba(255,255,255,0.15));padding:10px 18px;border-radius:12px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,0.3);margin-top:8px;pointer-events:auto;transition:all .25s ease;";
+    toast.textContent = message;
+    root.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateY(-6px)";
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
+  window.showToast = showToast;
+
+  // Đăng ký Service Worker (PWA)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
+
   try {
     document.documentElement.dataset.theme = localStorage.getItem("smart-home-theme") || "system";
     const savedFs = localStorage.getItem("smart-home-font-size") || "14";
@@ -30,11 +157,12 @@
   --font-scale:1;
   --bg:#07111f;--panel:#0d1b2d;--panel-raised:#11243a;--ink:#eef6ff;--mute:#8ea5bd;--line:rgba(151,187,222,.15);--accent:#37b8ff;--accent-2:#42e2de;--on:#39c9e9;--bad:#ff7e83;--good:#5ce0b2;--shadow:0 20px 60px rgba(0,0,0,.22);--chart-grid:rgba(174,202,232,.1);--chart-ink:#9bb1c9;--ambient:rgba(22,102,154,.16);--glass-tint:rgba(151,187,222,.05);--switch-off:#526174;--knob:#fff;--knob-shadow:rgba(0,0,0,.27);--overlay:rgba(2,9,18,.65);--accent-glow:rgba(55,184,255,.45);--gold:#ffd76a;--gold-glow:rgba(255,215,106,.7);--primary-ink:#041523;--brand-start:rgba(55,184,255,.22);--brand-end:rgba(66,226,222,.1);--nav-active:rgba(55,184,255,.12)
 }
-:root[data-theme="light"]{color-scheme:light;--bg:#eaf2fa;--panel:rgba(255,255,255,.78);--panel-raised:#f7fbff;--ink:#152c45;--mute:#58718b;--line:rgba(54,103,149,.18);--accent:#137fc2;--accent-2:#08a9ac;--on:#1eabd1;--bad:#c64759;--good:#168f70;--shadow:0 18px 48px rgba(43,82,121,.12);--chart-grid:rgba(44,86,128,.12);--chart-ink:#58718b;--ambient:rgba(45,123,183,.1);--glass-tint:rgba(255,255,255,.28);--switch-off:#9eacba;--knob:#fff;--knob-shadow:rgba(18,45,72,.2);--overlay:rgba(16,39,64,.48);--accent-glow:rgba(19,127,194,.35);--gold:#bd7b00;--gold-glow:rgba(189,123,0,.4);--primary-ink:#06263a;--brand-start:rgba(19,127,194,.18);--brand-end:rgba(8,169,172,.1);--nav-active:rgba(19,127,194,.1)}
-@media(prefers-color-scheme:light){:root[data-theme="system"]{color-scheme:light;--bg:#eaf2fa;--panel:rgba(255,255,255,.78);--panel-raised:#f7fbff;--ink:#152c45;--mute:#58718b;--line:rgba(54,103,149,.18);--accent:#137fc2;--accent-2:#08a9ac;--on:#1eabd1;--bad:#c64759;--good:#168f70;--shadow:0 18px 48px rgba(43,82,121,.12);--chart-grid:rgba(44,86,128,.12);--chart-ink:#58718b;--ambient:rgba(45,123,183,.1);--glass-tint:rgba(255,255,255,.28);--switch-off:#9eacba;--knob:#fff;--knob-shadow:rgba(18,45,72,.2);--overlay:rgba(16,39,64,.48);--accent-glow:rgba(19,127,194,.35);--gold:#bd7b00;--gold-glow:rgba(189,123,0,.4);--primary-ink:#06263a;--brand-start:rgba(19,127,194,.18);--brand-end:rgba(8,169,172,.1);--nav-active:rgba(19,127,194,.1)}}
+:root[data-theme="light"]{color-scheme:light;--bg:#eaf2fa;--panel:rgba(255,255,255,.78);--panel-raised:#f7fbff;--ink:#152c45;--mute:#4a6580;--line:rgba(54,103,149,.18);--accent:#137fc2;--accent-2:#08a9ac;--on:#1eabd1;--bad:#c64759;--good:#168f70;--shadow:0 18px 48px rgba(43,82,121,.12);--chart-grid:rgba(44,86,128,.12);--chart-ink:#58718b;--ambient:rgba(45,123,183,.1);--glass-tint:rgba(255,255,255,.28);--switch-off:#9eacba;--knob:#fff;--knob-shadow:rgba(18,45,72,.2);--overlay:rgba(16,39,64,.48);--accent-glow:rgba(19,127,194,.35);--gold:#bd7b00;--gold-glow:rgba(189,123,0,.4);--primary-ink:#06263a;--brand-start:rgba(19,127,194,.18);--brand-end:rgba(8,169,172,.1);--nav-active:rgba(19,127,194,.1)}
+@media(prefers-color-scheme:light){:root[data-theme="system"]{color-scheme:light;--bg:#eaf2fa;--panel:rgba(255,255,255,.78);--panel-raised:#f7fbff;--ink:#152c45;--mute:#4a6580;--line:rgba(54,103,149,.18);--accent:#137fc2;--accent-2:#08a9ac;--on:#1eabd1;--bad:#c64759;--good:#168f70;--shadow:0 18px 48px rgba(43,82,121,.12);--chart-grid:rgba(44,86,128,.12);--chart-ink:#58718b;--ambient:rgba(45,123,183,.1);--glass-tint:rgba(255,255,255,.28);--switch-off:#9eacba;--knob:#fff;--knob-shadow:rgba(18,45,72,.2);--overlay:rgba(16,39,64,.48);--accent-glow:rgba(19,127,194,.35);--gold:#bd7b00;--gold-glow:rgba(189,123,0,.4);--primary-ink:#06263a;--brand-start:rgba(19,127,194,.18);--brand-end:rgba(8,169,172,.1);--nav-active:rgba(19,127,194,.1)}}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 72% 0%,var(--ambient),transparent 42%),var(--bg);color:var(--ink);font:400 var(--base-font-size, 14px)/1.55 "Be Vietnam Pro",system-ui,sans-serif;transition:background-color .25s,color .25s}
-#app, .modal-backdrop, #toastRoot{zoom:var(--app-zoom, 1)}
+/* Sử dụng font-size / rem chuẩn W3C thay cho zoom non-standard */
+#app, .modal-backdrop, #toastRoot{transform-origin:top center;}
 button,input,select{font:inherit}
 button{cursor:pointer;color:var(--ink);border:1px solid var(--line);background:var(--panel-raised);border-radius:12px;padding:9px 14px;transition:transform .18s,border-color .18s,background .18s}
 button:hover{border-color:var(--accent);transform:translateY(-1px)}
@@ -355,10 +483,10 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
       </div>
 
       <div class="auth-field">
-        <label for="regPass">Mật khẩu (tối thiểu 6 ký tự)</label>
+        <label for="regPass">Mật khẩu (tối thiểu 8 ký tự)</label>
         <div class="auth-input-wrap">
           <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <input id="regPass" type="password" placeholder="Tạo mật khẩu an toàn" autocomplete="new-password" minlength="6" required>
+          <input id="regPass" type="password" placeholder="Tạo mật khẩu an toàn (tối thiểu 8 ký tự)" autocomplete="new-password" minlength="8" required>
           <button type="button" class="auth-toggle-pwd" id="toggleRegPass" aria-label="Hiện mật khẩu"></button>
         </div>
       </div>
@@ -367,7 +495,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
         <label for="regPassConfirm">Xác nhận mật khẩu</label>
         <div class="auth-input-wrap">
           <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <input id="regPassConfirm" type="password" placeholder="Nhập lại mật khẩu" autocomplete="new-password" minlength="6" required>
+          <input id="regPassConfirm" type="password" placeholder="Nhập lại mật khẩu" autocomplete="new-password" minlength="8" required>
         </div>
       </div>
 
@@ -938,16 +1066,16 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
                   </div>
                 </div>
                 <div>
-                  <label for="newPassword" style="margin:0 0 4px;font-size:12px;">Mật khẩu mới (tối thiểu 6 ký tự)</label>
+                  <label for="newPassword" style="margin:0 0 4px;font-size:12px;">Mật khẩu mới (tối thiểu 8 ký tự)</label>
                   <div class="auth-input-wrap">
-                    <input type="password" id="newPassword" placeholder="Nhập mật khẩu mới muốn đặt" autocomplete="new-password" minlength="6" required>
+                    <input type="password" id="newPassword" placeholder="Nhập mật khẩu mới muốn đặt (tối thiểu 8 ký tự)" autocomplete="new-password" minlength="8" required>
                     <button type="button" class="auth-toggle-pwd" id="toggleNewPass" aria-label="Hiện mật khẩu"></button>
                   </div>
                 </div>
                 <div>
                   <label for="confirmNewPassword" style="margin:0 0 4px;font-size:12px;">Xác nhận mật khẩu mới</label>
                   <div class="auth-input-wrap">
-                    <input type="password" id="confirmNewPassword" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password" minlength="6" required>
+                    <input type="password" id="confirmNewPassword" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password" minlength="8" required>
                     <button type="button" class="auth-toggle-pwd" id="toggleConfirmPass" aria-label="Hiện mật khẩu"></button>
                   </div>
                 </div>
@@ -970,10 +1098,15 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
 </div>
 
 <div id="modalRoot"></div>
-<div id="toastRoot" aria-live="polite"></div>
+<div id="toastRoot" role="status" aria-live="polite"></div>
 <div class="hidden" aria-hidden="true"><canvas id="chTemp"></canvas></div>
 
 <script type="module">
+// Nhập hàm escapeHtml dùng chung từ window
+const escapeHtml = window.escapeHtml || (v => (v == null ? "" : String(v)));
+const escapeAttribute = escapeHtml;
+const showToast = window.showToast;
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { 
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, 
@@ -1077,7 +1210,7 @@ function formatAuthError(e) {
     "auth/user-not-found": "Tài khoản không tồn tại trên hệ thống.",
     "auth/wrong-password": "Mật khẩu không chính xác.",
     "auth/email-already-in-use": "Email này đã được sử dụng trước đó (qua Google hoặc Mật khẩu). Vui lòng chuyển sang tab Đăng nhập.",
-    "auth/weak-password": "Mật khẩu quá yếu (tối thiểu 6 ký tự).",
+    "auth/weak-password": "Mật khẩu quá yếu (tối thiểu 8 ký tự).",
     "auth/invalid-api-key": "apiKey sai hoặc chưa điền trong firebaseConfig.",
     "auth/api-key-not-valid.-please-pass-a-valid-api-key.": "apiKey sai hoặc chưa điền trong firebaseConfig.",
     "auth/operation-not-allowed": "Chưa bật Email/Password trong Firebase Authentication.",
@@ -1113,7 +1246,7 @@ formRegister.onsubmit = async (evt) => {
   const pass = $("regPass").value;
   const passConfirm = $("regPassConfirm").value;
 
-  if (pass.length < 6) { $("err").textContent = "Mật khẩu cần có ít nhất 6 ký tự."; return; }
+  if (pass.length < 8) { $("err").textContent = "Mật khẩu cần có ít nhất 8 ký tự."; return; }
   if (pass !== passConfirm) { $("err").textContent = "Xác nhận mật khẩu không khớp!"; return; }
 
   const btn = $("btnRegister");
@@ -1126,12 +1259,11 @@ formRegister.onsubmit = async (evt) => {
     const user = credential.user;
 
     // 2. Khởi tạo bản ghi người dùng trên Realtime Database (/users/{uid})
+    // Giai đoạn 1: Chỉ ghi email, createdAt theo phân quyền Rules mới (không ghi role và pairedHome từ client)
     try {
-      await set(ref(db, "users/" + user.uid), {
+      await update(ref(db, "users/" + user.uid), {
         email: email,
-        pairedHome: null, // Chưa liên kết thiết bị
-        createdAt: Date.now(),
-        role: "member"
+        createdAt: Date.now()
       });
     } catch (dbErr) {
       console.warn("Không ghi được thông tin users vào RTDB:", dbErr);
@@ -1192,12 +1324,11 @@ if (btnGoogleSignIn) {
       const snapshot = await get(userRef);
       if (!snapshot.exists()) {
         const isMaster = user.email && user.email.toLowerCase() === MASTER_EMAIL.toLowerCase();
-        await set(userRef, {
+        // Giai đoạn 1: Chỉ ghi các trường được Rules cho phép (name, email, createdAt), không ghi role và pairedHome
+        await update(userRef, {
           name: user.displayName || user.email.split("@")[0],
           email: user.email,
-          pairedHome: isMaster ? DEFAULT_HOME_CODE : null,
-          createdAt: Date.now(),
-          role: isMaster ? "master" : "member"
+          createdAt: Date.now()
         });
         if (!isMaster) {
           sessionStorage.setItem("justRegistered", "true");
@@ -1235,23 +1366,26 @@ if (btnForgotPassLink) {
       return;
     }
 
-    const confirmed = confirm(`Gửi liên kết đặt lại mật khẩu tới email:\n${email}\n\nBạn có muốn tiếp tục?`);
-    if (!confirmed) return;
-
-    btnForgotPassLink.disabled = true;
-    btnForgotPassLink.textContent = "Đang gửi email...";
-
-    try {
-      await sendPasswordResetEmail(auth, email);
-      alert(`Đã gửi email khôi phục mật khẩu thành công!\n\nVui lòng kiểm tra hộp thư đến (hoặc hòm thư Spam) của ${email} và nhấn vào đường link để tạo mật khẩu mới.`);
-      $("err").innerHTML = `<span style="color:var(--good);font-weight:600;">✓ Đã gửi email khôi phục tới <b>${email}</b>. Vui lòng kiểm tra hộp thư!</span>`;
-    } catch (e) {
-      console.error("Lỗi gửi email quên mật khẩu:", e);
-      $("err").textContent = formatAuthError(e);
-    } finally {
-      btnForgotPassLink.disabled = false;
-      btnForgotPassLink.textContent = "Quên mật khẩu?";
-    }
+    showConfirmDialog({
+      title: "Khôi phục mật khẩu",
+      message: `Gửi liên kết đặt lại mật khẩu tới email:\n${email}\n\nBạn có muốn tiếp tục?`,
+      confirmText: "Gửi liên kết",
+      onConfirm: async () => {
+        btnForgotPassLink.disabled = true;
+        btnForgotPassLink.textContent = "Đang gửi email...";
+        try {
+          await sendPasswordResetEmail(auth, email);
+          showToast(`Đã gửi email khôi phục tới ${email}`);
+          $("err").innerHTML = `<span style="color:var(--good);font-weight:600;">✓ Đã gửi email khôi phục tới <b>${escapeHtml(email)}</b>. Vui lòng kiểm tra hộp thư!</span>`;
+        } catch (e) {
+          console.error("Lỗi gửi email quên mật khẩu:", e);
+          $("err").textContent = formatAuthError(e);
+        } finally {
+          btnForgotPassLink.disabled = false;
+          btnForgotPassLink.textContent = "Quên mật khẩu?";
+        }
+      }
+    });
   };
 }
 
@@ -1442,9 +1576,9 @@ if (formUserProfile) {
 
       if (msgEl) {
         msgEl.style.color = "var(--good)";
-        msgEl.innerHTML = "✓ Cập nhật thông tin cá nhân thành công!";
+        msgEl.textContent = "✓ Cập nhật thông tin cá nhân thành công!";
       }
-      alert("Đã cập nhật thông tin cá nhân thành công!");
+      showToast("Đã cập nhật thông tin cá nhân thành công!");
     } catch (e) {
       console.error("Lỗi lưu hồ sơ:", e);
       if (msgEl) {
@@ -1611,9 +1745,9 @@ if (formChangePassword) {
       $("confirmNewPassword").value = "";
 
       msgEl.style.color = "var(--good)";
-      msgEl.innerHTML = "✓ Lưu mật khẩu thành công! Giờ bạn có thể dùng cả Google và Email &amp; Mật khẩu này để đăng nhập.";
+      msgEl.textContent = "✓ Lưu mật khẩu thành công! Giờ bạn có thể dùng cả Google và Email & Mật khẩu này để đăng nhập.";
       showToast("Lưu mật khẩu mới thành công!");
-      alert("Lưu mật khẩu thành công! Mật khẩu mới đã có hiệu lực cho tài khoản của bạn.");
+      showToast("Lưu mật khẩu thành công! Mật khẩu mới đã có hiệu lực cho tài khoản của bạn.");
 
     } catch (e) {
       console.error("Lỗi cập nhật mật khẩu:", e);
@@ -1637,14 +1771,19 @@ if (btnForgotInSettings) {
   btnForgotInSettings.onclick = async () => {
     const user = auth.currentUser;
     if (!user || !user.email) return;
-    if (!confirm(`Hệ thống sẽ gửi liên kết khôi phục mật khẩu tới email: ${user.email}.\nBạn có muốn tiếp tục?`)) return;
-    try {
-      await sendPasswordResetEmail(auth, user.email.trim().toLowerCase());
-      showToast("Đã gửi email khôi phục mật khẩu.");
-      alert(`Đã gửi email khôi phục mật khẩu tới ${user.email}!\nVui lòng kiểm tra hộp thư (cả mục Spam/Thư rác).`);
-    } catch (e) {
-      alert("Không thể gửi email: " + formatAuthError(e));
-    }
+    showConfirmDialog({
+      title: "Gửi liên kết khôi phục mật khẩu",
+      message: `Hệ thống sẽ gửi liên kết khôi phục mật khẩu tới email: ${user.email}.\nBạn có muốn tiếp tục?`,
+      confirmText: "Gửi email",
+      onConfirm: async () => {
+        try {
+          await sendPasswordResetEmail(auth, user.email.trim().toLowerCase());
+          showToast("Đã gửi email khôi phục mật khẩu tới hộp thư của bạn.");
+        } catch (e) {
+          showToast("Không thể gửi email: " + formatAuthError(e));
+        }
+      }
+    });
   };
 }
 $("btnOut").onclick = () => {
@@ -1677,13 +1816,8 @@ async function checkUserDeviceLink(user) {
       userPermissions = { light: true, fan: true, curtain: true, door: true, yard: true, voice: true, auto: true, passcodeAdd: true, passcodeDel: true };
       window.currentUserRole = currentUserRole;
       window.userPermissions = userPermissions;
-      await update(ref(db, "users/" + user.uid), {
-        role: "master",
-        email: user.email,
-        name: uData.name || user.displayName || "Chủ nhà",
-        pairedHome: DEFAULT_HOME_CODE
-      });
-      await set(ref(db, "system/masterUid"), user.uid);
+      // Giai đoạn 1: Bỏ client tự ghi system/masterUid và bỏ update role:"master"/permissions cho Master
+      // Quyền bảo mật thật sự do Firebase Rules quyết định dựa trên email xác thực của tài khoản Master
     } else {
       currentUserRole = "member";
       isUserPaired = (uData.pairedHome === DEFAULT_HOME_CODE);
@@ -1816,32 +1950,44 @@ function listenSharedMembers() {
         auto: true, passcodeAdd: false, passcodeDel: false
       };
       const prof = m.profile || {};
-      const phoneDisplay = prof.phone 
-        ? `<a href="tel:${prof.phone}" style="color:var(--accent);text-decoration:none;font-weight:600;">${prof.phone}</a>` 
+      const rawPhone = String(prof.phone || "").trim();
+      // Chống XSS href="tel:...": chỉ cho phép số, dấu +, khoảng trắng và dấu gạch
+      const safePhoneHref = rawPhone.replace(/[^0-9+\s\-]/g, "");
+      const phoneDisplay = rawPhone 
+        ? `<a href="tel:${safePhoneHref}" style="color:var(--accent);text-decoration:none;font-weight:600;">${escapeHtml(rawPhone)}</a>` 
         : `<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>`;
       
-      const dobDisplay = prof.dob 
-        ? (prof.dob.split("-").length === 3 ? `${prof.dob.split("-")[2]}/${prof.dob.split("-")[1]}/${prof.dob.split("-")[0]}` : prof.dob)
+      const rawDob = String(prof.dob || "").trim();
+      const dobParts = rawDob.split("-");
+      const formattedDob = (dobParts.length === 3) ? `${dobParts[2]}/${dobParts[1]}/${dobParts[0]}` : rawDob;
+      const dobDisplay = rawDob 
+        ? escapeHtml(formattedDob)
         : `<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>`;
 
       const genderText = prof.gender === 'male' ? 'Nam' : prof.gender === 'female' ? 'Nữ' : prof.gender === 'other' ? 'Khác' : '<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>';
-      const addressText = prof.address ? prof.address : '<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>';
+      const addressText = prof.address ? escapeHtml(prof.address) : '<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>';
       const lastUpdated = prof.updatedAt ? new Date(prof.updatedAt).toLocaleDateString("vi-VN") : null;
       const initial = (m.name && m.name.trim()) ? m.name.trim().charAt(0).toUpperCase() : (m.email ? m.email.charAt(0).toUpperCase() : "U");
       const isOpen = openUids.has(m.uid);
+      const safeUid = escapeHtml(m.uid);
+      const safeName = escapeHtml(m.name || "Thành viên");
+      const safeEmail = escapeHtml(m.email || "");
+      const safeInitial = escapeHtml(initial);
+      const safePairedAt = escapeHtml(m.pairedAt ? new Date(m.pairedAt).toLocaleDateString("vi-VN") : "Gần đây");
+      const safeLastUpdated = lastUpdated ? escapeHtml(lastUpdated) : null;
 
       return `
-        <details class="member-accordion" data-member-uid="${m.uid}" ${isOpen ? "open" : ""}>
+        <details class="member-accordion" data-member-uid="${safeUid}" ${isOpen ? "open" : ""}>
           <summary>
             <div class="member-accordion-left">
-              <div class="member-avatar">${initial}</div>
+              <div class="member-avatar">${safeInitial}</div>
               <div class="member-texts">
-                <b class="member-name">${m.name || "Thành viên"}</b>
-                <span class="member-email">${m.email}</span>
+                <b class="member-name">${safeName}</b>
+                <span class="member-email">${safeEmail}</span>
               </div>
             </div>
             <div class="member-actions-wrap">
-              <button type="button" class="passcode-del" data-remove-member="${m.uid}" style="padding:5px 12px;font-size:11.5px;">Hủy liên kết</button>
+              <button type="button" class="passcode-del" data-remove-member="${safeUid}" data-member-name="${safeName}" data-member-email="${safeEmail}" style="padding:5px 12px;font-size:11.5px;">Hủy liên kết</button>
               <div class="member-chevron-wrap" title="Xem chi tiết">
                 <svg class="member-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
               </div>
@@ -1851,8 +1997,8 @@ function listenSharedMembers() {
           <div class="member-accordion-body">
             <!-- Dòng thời gian liên kết & cập nhật -->
             <div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0 6px;border-bottom:1px dashed var(--line);font-size:11.5px;color:var(--mute);flex-wrap:wrap;gap:6px;">
-              <span>Liên kết lúc: <b style="color:var(--ink);">${m.pairedAt ? new Date(m.pairedAt).toLocaleDateString("vi-VN") : "Gần đây"}</b></span>
-              <span>${lastUpdated ? "Cập nhật hồ sơ: " + lastUpdated : "Chưa tự cập nhật hồ sơ"}</span>
+              <span>Liên kết lúc: <b style="color:var(--ink);">${safePairedAt}</b></span>
+              <span>${safeLastUpdated ? "Cập nhật hồ sơ: " + safeLastUpdated : "Chưa tự cập nhật hồ sơ"}</span>
             </div>
 
             <!-- Thông tin cá nhân của thành viên (Chủ nhà kiểm soát) -->
@@ -1870,19 +2016,19 @@ function listenSharedMembers() {
             <div style="display:flex;flex-wrap:wrap;gap:8px 12px;padding-top:4px;align-items:center;">
               <span style="font-size:11px;font-weight:600;color:var(--mute);margin-right:2px;">Quyền thiết bị:</span>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
-                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="light" ${perms.light !== false ? "checked" : ""}> Đèn
+                <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="light" ${perms.light !== false ? "checked" : ""}> Đèn
               </label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
-                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="fan" ${perms.fan !== false ? "checked" : ""}> Quạt
+                <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="fan" ${perms.fan !== false ? "checked" : ""}> Quạt
               </label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
-                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="curtain" ${perms.curtain !== false ? "checked" : ""}> Rèm
+                <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="curtain" ${perms.curtain !== false ? "checked" : ""}> Rèm
               </label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
-                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="door" ${perms.door !== false ? "checked" : ""}> Cửa chính
+                <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="door" ${perms.door !== false ? "checked" : ""}> Cửa chính
               </label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;">
-                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="yard" ${perms.yard !== false ? "checked" : ""}> Đèn sân
+                <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="yard" ${perms.yard !== false ? "checked" : ""}> Đèn sân
               </label>
             </div>
 
@@ -1890,13 +2036,13 @@ function listenSharedMembers() {
             <div style="display:flex;flex-wrap:wrap;gap:8px 12px;padding-top:2px;align-items:center;">
               <span style="font-size:11px;font-weight:600;color:var(--mute);margin-right:2px;">Quyền nâng cao:</span>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;color:var(--accent);">
-                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="auto" ${perms.auto !== false ? "checked" : ""}> Cấu hình tự động hóa
+                <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="auto" ${perms.auto !== false ? "checked" : ""}> Cấu hình tự động hóa
               </label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;color:var(--good);">
-                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="passcodeAdd" ${perms.passcodeAdd === true ? "checked" : ""}> Thêm mật khẩu Keypad
+                <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="passcodeAdd" ${perms.passcodeAdd === true ? "checked" : ""}> Thêm mật khẩu Keypad
               </label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;margin:0;cursor:pointer;color:var(--bad);">
-                <input type="checkbox" data-perm-uid="${m.uid}" data-perm-dev="passcodeDel" ${perms.passcodeDel === true ? "checked" : ""}> Xóa mật khẩu Keypad
+                <input type="checkbox" data-perm-uid="${safeUid}" data-perm-dev="passcodeDel" ${perms.passcodeDel === true ? "checked" : ""}> Xóa mật khẩu Keypad
               </label>
             </div>
           </div>
@@ -1914,23 +2060,206 @@ function listenSharedMembers() {
           await update(ref(db, `users/${uid}/permissions`), { [dev]: allowed });
           showToast(`Đã cập nhật quyền [${dev}] cho thành viên.`);
         } catch (e) {
-          alert("Lỗi cập nhật quyền: " + e.message);
+          showToast("Lỗi cập nhật quyền: " + (e.message || e));
         }
       };
     });
 
-    // Bắt sự kiện xóa / hủy liên kết thành viên
+    // Bắt sự kiện xóa / hủy liên kết thành viên (Giai đoạn C)
     listEl.querySelectorAll("[data-remove-member]").forEach(btn => {
       btn.onclick = async (e) => {
         e.stopPropagation(); // Ngăn summary toggle accordion khi bấm nút hủy liên kết
         e.preventDefault();
         const uid = btn.dataset.removeMember;
-        if (!confirm("Bạn có chắc chắn muốn ngắt quyền liên kết của thành viên này khỏi ngôi nhà?")) return;
+        const memberName = btn.dataset.memberName || "Thành viên";
+        const memberEmail = btn.dataset.memberEmail || "";
+
+        const root = $("modalRoot");
+        if (!root) return;
+
+        // Modal tải thông tin rà soát ban đầu
+        root.innerHTML = `
+          <div class="modal-backdrop" role="presentation">
+            <section class="modal" role="dialog" aria-modal="true" style="max-width:520px;" tabindex="-1">
+              <div class="modal-head">
+                <h2 style="font-size:1.15rem;color:var(--bad);">Hủy liên kết: ${escapeHtml(memberName)}</h2>
+                <button type="button" data-close-modal aria-label="Đóng">✕</button>
+              </div>
+              <div style="padding:24px 0;text-align:center;color:var(--mute);font-size:13.5px;" id="unlinkModalBody">
+                <div class="spinner" style="margin:0 auto 12px;"></div>
+                Đang rà soát các mật khẩu keypad và quy tắc tự động hóa của thành viên...
+              </div>
+            </section>
+          </div>
+        `;
+        root.querySelectorAll("[data-close-modal]").forEach(b => b.onclick = () => root.replaceChildren());
+
+        let ownersSnap, passcodesSnap, rulesSnap;
         try {
-          await update(ref(db, `users/${uid}`), { pairedHome: null });
-          showToast("Đã hủy quyền liên kết của thành viên.");
-        } catch (e) {
-          alert("Lỗi khi hủy liên kết: " + e.message);
+          [ownersSnap, passcodesSnap, rulesSnap] = await Promise.all([
+            get(ref(db, "door/passcodeOwners")),
+            get(ref(db, "door/passcodes")),
+            get(ref(db, "automation/rules"))
+          ]);
+        } catch (fetchErr) {
+          console.warn("Lỗi khi tải dữ liệu rà soát:", fetchErr);
+        }
+
+        const owners = (ownersSnap && ownersSnap.val()) || {};
+        const passcodes = (passcodesSnap && passcodesSnap.val()) || {};
+        const rawRules = (rulesSnap && rulesSnap.val()) || [];
+        const rulesList = Array.isArray(rawRules) ? rawRules.filter(Boolean) : Object.values(rawRules);
+
+        // Lọc mật khẩu do uid đó tạo
+        const memberPasscodes = [];
+        let unknownPasscodesCount = 0;
+        const allPasscodeIds = Object.keys(passcodes);
+        allPasscodeIds.forEach(id => {
+          const owner = owners[id];
+          if (owner && owner.uid === uid) {
+            memberPasscodes.push({ id, name: passcodes[id].name || owner.name || id });
+          } else if (!owner || !owner.uid) {
+            unknownPasscodesCount++;
+          }
+        });
+
+        // Lọc quy tắc tự động hóa do uid đó tạo
+        const memberRules = [];
+        let unknownRulesCount = 0;
+        rulesList.forEach(r => {
+          if (r.createdBy === uid) {
+            memberRules.push(r);
+          } else if (!r.createdBy) {
+            unknownRulesCount++;
+          }
+        });
+
+        const safeMemberName = escapeHtml(memberName);
+        const safeMemberEmail = escapeHtml(memberEmail);
+
+        // Danh sách mật khẩu keypad HTML
+        let passcodesListHtml = `<p style="font-size:12.5px;color:var(--mute);margin:4px 0 10px;">Không có mật khẩu nào do người này tạo.</p><input type="hidden" id="chkDelMemberPasscodes" value="0">`;
+        if (memberPasscodes.length > 0) {
+          passcodesListHtml = `
+            <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0 12px;max-height:110px;overflow-y:auto;font-size:12px;">
+              ${memberPasscodes.map(p => `<div>🔑 <b>${escapeHtml(p.name)}</b> <span style="color:var(--mute);">(ID: ${escapeHtml(p.id)})</span></div>`).join("")}
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0 12px;cursor:pointer;font-weight:600;color:var(--bad);">
+              <input type="checkbox" id="chkDelMemberPasscodes" checked> Xóa luôn ${memberPasscodes.length} mật khẩu keypad do người này tạo
+            </label>
+          `;
+        }
+
+        // Danh sách quy tắc tự động hóa HTML
+        let rulesListHtml = `<p style="font-size:12.5px;color:var(--mute);margin:4px 0 10px;">Không có quy tắc tự động hóa nào do người này tạo.</p><input type="hidden" id="chkDelMemberRules" value="0">`;
+        if (memberRules.length > 0) {
+          rulesListHtml = `
+            <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0 12px;max-height:110px;overflow-y:auto;font-size:12px;">
+              ${memberRules.map(r => `<div>⚙️ <b>${escapeHtml(r.name || r.id)}</b></div>`).join("")}
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0 12px;cursor:pointer;font-weight:600;color:var(--bad);">
+              <input type="checkbox" id="chkDelMemberRules" checked> Xóa luôn ${memberRules.length} quy tắc tự động hóa do người này tạo
+            </label>
+          `;
+        }
+
+        // Cảnh báo quy tắc / mật mã không rõ người tạo
+        let unknownWarningHtml = "";
+        if (unknownRulesCount > 0 || unknownPasscodesCount > 0) {
+          unknownWarningHtml = `
+            <div style="background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.3);color:var(--gold,#eab308);padding:9px 12px;border-radius:10px;font-size:12px;margin:10px 0 14px;line-height:1.45;">
+              ⚠️ <b>Cảnh báo:</b> Còn <b>${unknownRulesCount}</b> quy tắc cũ và <b>${unknownPasscodesCount}</b> mật khẩu keypad cũ không rõ người tạo, hãy tự rà soát.
+            </div>
+          `;
+        }
+
+        const modalBody = root.querySelector("#unlinkModalBody");
+        if (modalBody) {
+          modalBody.style.textAlign = "left";
+          modalBody.innerHTML = `
+            <p style="font-size:13.5px;color:var(--ink);line-height:1.5;margin-bottom:12px;">
+              Bạn có chắc chắn muốn ngắt liên kết của thành viên <b>${safeMemberName}</b> ${safeMemberEmail ? `(${safeMemberEmail})` : ""}?
+            </p>
+            <div style="font-size:12px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.5px;">1. Mật khẩu Keypad gắn với thành viên:</div>
+            ${passcodesListHtml}
+            <div style="font-size:12px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.5px;margin-top:8px;">2. Quy tắc Tự động hóa do thành viên tạo:</div>
+            ${rulesListHtml}
+            ${unknownWarningHtml}
+            <div class="form-actions" style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end;">
+              <button type="button" data-close-modal>Hủy</button>
+              <button class="primary" type="button" id="btnExecuteUnlinkMember" style="background:var(--bad);border-color:var(--bad);">Xác nhận hủy liên kết</button>
+            </div>
+          `;
+          modalBody.querySelectorAll("[data-close-modal]").forEach(b => b.onclick = () => root.replaceChildren());
+
+          const btnExec = modalBody.querySelector("#btnExecuteUnlinkMember");
+          if (btnExec) {
+            btnExec.onclick = async () => {
+              const chkPass = modalBody.querySelector("#chkDelMemberPasscodes");
+              const chkRules = modalBody.querySelector("#chkDelMemberRules");
+              const delPasscodes = chkPass && chkPass.checked && memberPasscodes.length > 0;
+              const delRules = chkRules && chkRules.checked && memberRules.length > 0;
+
+              btnExec.disabled = true;
+              btnExec.textContent = "Đang xử lý...";
+
+              // Bước a: Xóa mật khẩu keypad nếu chọn
+              if (delPasscodes) {
+                // Kiểm tra nếu việc xóa làm hết mật khẩu keypad
+                if (allPasscodeIds.length - memberPasscodes.length <= 0) {
+                  showToast("Không thể xóa: Việc này sẽ làm hết mật khẩu keypad! Chip ESP32 cần giữ ít nhất một mật khẩu. Hãy thêm mật khẩu mới trước khi xóa thành viên.");
+                  btnExec.disabled = false;
+                  btnExec.textContent = "Xác nhận hủy liên kết";
+                  return;
+                }
+                let failedPasscodes = [];
+                for (const p of memberPasscodes) {
+                  try {
+                    const opId = (window.generateRandomAlphanumeric || generateRandomAlphanumeric)(12);
+                    await set(ref(db, `door/pending/${opId}`), {
+                      op: "delete",
+                      target: p.id
+                    });
+                  } catch (delErr) {
+                    console.warn(`Lỗi gửi yêu cầu xóa mã ${p.id}:`, delErr);
+                    failedPasscodes.push(p.name);
+                  }
+                }
+                if (failedPasscodes.length > 0) {
+                  showToast(`Chưa gửi được lệnh xóa cho mã: ${failedPasscodes.join(", ")}`);
+                } else {
+                  showToast(`Đã gửi yêu cầu xóa ${memberPasscodes.length} mật khẩu keypad.`);
+                }
+              }
+
+              // Bước b: Xóa quy tắc tự động hóa nếu chọn
+              if (delRules) {
+                try {
+                  const remainingRules = rulesList.filter(r => r.createdBy !== uid);
+                  await set(ref(db, "automation/rules"), remainingRules);
+                  showToast(`Đã xóa ${memberRules.length} quy tắc tự động hóa của thành viên.`);
+                } catch (ruleErr) {
+                  console.warn("Lỗi khi xóa quy tắc tự động hóa:", ruleErr);
+                  showToast("Lỗi xóa quy tắc: " + (ruleErr.message || ruleErr));
+                }
+              }
+
+              // Bước c: Hủy liên kết và thu hồi quyền users/{uid}, TUYỆT ĐỐI KHÔNG đụng đến inviteCode
+              try {
+                await update(ref(db, `users/${uid}`), {
+                  pairedHome: null,
+                  permissions: null
+                });
+                showToast("Đã hủy quyền liên kết của thành viên thành công.");
+                root.replaceChildren();
+              } catch (userErr) {
+                console.error("Lỗi khi hủy liên kết user:", userErr);
+                showToast("Lỗi hủy liên kết tài khoản: " + (userErr.message || userErr));
+                btnExec.disabled = false;
+                btnExec.textContent = "Thử lại hủy liên kết";
+              }
+            };
+          }
         }
       };
     });
@@ -2010,8 +2339,9 @@ function watchActiveInviteCode(code) {
     }
 
     const data = snapshot.val();
+    const now = Date.now();
     if (data.status === "used") {
-      codeDisplay.innerHTML = `<span style="text-decoration:line-through;color:var(--mute);">${code}</span> <span class="mock-label" style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:11px;font-weight:700;margin-left:6px;">Đã được sử dụng</span>`;
+      codeDisplay.innerHTML = `<span style="text-decoration:line-through;color:var(--mute);">${escapeHtml(code)}</span> <span class="mock-label" style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:11px;font-weight:700;margin-left:6px;">Đã được sử dụng</span>`;
       if (notice) {
         notice.textContent = `Mã này vừa được tài khoản ${data.usedByEmail || 'thành viên'} sử dụng thành công!`;
         notice.style.color = "var(--good)";
@@ -2026,44 +2356,65 @@ function watchActiveInviteCode(code) {
         activeInviteUnsub();
         activeInviteUnsub = null;
       }
+    } else if (data.expiresAt && now > data.expiresAt) {
+      wrap.classList.remove("hidden");
+      codeDisplay.innerHTML = `<span style="text-decoration:line-through;color:var(--mute);">${escapeHtml(code)}</span> <span class="mock-label" style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:11px;font-weight:700;margin-left:6px;">Đã hết hạn</span>`;
+      if (notice) {
+        notice.textContent = "Mã mời này đã hết hạn sau 24 giờ. Vui lòng tạo mã mới.";
+        notice.style.color = "var(--bad)";
+      }
     } else {
       wrap.classList.remove("hidden");
       codeDisplay.textContent = code;
       if (notice) {
-        notice.textContent = "Mã mời vừa tạo (cung cấp mã này cho người cần liên kết):";
+        notice.textContent = "Mã mời vừa tạo (cung cấp mã này cho người cần liên kết, hiệu lực 24h):";
         notice.style.color = "var(--mute)";
       }
     }
   });
 }
 
+// Hàm sinh chuỗi ngẫu nhiên bảo mật cao bằng crypto.getRandomValues, loại bỏ 0/O/1/I
+function generateSecureInviteCode() {
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // Bỏ ký tự dễ nhầm lẫn 0, O, 1, I
+  const randomBytes = new Uint8Array(8);
+  crypto.getRandomValues(randomBytes);
+  let suffix = "";
+  for (let i = 0; i < 8; i++) {
+    suffix += chars[randomBytes[i] % chars.length];
+  }
+  return "HM-" + suffix;
+}
+
 // Tạo mã mời 1 lần (Chỉ Master mới có quyền gọi)
 async function generateOneTimeInviteCode() {
   if (currentUserRole !== "master") {
-    alert("Chỉ tài khoản Chủ nhà (Master) mới có quyền tạo mã chia sẻ!");
+    showToast("Chỉ tài khoản Chủ nhà (Master) mới có quyền tạo mã chia sẻ!");
     return;
   }
   const btn = $("btnGenInviteCode");
   if (btn) btn.disabled = true;
   try {
-    // Sinh mã ngẫu nhiên 6 ký tự dễ đọc (VD: HM-8X42)
-    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const code = "HM-" + randomSuffix;
+    // Giai đoạn 1: Sinh mã ngẫu nhiên bằng crypto.getRandomValues, tối thiểu 8 ký tự, thêm expiresAt 24 giờ
+    const code = generateSecureInviteCode();
+    const now = Date.now();
+    const expiresAt = now + 24 * 60 * 60 * 1000; // Hạn dùng 24 giờ
     
     // Lưu vào RTDB /invites/{code}
     await set(ref(db, "invites/" + code), {
       createdBy: currentUser.uid,
       creatorEmail: currentUser.email,
-      createdAt: Date.now(),
+      createdAt: now,
+      expiresAt: expiresAt,
       status: "active",
       homeId: DEFAULT_HOME_CODE
     });
 
     watchActiveInviteCode(code);
-    showToast(`Đã tạo mã mời 1 lần: ${code}. Cung cấp mã này cho người cần kết nối.`);
+    showToast(`Đã tạo mã mời 1 lần: ${code} (hiệu lực 24h). Cung cấp mã này cho người cần kết nối.`);
   } catch (err) {
     console.error("Lỗi tạo mã mời:", err);
-    alert("Không tạo được mã mời: " + (err.message || err.code));
+    showToast("Không tạo được mã mời: " + (err.message || err.code));
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -2079,7 +2430,7 @@ if (btnCopyInviteCode) {
       btnCopyInviteCode.textContent = "✓ Đã chép";
       setTimeout(() => { btnCopyInviteCode.textContent = "Sao chép mã"; }, 2000);
     }).catch(() => {
-      alert("Mã mời của bạn: " + code);
+      showToast("Mã mời của bạn: " + code);
     });
   };
 }
@@ -2160,15 +2511,7 @@ function openDevicePairModal(isNewAccount = false) {
         }
       }
 
-      // Nếu người dùng nhập trực tiếp mã mô hình DEFAULT_HOME_CODE
-      if (code === DEFAULT_HOME_CODE) {
-        if (alreadyPaired) {
-          errBox.textContent = "Tài khoản của bạn đã được liên kết với ngôi nhà/thiết bị này rồi!";
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Xác nhận liên kết";
-          return;
-        }
-      }
+      // Giai đoạn 1: Bỏ nhánh cho phép nhập thẳng DEFAULT_HOME_CODE, bắt buộc qua mã mời 1 lần
 
       // Kiểm tra mã mời 1 lần trong /invites/{code}
       const inviteSnap = await get(ref(db, "invites/" + code));
@@ -2182,6 +2525,14 @@ function openDevicePairModal(isNewAccount = false) {
 
       if (inviteData.status !== "active") {
         errBox.textContent = "Mã mời này đã được sử dụng trước đó!";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Xác nhận liên kết";
+        return;
+      }
+
+      // Kiểm tra thời hạn mã mời (24 giờ)
+      if (inviteData.expiresAt && Date.now() > inviteData.expiresAt) {
+        errBox.textContent = "Mã mời này đã hết hạn! Vui lòng xin Chủ nhà (Master) mã mới.";
         submitBtn.disabled = false;
         submitBtn.textContent = "Xác nhận liên kết";
         return;
@@ -2205,28 +2556,22 @@ function openDevicePairModal(isNewAccount = false) {
         return;
       }
 
-      // Cập nhật trạng thái 'used' ngay lập tức để Master nhận thông báo thời gian thực
-      try {
-        await update(ref(db, "invites/" + code), { 
-          status: "used", 
-          usedBy: currentUser.uid, 
-          usedByEmail: currentUser.email || "Thành viên gia đình",
-          usedAt: Date.now() 
-        });
-      } catch (upErr) {
-        console.warn("Lỗi cập nhật trạng thái mã:", upErr);
-      }
+      // Giai đoạn 1: Gộp thành MỘT lần update(ref(db), {...}) nhiều đường dẫn nguyên tử khớp Rules
+      // Gồm: invites/{code}/status="used", invites/{code}/usedBy, invites/{code}/usedByEmail, invites/{code}/usedAt,
+      // users/{uid}/pairedHome, users/{uid}/inviteCode, users/{uid}/pairedAt.
+      // Bỏ ghi permissions và role (chỉ Master mới được ghi; client mặc định coi thiếu = true)
+      const now = Date.now();
+      const multiUpdates = {};
+      multiUpdates[`invites/${code}/status`] = "used";
+      multiUpdates[`invites/${code}/usedBy`] = currentUser.uid;
+      multiUpdates[`invites/${code}/usedByEmail`] = currentUser.email || "Thành viên gia đình";
+      multiUpdates[`invites/${code}/usedAt`] = now;
+      multiUpdates[`users/${currentUser.uid}/pairedHome`] = validHome;
+      multiUpdates[`users/${currentUser.uid}/inviteCode`] = code;
+      multiUpdates[`users/${currentUser.uid}/pairedAt`] = now;
 
-      // Cập nhật trạng thái liên kết của User
-      if (currentUser) {
-        await update(ref(db, "users/" + currentUser.uid), {
-          pairedHome: validHome,
-          role: "member",
-          pairedAt: Date.now(),
-          permissions: { light: true, fan: true, curtain: true, door: true, yard: true }
-        });
-        localStorage.setItem("pairedHome_" + currentUser.uid, validHome);
-      }
+      await update(ref(db), multiUpdates);
+      localStorage.setItem("pairedHome_" + currentUser.uid, validHome);
 
       isUserPaired = true;
       root.replaceChildren();
@@ -2240,7 +2585,12 @@ function openDevicePairModal(isNewAccount = false) {
       showToast("Liên kết thành công! Bạn đã có thể theo dõi và điều khiển ngôi nhà.");
     } catch (err) {
       console.error("Lỗi liên kết thiết bị:", err);
-      errBox.textContent = "Lỗi khi lưu liên kết: " + (err.message || err.code);
+      // Giai đoạn 1: Bắt lỗi PERMISSION_DENIED để báo lỗi thân thiện chuẩn bảo mật
+      if (err.code === "PERMISSION_DENIED" || (err.message && err.message.includes("PERMISSION_DENIED"))) {
+        errBox.textContent = "Mã không hợp lệ hoặc đã được dùng.";
+      } else {
+        errBox.textContent = "Lỗi khi lưu liên kết: " + (err.message || err.code || err);
+      }
       submitBtn.disabled = false;
       submitBtn.textContent = "Xác nhận liên kết";
     }
@@ -2255,11 +2605,11 @@ const btnOpenPairModal = $("btnOpenPairModal");
 if (btnOpenPairModal) btnOpenPairModal.onclick = () => {
   const isMasterUser = (currentUserRole === "master" || (currentUser && currentUser.email && currentUser.email.toLowerCase() === MASTER_EMAIL.toLowerCase()));
   if (isMasterUser) {
-    alert("Bạn đang là Chủ nhà (Master) đã quản trị thiết bị này rồi, không cần liên kết!");
+    showToast("Bạn đang là Chủ nhà (Master) đã quản trị thiết bị này rồi, không cần liên kết!");
     return;
   }
   if (isUserPaired) {
-    alert("Tài khoản của bạn đã được liên kết với ngôi nhà/thiết bị này rồi!");
+    showToast("Tài khoản của bạn đã được liên kết với ngôi nhà/thiết bị này rồi!");
     return;
   }
   openDevicePairModal(false);
@@ -2278,17 +2628,16 @@ if (btnMemberSelfUnlink) {
     if (!currentUser) return;
     const isMasterUser = (currentUserRole === "master" || (currentUser && currentUser.email && currentUser.email.toLowerCase() === MASTER_EMAIL.toLowerCase()));
     if (isMasterUser) {
-      alert("Tài khoản Chủ nhà (Master) không thể hủy liên kết khỏi ngôi nhà của chính mình.");
+      showToast("Tài khoản Chủ nhà (Master) không thể hủy liên kết khỏi ngôi nhà của chính mình.");
       return;
     }
-    const confirmUnlink = confirm(
-      "Bạn có chắc chắn muốn hủy liên kết tài khoản khỏi ngôi nhà này không?\n\n" +
-      "• Sau khi hủy, bạn sẽ không thể theo dõi cảm biến hay điều khiển thiết bị nữa.\n" +
-      "• Muốn kết nối lại, bạn sẽ cần xin mã mời mới từ Chủ nhà."
-    );
-    if (!confirmUnlink) return;
-
-    btnMemberSelfUnlink.disabled = true;
+    showConfirmDialog({
+      title: "Hủy liên kết ngôi nhà",
+      message: "Bạn có chắc chắn muốn hủy liên kết tài khoản khỏi ngôi nhà này không?\n\n• Sau khi hủy, bạn sẽ không thể theo dõi cảm biến hay điều khiển thiết bị nữa.\n• Muốn kết nối lại, bạn sẽ cần xin mã mời mới từ Chủ nhà.",
+      confirmText: "Hủy liên kết",
+      danger: true,
+      onConfirm: async () => {
+        btnMemberSelfUnlink.disabled = true;
     const oldHtml = btnMemberSelfUnlink.innerHTML;
     btnMemberSelfUnlink.textContent = "Đang hủy liên kết...";
 
@@ -2317,12 +2666,18 @@ if (btnMemberSelfUnlink) {
       applyDevicePairingUI(false);
       showToast("Đã hủy liên kết khỏi ngôi nhà thành công.");
     } catch (err) {
-      alert("Lỗi khi hủy liên kết: " + (err.message || err));
+      if (err.code === "PERMISSION_DENIED" || (err.message && err.message.includes("PERMISSION_DENIED"))) {
+        showToast("Theo chính sách bảo mật, chỉ Chủ nhà (Master) mới có quyền gỡ liên kết thành viên khỏi ngôi nhà.");
+      } else {
+        showToast("Lỗi khi hủy liên kết: " + (err.message || err));
+      }
     } finally {
       btnMemberSelfUnlink.disabled = false;
       btnMemberSelfUnlink.innerHTML = oldHtml;
       setTimeout(() => { isSelfUnlinking = false; }, 2000);
     }
+      }
+    });
   };
 }
 
@@ -2337,28 +2692,17 @@ async function triggerAutoRollingCleanup() {
     const updates = {};
     let needsUpdate = false;
 
-    // 1. Cảm biến: Giữ tối đa 250 điểm mới nhất (~4 tiếng đo liên tục, vừa khít biểu đồ)
-    const sensorSnap = await get(query(ref(db, "sensors/history")));
-    if (sensorSnap.exists()) {
-      const data = sensorSnap.val();
-      const keys = Object.keys(data).sort();
-      if (keys.length > 250) {
-        const toRemove = keys.slice(0, keys.length - 250);
-        toRemove.forEach(k => { updates["sensors/history/" + k] = null; });
-        needsUpdate = true;
-      }
-    }
-
-    // 2. Nhật ký thao tác: Giữ tối đa 200 bản ghi mới nhất cho mỗi loại (đủ xem vết 1-2 tháng)
-    const logNodes = ["logs/web", "logs/voice", "logs/auto", "logs/door"];
-    for (const node of logNodes) {
-      const logSnap = await get(query(ref(db, node)));
+    // Giai đoạn 1: Dưới Rules mới, Client chỉ có quyền ghi vào logs/web (khi đã liên kết)
+    // Các node sensors/* và logs/voice, logs/door, logs/auto có .write: false (chỉ ESP32 ghi qua secret)
+    // Do đó client chỉ tự động xoay vòng dọn dẹp nhật ký Web:
+    if (isUserPaired || currentUserRole === "master") {
+      const logSnap = await get(query(ref(db, "logs/web")));
       if (logSnap.exists()) {
         const data = logSnap.val();
         const keys = Object.keys(data).sort();
         if (keys.length > 220) {
           const toRemove = keys.slice(0, keys.length - 200);
-          toRemove.forEach(k => { updates[node + "/" + k] = null; });
+          toRemove.forEach(k => { updates["logs/web/" + k] = null; });
           needsUpdate = true;
         }
       }
@@ -2394,82 +2738,147 @@ onAuthStateChanged(auth, user => {
 setInterval(triggerAutoRollingCleanup, 4 * 3600 * 1000);
 
 // ---- Điều khiển ----
+// Modal xác nhận mở cửa chính bằng modal ứng dụng (không dùng confirm() chuẩn trình duyệt)
+function confirmOpenDoorModal(onConfirm) {
+  const root = $("modalRoot") || document.getElementById("modalRoot");
+  if (!root) {
+    if (confirm("Xác nhận mở khóa cửa chính ngay bây giờ?")) onConfirm();
+    return;
+  }
+  root.innerHTML = `
+    <div class="modal-backdrop" role="presentation">
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmDoorTitle" style="max-width:420px;">
+        <div class="modal-head">
+          <h2 id="confirmDoorTitle" style="display:flex;align-items:center;gap:8px;color:var(--bad,#ff4d4f);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Xác nhận mở cửa chính
+          </h2>
+          <button type="button" data-close-modal aria-label="Đóng">✕</button>
+        </div>
+        <div style="padding:8px 0 18px;">
+          <p style="margin:0 0 8px;font-size:13.5px;color:var(--ink);line-height:1.5;">
+            Bạn có chắc chắn muốn gửi lệnh <b>mở khóa cửa chính</b> ngay bây giờ?
+          </p>
+          <p class="meta" style="font-size:12px;margin:0;color:var(--mute);line-height:1.4;">
+            Lệnh mở cửa sẽ kích hoạt chốt khóa vật lý trên ESP32. Hãy đảm bảo an toàn cho ngôi nhà của bạn.
+          </p>
+        </div>
+        <div class="form-actions" style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" data-close-modal>Hủy bỏ</button>
+          <button class="primary" type="button" id="btnConfirmDoOpenDoor" style="background:var(--bad,#ff4d4f);border-color:var(--bad,#ff4d4f);">Mở cửa ngay</button>
+        </div>
+      </section>
+    </div>
+  `;
+  root.querySelectorAll("[data-close-modal]").forEach(b => b.onclick = () => root.replaceChildren());
+  root.querySelector(".modal-backdrop").onclick = e => { if (e.target === e.currentTarget) root.replaceChildren(); };
+  const confirmBtn = root.querySelector("#btnConfirmDoOpenDoor");
+  if (confirmBtn) {
+    confirmBtn.onclick = () => {
+      root.replaceChildren();
+      onConfirm();
+    };
+  }
+}
+window.confirmOpenDoorModal = confirmOpenDoorModal;
+
 document.querySelectorAll("[data-dev]").forEach(btn => {
   btn.onclick = async () => {
     if (!isUserPaired) {
-      alert("Tài khoản chưa được liên kết với ngôi nhà! Vui lòng liên kết thiết bị trước.");
+      showToast("Tài khoản chưa được liên kết với ngôi nhà! Vui lòng liên kết thiết bị trước.");
       openDevicePairModal(true);
       return;
     }
     const d = btn.dataset.dev;
     if (d === "door" && isKeypadLocked) {
-      alert("Cảnh báo: Bàn phím ngoài cửa chính đang bị KHÓA CỨNG do nhập sai 4 lần liên tiếp!\n\nVui lòng bấm nút 'Mở khóa bàn phím' ở thanh cảnh báo trước khi điều khiển cửa.");
+      showToast("Cảnh báo: Bàn phím ngoài cửa chính đang bị KHÓA CỨNG do nhập sai 4 lần liên tiếp!");
       return;
     }
     if (currentUserRole !== "master" && userPermissions && userPermissions[d] === false) {
-      alert(`Chủ nhà (Master) chưa cấp quyền cho bạn điều khiển thiết bị này!`);
+      showToast("Chủ nhà (Master) chưa cấp quyền cho bạn điều khiển thiết bị này!");
       return;
     }
-    const current = pendingCommands[d]?.value ?? state[d];
-    const v = d === "door" ? true : d === "curtain"
-      ? (current === CURTAIN_OPEN ? CURTAIN_CLOSE : CURTAIN_OPEN)
-      : !current;
-    const command = { value: v };
-    command.id = Date.now().toString(36) + "-" + (++commandSequence).toString(36);
-    const payload = d === "door"
-      ? { action: "open", ts: Date.now(), src: "web" }
-      : command;
-    pendingCommands[d] = command;
-    state[d] = v;
-    renderDevice(d);
 
-    try {
-      if (d === "yard") {
-        await set(ref(db, "commands/garden"), payload);
-        await set(ref(db, "commands/yard"), payload);
-      } else {
-        await set(ref(db, "commands/" + d), payload);
-      }
+    const sendDeviceCommand = async () => {
+      const current = pendingCommands[d]?.value ?? state[d];
+      const v = d === "door" ? true : d === "curtain"
+        ? (current === CURTAIN_OPEN ? CURTAIN_CLOSE : CURTAIN_OPEN)
+        : !current;
+      const command = { value: v };
+      command.id = Date.now().toString(36) + "-" + (++commandSequence).toString(36);
+      
+      // TODO (ESP32): Firmware ESP32 cần kiểm tra lệnh commands/door:
+      // 1. Kiểm tra timestamp `ts` còn mới (|now - ts| <= 30000ms) để chống phát lại (Replay Attack).
+      // 2. Ghi nhận `id` ngẫu nhiên để chống phát lại cùng một lệnh nhiều lần.
+      const doorCmdId = (window.generateRandomAlphanumeric || generateRandomAlphanumeric)(16);
+      const payload = d === "door"
+        ? { action: "open", ts: Date.now(), id: doorCmdId, src: "web" }
+        : command;
+      pendingCommands[d] = command;
+      state[d] = v;
+      renderDevice(d);
+
       try {
-        const timestamp = Date.now();
-        const deviceNames = { light: "Đèn phòng", fan: "Quạt", curtain: "Rèm cửa", door: "Cửa chính", yard: "Đèn sân", voice: "Nhận diện giọng nói & LED" };
-        const action = d === "door" ? "Mở" :
-          d === "curtain" ? (v === CURTAIN_OPEN ? "Mở" : "Đóng") :
-            (v ? "Bật" : "Tắt");
-        const userName = currentUser?.displayName || currentUser?.email?.split("@")[0] || "Người dùng";
-        const userEmail = currentUser?.email || "Web";
-        await set(push(ref(db, "logs/web")), {
-          source: "web",
-          device: d,
-          action,
-          label: `${action} · ${deviceNames[d] || d}`,
-          detail: `Thực hiện bởi: ${userEmail}`,
-          user: userEmail,
-          userName: userName,
-          ts: timestamp
-        });
-      } catch (historyError) {
-        console.error("Không lưu được lịch sử thao tác Web:", historyError);
-        $("dbStatus").textContent = "Đã gửi lệnh nhưng không lưu được lịch sử Web";
-        $("dbStatus").classList.add("off");
-      }
-      window.setTimeout(() => {
-        if (pendingCommands[d]?.id !== command.id) return;
-        delete pendingCommands[d];
+        if (d === "yard") {
+          await set(ref(db, "commands/garden"), payload);
+          await set(ref(db, "commands/yard"), payload);
+        } else {
+          await set(ref(db, "commands/" + d), payload);
+        }
+        try {
+          const timestamp = Date.now();
+          const deviceNames = { light: "Đèn phòng", fan: "Quạt", curtain: "Rèm cửa", door: "Cửa chính", yard: "Đèn sân", voice: "Nhận diện giọng nói & LED" };
+          const action = d === "door" ? "Mở" :
+            d === "curtain" ? (v === CURTAIN_OPEN ? "Mở" : "Đóng") :
+              (v ? "Bật" : "Tắt");
+          const userName = currentUser?.displayName || currentUser?.email?.split("@")[0] || "Người dùng";
+          const userEmail = currentUser?.email || "Web";
+          await set(push(ref(db, "logs/web")), {
+            source: "web",
+            device: d,
+            action,
+            label: `${action} · ${deviceNames[d] || d}`,
+            detail: `Thực hiện bởi: ${userEmail}`,
+            user: userEmail,
+            userName: userName,
+            ts: timestamp
+          });
+        } catch (historyError) {
+          console.error("Không lưu được lịch sử thao tác Web:", historyError);
+          $("dbStatus").textContent = "Đã gửi lệnh nhưng không lưu được lịch sử Web";
+          $("dbStatus").classList.add("off");
+        }
+        window.setTimeout(() => {
+          if (pendingCommands[d]?.id !== command.id) return;
+          delete pendingCommands[d];
+          state[d] = confirmedState[d];
+          renderDevice(d);
+          $("dbStatus").textContent = "Thiết bị chưa xác nhận lệnh " + d;
+          $("dbStatus").classList.add("off");
+        }, 8000);
+      } catch (e) {
+        // Giai đoạn 1: Hoàn tác trạng thái giao diện đã cập nhật lạc quan và bắt PERMISSION_DENIED
+        if (pendingCommands[d]?.id === command.id) {
+          delete pendingCommands[d];
+        }
         state[d] = confirmedState[d];
         renderDevice(d);
-        $("dbStatus").textContent = "Thiết bị chưa xác nhận lệnh " + d;
-        $("dbStatus").classList.add("off");
-      }, 8000);
-    } catch (e) {
-      if (pendingCommands[d]?.id === command.id) {
-        delete pendingCommands[d];
-        state[d] = confirmedState[d];
-        renderDevice(d);
+        showDatabaseError(e);
+        if (e.code === "PERMISSION_DENIED" || (e.message && e.message.includes("PERMISSION_DENIED"))) {
+          showToast("Bạn không có quyền điều khiển thiết bị này hoặc chưa liên kết ngôi nhà!");
+        } else {
+          showToast("Không gửi được lệnh: " + (e.message || e.code));
+        }
       }
-      showDatabaseError(e);
-      alert("Không gửi được lệnh: " + e.message);
+    };
+
+    if (d === "door") {
+      confirmOpenDoorModal(() => {
+        sendDeviceCommand();
+      });
+      return;
     }
+    sendDeviceCommand();
   };
 });
 
@@ -2539,12 +2948,63 @@ function updateKeypadLockUI(locked) {
 
 async function handleUnlockKeypad() {
   if (userPermissions && userPermissions.door === false && currentUserRole !== "master") {
-    alert("Bạn không có quyền quản lý cửa chính hoặc mở khóa bàn phím!");
+    showToast("Bạn không có quyền quản lý cửa chính hoặc mở khóa bàn phím!");
     return;
   }
-  if (!confirm("Xác nhận mở khóa bàn phím cửa ngoài để cho phép tiếp tục nhập mật khẩu?")) {
-    return;
-  }
+  showConfirmDialog({
+    title: "Mở khóa bàn phím ngoài",
+    message: "Xác nhận mở khóa bàn phím cửa ngoài để cho phép tiếp tục nhập mật khẩu?",
+    confirmText: "Mở khóa ngay",
+    onConfirm: async () => {
+      const btn = $("btnUnlockKeypad");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Đang gửi lệnh...";
+      }
+      try {
+        const timestamp = Date.now();
+        const userEmail = currentUser?.email || "Web";
+        const userName = currentUser?.displayName || currentUser?.email?.split("@")[0] || "Người dùng";
+
+        await set(ref(db, "commands/door"), {
+          action: "unlock_keypad",
+          ts: timestamp,
+          src: "web",
+          who: userEmail
+        });
+
+        await update(ref(db, "devices/state"), { keypad_locked: false });
+        await set(ref(db, "door/keypad_locked"), false);
+
+        await set(push(ref(db, "logs/web")), {
+          source: "web",
+          device: "door",
+          action: "Mở khóa bàn phím",
+          label: "Mở khóa bàn phím cửa ngoài",
+          detail: `Thực hiện bởi: ${userEmail}`,
+          user: userEmail,
+          userName: userName,
+          ts: timestamp
+        });
+
+        updateKeypadLockUI(false);
+        showToast("Đã mở khóa bàn phím thành công! Bàn phím cửa đã hoạt động trở lại.");
+      } catch (err) {
+        console.error("Lỗi mở khóa bàn phím:", err);
+        if (err.code === "PERMISSION_DENIED" || (err.message && err.message.includes("PERMISSION_DENIED"))) {
+          showToast("Bạn không có quyền mở khóa bàn phím cửa!");
+        } else {
+          showToast("Lỗi khi mở khóa bàn phím: " + (err.message || err.code || err));
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Mở khóa bàn phím";
+        }
+      }
+    }
+  });
+  return;
   const btn = $("btnUnlockKeypad");
   if (btn) {
     btn.disabled = true;
@@ -2580,7 +3040,11 @@ async function handleUnlockKeypad() {
     showToast("Đã mở khóa bàn phím thành công! Bàn phím cửa đã hoạt động trở lại.");
   } catch (err) {
     console.error("Lỗi mở khóa bàn phím:", err);
-    alert("Lỗi khi mở khóa bàn phím: " + err.message);
+    if (err.code === "PERMISSION_DENIED" || (err.message && err.message.includes("PERMISSION_DENIED"))) {
+      showToast("Bạn không có quyền mở khóa bàn phím cửa!");
+    } else {
+      showToast("Lỗi khi mở khóa bàn phím: " + (err.message || err.code || err));
+    }
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -2881,7 +3345,7 @@ function renderFirmwareAutomation() {
 
 async function saveFirmwareAutomation() {
   if (currentUserRole !== "master" && userPermissions && userPermissions.auto === false) {
-    alert("Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!");
+    showToast("Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!");
     $("firmwareAutomationStatus").textContent = "Bạn không có quyền chỉnh sửa Tự động hóa";
     return;
   }
@@ -3049,14 +3513,24 @@ function drawKeywords(rows) {
 }
 </script>
 <script type="module">
+// Nhập hàm escapeHtml dùng chung từ window
+const escapeHtml = window.escapeHtml || (v => (v == null ? "" : String(v)));
+const escapeAttribute = escapeHtml;
+const showToast = window.showToast;
+
 import { getApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, onValue, set, push, remove, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // Giao diện bổ sung: tùy chọn, biểu đồ và tự động hóa kết nối Firebase.
 (() => {
   const app = getApp();
   const db = window.db || getDatabase(app);
   const $ui = id => document.getElementById(id);
+  function checkIsMaster() {
+    return (window.currentUserRole === "master") || 
+      (window.auth?.currentUser?.email === "xhai2005@gmail.com" && window.auth?.currentUser?.emailVerified === true);
+  }
+
   function readPreference(key) {
     try { return localStorage.getItem(key); }
     catch (error) { console.error(`Không thể đọc tùy chọn ${key}:`, error); return null; }
@@ -3669,7 +4143,7 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       const val = s.val();
       if (val !== null && val !== undefined) {
         automationEnabled = val === true;
-        try { localStorage.setItem("smart-home-automation-enabled", String(automationEnabled)); } catch(e) {}
+        try { localStorage.setItem("smart-home-automation-enabled", String(automationEnabled)); } catch(e) { console.warn("Lỗi lưu localStorage:", e); }
         renderRules();
       }
     });
@@ -3691,13 +4165,11 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
         rules = remoteRules;
         automationStore.save(rules);
         renderRules();
-      } else if (fbAutomationLoaded) {
+      } else {
+        // Giai đoạn A: Firebase là nguồn dữ liệu duy nhất; nếu trống thì danh sách rỗng, KHÔNG tự ý ghi đè từ localStorage
         rules = [];
         automationStore.save(rules);
         renderRules();
-      } else {
-        persistRules();
-        set(ref(db, "automation/enabled"), automationEnabled);
       }
       fbAutomationLoaded = true;
     });
@@ -3770,8 +4242,22 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     return `NẾU ${condition} → ${actions || "Chưa chọn hành động"} · ${rule.mode === "ask" ? "Hỏi tôi trước" : "Tự động làm luôn"}`;
   }
   function renderRules() {
+    const isMaster = checkIsMaster();
     const list = $ui("ruleList");
     list.replaceChildren();
+
+    // Vô hiệu hóa nút thêm quy tắc và công tắc tổng với tài khoản không phải Master
+    const addRuleBtn = $ui("addRule");
+    if (addRuleBtn) {
+      addRuleBtn.style.display = isMaster ? "" : "none";
+      addRuleBtn.disabled = !isMaster;
+    }
+    const autoMasterToggle = $ui("automationMaster");
+    if (autoMasterToggle) {
+      autoMasterToggle.disabled = !isMaster;
+      autoMasterToggle.title = isMaster ? "" : "Chỉ chủ nhà được chỉnh quy tắc";
+    }
+
     rules.forEach(rule => {
       const card = document.createElement("article");
       card.className = "rule-card";
@@ -3801,44 +4287,61 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
         status.textContent = "Đang chờ";
         status.style.color = "var(--mute)";
       }
-      details.append(title, desc, status);
+
+      // Giai đoạn A: Hiển thị người tạo quy tắc (đã escape qua escapeHtml)
+      const creator = document.createElement("p");
+      creator.className = "meta";
+      creator.style.cssText = "font-size:12px;color:var(--mute);margin:4px 0 0;";
+      const creatorText = rule.createdByEmail || rule.createdBy || "Không rõ người tạo";
+      creator.innerHTML = `Tạo bởi: <strong>${escapeHtml(creatorText)}</strong>`;
+
+      details.append(title, desc, status, creator);
       const actions = document.createElement("div");
       actions.className = "rule-actions";
       const enabled = document.createElement("input");
       enabled.type = "checkbox";
       enabled.checked = !!rule.enabled;
       enabled.setAttribute("aria-label", `Bật quy tắc ${rule.name}`);
-      enabled.addEventListener("change", () => updateRule(rule.id, item => { item.enabled = enabled.checked; }));
-      const edit = document.createElement("button");
-      edit.type = "button"; edit.className = "small-button"; edit.textContent = "Sửa";
-      edit.addEventListener("click", () => {
-        const role = window.currentUserRole || "member";
-        const perms = window.userPermissions || {};
-        if (role !== "master" && perms.auto === false) {
-          alert("Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!");
-          return;
-        }
-        openRuleForm(rule);
-      });
-      const removeBtn = document.createElement("button");
-      removeBtn.type = "button"; removeBtn.className = "small-button"; removeBtn.textContent = "Xóa";
-      removeBtn.setAttribute("aria-label", `Xóa quy tắc ${rule.name}`);
-      removeBtn.addEventListener("click", () => {
-        const role = window.currentUserRole || "member";
-        const perms = window.userPermissions || {};
-        if (role !== "master" && perms.auto === false) {
-          alert("Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!");
-          return;
-        }
-        if (!confirm(`Bạn có chắc chắn muốn xóa quy tắc "${rule.name}" không?`)) return;
-        rules = rules.filter(item => item.id !== rule.id);
-        persistRules();
-      });
-      actions.append(enabled, edit, removeBtn);
+      if (!isMaster) {
+        enabled.disabled = true;
+        enabled.title = "Chỉ chủ nhà được chỉnh quy tắc";
+      } else {
+        enabled.addEventListener("change", () => updateRule(rule.id, item => { item.enabled = enabled.checked; }));
+      }
+      actions.append(enabled);
+
+      if (isMaster) {
+        const edit = document.createElement("button");
+        edit.type = "button"; edit.className = "small-button"; edit.textContent = "Sửa";
+        edit.addEventListener("click", () => {
+          openRuleForm(rule);
+        });
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button"; removeBtn.className = "small-button"; removeBtn.textContent = "Xóa";
+        removeBtn.setAttribute("aria-label", `Xóa quy tắc ${rule.name}`);
+        removeBtn.addEventListener("click", () => {
+          showConfirmDialog({
+            title: "Xóa quy tắc tự động",
+            message: `Bạn có chắc chắn muốn xóa quy tắc “${rule.name}” không?`,
+            confirmText: "Xóa quy tắc",
+            danger: true,
+            onConfirm: () => {
+              rules = rules.filter(item => item.id !== rule.id);
+              persistRules();
+              showToast(`Đã xóa quy tắc “${rule.name}”.`);
+            }
+          });
+        });
+        actions.append(edit, removeBtn);
+      }
+
       card.append(details, actions);
       list.append(card);
     });
-    $ui("automationSummary").textContent = `${rules.filter(rule => rule.enabled).length} quy tắc đang bật`;
+
+    const summarySuffix = isMaster ? "" : " · Chỉ chủ nhà được chỉnh quy tắc";
+    $ui("automationSummary").textContent = `${rules.filter(rule => rule.enabled).length} quy tắc đang bật${summarySuffix}`;
     $ui("automationMaster").checked = automationEnabled;
     updateDashboardAutomationWidget();
   }
@@ -3890,6 +4393,10 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     }
   }
   function persistRules() {
+    if (!checkIsMaster()) {
+      console.warn("Chỉ chủ nhà mới có quyền lưu cấu hình quy tắc lên Firebase.");
+      return;
+    }
     automationStore.save(rules);
     renderRules();
     try {
@@ -3908,30 +4415,62 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
           delete item.wait;
           delete item.timeout;
         }
+        // Giai đoạn A: Giữ nguyên các trường người tạo
+        if (r.createdBy) item.createdBy = r.createdBy;
+        if (r.createdByEmail) item.createdByEmail = r.createdByEmail;
+        if (r.createdAt) item.createdAt = r.createdAt;
         return item;
       });
-      set(ref(db, "automation/rules"), cleanRules);
+      set(ref(db, "automation/rules"), cleanRules).catch(e => {
+        console.warn("Lỗi khi ghi automation/rules lên Firebase:", e);
+      });
     } catch (e) {
-      console.error("Không thể lưu quy tắc lên Firebase:", e);
+      console.warn("Không thể lưu quy tắc lên Firebase:", e);
     }
   }
   function updateRule(id, callback) {
+    if (!checkIsMaster()) {
+      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
+      return;
+    }
     const rule = rules.find(item => item.id === id);
     if (rule) callback(rule);
     persistRules();
   }
   function setAutomationEnabled(enabled) {
+    if (!checkIsMaster()) {
+      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
+      const toggle = $ui("automationMaster");
+      if (toggle) toggle.checked = automationEnabled;
+      return;
+    }
     automationEnabled = enabled;
     try { localStorage.setItem("smart-home-automation-enabled", String(enabled)); }
-    catch (error) { console.error("Không thể lưu trạng thái tự động hóa:", error); }
+    catch (error) { console.warn("Không thể lưu trạng thái tự động hóa vào localStorage:", error); }
     renderRules();
     try {
-      set(ref(db, "automation/enabled"), enabled);
+      set(ref(db, "automation/enabled"), enabled).catch(e => {
+        console.warn("Lỗi lưu trạng thái automation/enabled lên Firebase:", e);
+        if (e.code === "PERMISSION_DENIED" || (e.message && e.message.includes("PERMISSION_DENIED"))) {
+          showToast("Bạn không có quyền thay đổi trạng thái tự động hóa!");
+          automationEnabled = !enabled;
+          const toggle = $ui("automationMaster");
+          if (toggle) toggle.checked = automationEnabled;
+        }
+      });
     } catch (e) {
-      console.error("Không thể lưu trạng thái tự động hóa lên Firebase:", e);
+      console.warn("Không thể gửi trạng thái tự động hóa lên Firebase:", e);
     }
   }
-  $ui("automationMaster").addEventListener("change", event => setAutomationEnabled(event.target.checked));
+  $ui("automationMaster").addEventListener("change", event => {
+    if (!checkIsMaster()) {
+      event.preventDefault();
+      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
+      event.target.checked = automationEnabled;
+      return;
+    }
+    setAutomationEnabled(event.target.checked);
+  });
   renderRules();
 
   function showToast(message) {
@@ -4025,62 +4564,86 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     const rule = rules.find(item => item.enabled);
     if (!rule) { showToast("Chưa có quy tắc nào đang bật."); return; }
 
-    showToast(`Đang chạy thử quy tắc: ${rule.name}...`);
+    const executeTest = async () => {
+      showToast(`Đang chạy thử quy tắc: ${rule.name}...`);
 
-    if (rule.actions && rule.actions.length > 0) {
-      for (const action of rule.actions) {
-        if (action.type === "device") {
-          const d = action.device;
-          const val = action.value;
-          const targetKey = d === "yard" ? "garden" : d;
-          try {
-            if (d === "door") {
-              if (isKeypadLocked) {
-                showToast("Bàn phím cửa đang bị khóa an ninh; bỏ qua mở cửa tự động.");
-                continue;
+      if (rule.actions && rule.actions.length > 0) {
+        for (const action of rule.actions) {
+          if (action.type === "device") {
+            const d = action.device;
+            const val = action.value;
+            const targetKey = d === "yard" ? "garden" : d;
+            try {
+              if (d === "door") {
+                if (isKeypadLocked) {
+                  showToast("Bàn phím cửa đang bị khóa an ninh; bỏ qua mở cửa tự động.");
+                  continue;
+                }
+                // TODO (ESP32): Firmware ESP32 cần kiểm tra lệnh commands/door:
+                // 1. Kiểm tra timestamp `ts` còn mới (|now - ts| <= 30000ms) để chống phát lại (Replay Attack).
+                // 2. Ghi nhận `id` ngẫu nhiên để chống phát lại cùng một lệnh nhiều lần.
+                const doorCmdId = (window.generateRandomAlphanumeric || generateRandomAlphanumeric)(16);
+                await set(ref(db, "commands/door"), { action: "open", ts: Date.now(), id: doorCmdId, src: "web" });
+              } else if (d === "curtain") {
+                await set(ref(db, "commands/curtain"), { value: val === "on" ? "open" : "close" });
+              } else {
+                await set(ref(db, "commands/" + targetKey), { value: val === "on" });
+                if (d === "yard") {
+                  await set(ref(db, "commands/yard"), { value: val === "on" });
+                }
               }
-              await set(ref(db, "commands/door"), { action: "open", ts: Date.now(), src: "web" });
-            } else if (d === "curtain") {
-              await set(ref(db, "commands/curtain"), { value: val === "on" ? "open" : "close" });
-            } else {
-              await set(ref(db, "commands/" + targetKey), { value: val === "on" });
-              if (d === "yard") {
-                await set(ref(db, "commands/yard"), { value: val === "on" });
+
+              try {
+                const devLabel = deviceNames[d] || d;
+                const actLabel = val === "on" ? "Bật" : "Tắt";
+                await set(push(ref(db, "logs/web")), {
+                  source: "web",
+                  device: d,
+                  action: actLabel,
+                  label: `${actLabel} · ${devLabel}`,
+                  detail: `Chạy thử quy tắc: ${rule.name}`,
+                  ts: Date.now()
+                });
+              } catch (e) {}
+            } catch (err) {
+              console.error("Lỗi gửi lệnh chạy thử:", err);
+              if (err.code === "PERMISSION_DENIED" || (err.message && err.message.includes("PERMISSION_DENIED"))) {
+                showToast("Lệnh chạy thử bị từ chối: Bạn không có quyền điều khiển thiết bị này!");
               }
             }
-
-            try {
-              const devLabel = deviceNames[d] || d;
-              const actLabel = val === "on" ? "Bật" : "Tắt";
-              await set(push(ref(db, "logs/web")), {
-                source: "web",
-                device: d,
-                action: actLabel,
-                label: `${actLabel} · ${devLabel}`,
-                detail: `Chạy thử quy tắc: ${rule.name}`,
-                ts: Date.now()
-              });
-            } catch (e) {}
-          } catch (err) {
-            console.error("Lỗi gửi lệnh chạy thử:", err);
           }
         }
       }
+
+      updateRule(rule.id, item => { item.lastRan = Date.now(); });
+      try {
+        await set(ref(db, `automation/status/${rule.id}`), {
+          state: "ran",
+          lastRunAt: Math.floor(Date.now() / 1000),
+          lastResult: "Chạy thử từ Web"
+        });
+      } catch (e) {}
+
+      showToast(`Chạy thử thành công: Đã gửi lệnh thực thi quy tắc “${rule.name}” tới thiết bị.`);
+    };
+
+    const hasDoorAction = rule.actions && rule.actions.some(a => a.type === "device" && a.device === "door");
+    if (hasDoorAction) {
+      if (window.confirmOpenDoorModal) {
+        window.confirmOpenDoorModal(() => { executeTest(); });
+      } else {
+        executeTest();
+      }
+      return;
     }
-
-    updateRule(rule.id, item => { item.lastRan = Date.now(); });
-    try {
-      await set(ref(db, `automation/status/${rule.id}`), {
-        state: "ran",
-        lastRunAt: Math.floor(Date.now() / 1000),
-        lastResult: "Chạy thử từ Web"
-      });
-    } catch (e) {}
-
-    showToast(`Chạy thử thành công: Đã gửi lệnh thực thi quy tắc “${rule.name}” tới thiết bị.`);
+    executeTest();
   });
 
   function openRuleForm(rule) {
+    if (!checkIsMaster()) {
+      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
+      return;
+    }
     const editing = !!rule;
     const initial = rule || { name: "", condition: "temp_high", threshold: 30, actions: [{ type: "notify" }], mode: "auto", wait: 3, timeout: "auto", enabled: true };
     const root = $ui("modalRoot");
@@ -4147,6 +4710,8 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       const isThresh = ["temp_high", "temp_low", "hum_high", "hum_low", "no_motion"].includes(cond);
       const isAsk = String(values.get("mode")) === "ask";
 
+      const isNew = !initial.id;
+      const user = window.auth?.currentUser;
       const next = {
         id: initial.id || `rule-${Date.now()}`,
         name: String(values.get("name")).trim(),
@@ -4158,7 +4723,11 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
         })),
         mode: String(values.get("mode")),
         enabled: initial.enabled !== false,
-        lastRan: initial.lastRan || null
+        lastRan: initial.lastRan || null,
+        // Giai đoạn A: Bổ sung hoặc giữ nguyên trường người tạo
+        createdBy: isNew ? (user ? user.uid : "unknown") : (initial.createdBy || (user ? user.uid : "unknown")),
+        createdByEmail: isNew ? (user ? user.email : "unknown") : (initial.createdByEmail || (user ? user.email : "unknown")),
+        createdAt: isNew ? Date.now() : (initial.createdAt || Date.now())
       };
 
       if (isThresh) next.threshold = Number(values.get("threshold") || 0);
@@ -4181,8 +4750,9 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     });
     form.elements.name.focus();
   }
+  // escapeHtml và escapeAttribute được kế thừa từ window.escapeHtml ở đầu trang
   function escapeAttribute(value) {
-    return String(value || "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+    return escapeHtml(value);
   }
   function conditionsCanOverlap(first, second) {
     const metrics = { temp_high: ["temp", "high"], temp_low: ["temp", "low"], hum_high: ["hum", "high"], hum_low: ["hum", "low"] };
@@ -4211,10 +4781,8 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       a.type === "device" && b.type === "device" && a.device === b.device && a.value !== b.value));
   }
   $ui("addRule").addEventListener("click", () => {
-    const role = window.currentUserRole || "member";
-    const perms = window.userPermissions || {};
-    if (role !== "master" && perms.auto === false) {
-      alert("Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!");
+    if (!checkIsMaster()) {
+      showToast("Chỉ chủ nhà được chỉnh quy tắc.");
       return;
     }
     openRuleForm();
@@ -4536,7 +5104,22 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
   });
 
   // ---- Quản lý mật khẩu mở cửa (Keypad) ----
+  // TODO (ESP32): Lưu createdBy vào door/passcodes/{id} khi ESP32 ghi metadata (hàm firebase_write_passcode_metadata trong firebase_manager.cpp)
   let currentPasscodes = {};
+  let passcodeOwners = {};
+  const pendingPasscodeDeletions = new Set();
+
+  // Hàm sinh opId 12 ký tự chỉ gồm [a-zA-Z0-9_-]
+  function generatePasscodeOpId(length = 12) {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    let res = "";
+    for (let i = 0; i < length; i++) {
+      res += chars[bytes[i] % chars.length];
+    }
+    return res;
+  }
 
   function renderPasscodes(data) {
     try {
@@ -4544,55 +5127,107 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       window.currentPasscodes = currentPasscodes;
       const list = $ui("passcodeList");
       if (!list) return;
+
+      // Giai đoạn B: Kiểm tra các mục xóa đang chờ; khi mục đã biến mất khỏi door/passcodes thì xóa door/passcodeOwners
+      for (const targetId of pendingPasscodeDeletions) {
+        if (!(targetId in currentPasscodes)) {
+          remove(ref(db, `door/passcodeOwners/${targetId}`)).catch(e => {
+            console.warn("Lỗi dọn bản ghi passcodeOwners:", e);
+          });
+          pendingPasscodeDeletions.delete(targetId);
+          try {
+            let list = JSON.parse(sessionStorage.getItem("my_created_passcodes") || "[]");
+            list = list.filter(x => x !== targetId);
+            sessionStorage.setItem("my_created_passcodes", JSON.stringify(list));
+          } catch(e) {}
+        }
+      }
+
       const ids = Object.keys(currentPasscodes);
       if (ids.length === 0) {
         list.innerHTML = `<p class="meta">Chưa có mật khẩu nào được lưu.</p>`;
         return;
       }
-      const isMaster = ((window.currentUserRole || "member") === "master");
+
+      const isMaster = checkIsMaster();
+      let myCreatedPasscodes = [];
+      try {
+        myCreatedPasscodes = JSON.parse(sessionStorage.getItem("my_created_passcodes") || "[]");
+      } catch(e) {}
+
       list.innerHTML = ids.map(id => {
         const item = currentPasscodes[id] || {};
         const name = item.name || id;
         const dateStr = item.created_ts ? new Date(item.created_ts).toLocaleString("vi-VN") : "";
-        const metaSpan = isMaster ? `<span>ID: ${escapeAttribute(id)}${dateStr ? " · " + dateStr : ""}</span>` : "";
+        const safeId = escapeHtml(id);
+        const safeName = escapeHtml(name);
+        const safeDateStr = escapeHtml(dateStr);
+
+        // Giai đoạn B: Đọc chủ sở hữu khi là Master; mật khẩu cũ không có bản ghi hiện "Không rõ người tạo"
+        let creatorInfo = "";
+        if (isMaster) {
+          const owner = passcodeOwners[id];
+          const creatorText = owner ? (owner.name || owner.email || owner.uid) : "Không rõ người tạo";
+          creatorInfo = ` · Người tạo: <strong>${escapeHtml(creatorText)}</strong>`;
+        }
+        const metaSpan = isMaster ? `<span>ID: ${safeId}${safeDateStr ? " · " + safeDateStr : ""}${creatorInfo}</span>` : "";
+
+        // Giai đoạn B: Chỉ hiện nút Xóa nếu là Master hoặc là mật khẩu do chính thành viên tạo trong phiên
+        const canDelete = isMaster || myCreatedPasscodes.includes(id);
+        const delBtnHtml = canDelete
+          ? `<button type="button" class="passcode-del" data-del-passcode="${safeId}" data-passcode-name="${safeName}" aria-label="Xóa mật khẩu ${safeName}">Xóa</button>`
+          : "";
+
         return `<div class="passcode-item">
           <div>
-            <b>${escapeAttribute(name)}</b>
+            <b>${safeName}</b>
             ${metaSpan}
           </div>
-          <button type="button" class="passcode-del" data-del-passcode="${escapeAttribute(id)}" data-passcode-name="${escapeAttribute(name)}" aria-label="Xóa mật khẩu ${escapeAttribute(name)}">Xóa</button>
+          ${delBtnHtml}
         </div>`;
       }).join("");
 
       list.querySelectorAll("[data-del-passcode]").forEach(btn => {
         btn.onclick = async () => {
-          const role = window.currentUserRole || "member";
+          const isMaster = checkIsMaster();
           const perms = window.userPermissions || {};
-          if (role !== "master" && perms.passcodeDel !== true) {
-            alert("Chủ nhà (Master) chưa cấp quyền xóa mật khẩu Keypad cho bạn!");
+          if (!isMaster && perms.passcodeDel !== true) {
+            showToast("Chủ nhà (Master) chưa cấp quyền xóa mật khẩu Keypad cho bạn!");
             return;
           }
           const targetId = btn.dataset.delPasscode;
           const targetName = btn.dataset.passcodeName;
           if (Object.keys(currentPasscodes).length <= 1) {
-            alert("Không thể xóa mật khẩu duy nhất còn lại! ESP32 yêu cầu phải giữ lại ít nhất một mật khẩu mở cửa.");
+            showToast("Không thể xóa mật khẩu duy nhất còn lại! Cần giữ ít nhất một mật khẩu mở cửa.");
             return;
           }
-          if (!confirm(`Bạn có chắc muốn xóa mật khẩu “${targetName}”?`)) return;
-          const opId = "del_" + Date.now().toString(36);
-          btn.disabled = true;
-          btn.textContent = "Đang xóa...";
-          try {
-            await set(ref(db, "door/pending/" + opId), {
-              op: "delete",
-              target: targetId
-            });
-            showToast(`Đã gửi yêu cầu xóa mã “${targetName}”. ESP32 đang xử lý...`);
-          } catch (err) {
-            alert("Lỗi khi gửi yêu cầu xóa: " + err.message);
-            btn.disabled = false;
-            btn.textContent = "Xóa";
-          }
+          showConfirmDialog({
+            title: "Xóa mật khẩu mở cửa",
+            message: `Bạn có chắc chắn muốn xóa mật khẩu “${targetName}” khỏi chip ESP32 không?`,
+            confirmText: "Xóa mật khẩu",
+            danger: true,
+            onConfirm: async () => {
+              const opId = generatePasscodeOpId(12);
+              btn.disabled = true;
+              btn.textContent = "Đang xóa...";
+              try {
+                await set(ref(db, "door/pending/" + opId), {
+                  op: "delete",
+                  target: targetId
+                });
+                pendingPasscodeDeletions.add(targetId);
+                showToast(`Đã gửi yêu cầu xóa mã “${targetName}”. ESP32 đang xử lý...`);
+              } catch (err) {
+                if (err.code === "PERMISSION_DENIED" || (err.message && err.message.includes("PERMISSION_DENIED"))) {
+                  showToast("Bạn không có quyền xóa mật khẩu mở cửa!");
+                } else {
+                  showToast("Lỗi khi gửi yêu cầu xóa: " + (err.message || err.code || err));
+                }
+                btn.disabled = false;
+                btn.textContent = "Xóa";
+              }
+            }
+          });
         };
       });
     } catch (err) {
@@ -4606,21 +5241,36 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     onValue(ref(db, "door/passcodes"), s => {
       renderPasscodes(s.val() || {});
     }, err => {
-      console.error("Lỗi lắng nghe /door/passcodes:", err);
+      console.warn("Lỗi lắng nghe /door/passcodes:", err);
       const list = $ui("passcodeList");
       if (list) list.innerHTML = `<p class="meta" style="color:var(--bad);">Lỗi tải mật khẩu: ${escapeAttribute(err.message)}</p>`;
     });
   } catch (e) {
-    console.error("Lỗi khởi tạo lắng nghe /door/passcodes:", e);
+    console.warn("Lỗi khởi tạo lắng nghe /door/passcodes:", e);
+  }
+
+  // Giai đoạn B: Đọc door/passcodeOwners chỉ khi là Master (thành viên không đọc được)
+  try {
+    if (checkIsMaster()) {
+      onValue(ref(db, "door/passcodeOwners"), s => {
+        passcodeOwners = s.val() || {};
+        window.passcodeOwners = passcodeOwners;
+        renderPasscodes(currentPasscodes);
+      }, err => {
+        console.warn("Lỗi đọc /door/passcodeOwners:", err);
+      });
+    }
+  } catch(e) {
+    console.warn("Lỗi khởi tạo lắng nghe /door/passcodeOwners:", e);
   }
 
   const btnAddPass = $ui("btnOpenAddPasscode");
   if (btnAddPass) {
     btnAddPass.onclick = () => {
-      const role = window.currentUserRole || "member";
+      const isMaster = checkIsMaster();
       const perms = window.userPermissions || {};
-      if (role !== "master" && perms.passcodeAdd !== true) {
-        alert("Chủ nhà (Master) chưa cấp quyền thêm mật khẩu Keypad cho bạn!");
+      if (!isMaster && perms.passcodeAdd !== true) {
+        showToast("Chủ nhà (Master) chưa cấp quyền thêm mật khẩu Keypad cho bạn!");
         return;
       }
       const root = $ui("modalRoot");
@@ -4639,7 +5289,7 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
                 <input name="code" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required placeholder="Nhập 4–8 chữ số (0-9)">
               </label>
               <p class="meta" style="font-size:12px;margin:8px 0 16px;">
-                Mật mã sẽ được gửi xuống ESP32 để băm mã hóa SHA-256 lưu trong chip, Firebase không lưu trữ mật mã gốc.
+                Mật mã được gửi qua Firebase tới ESP32 rồi xóa ngay sau khi lưu; ESP32 băm SHA-256 trước khi lưu vào chip.
               </p>
               <div class="form-actions">
                 <button type="button" data-close-modal>Hủy</button>
@@ -4657,24 +5307,50 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
         e.preventDefault();
         const name = form.elements.name.value.trim();
         const code = form.elements.code.value.trim();
-        if (!name) { alert("Vui lòng nhập tên người dùng!"); return; }
-        if (!/^\d{4,8}$/.test(code)) { alert("Mật mã phải gồm từ 4 đến 8 chữ số (0-9)!"); return; }
+        if (!name) { showToast("Vui lòng nhập tên người dùng!"); return; }
+        if (!/^\d{4,8}$/.test(code)) { showToast("Mật mã phải gồm từ 4 đến 8 chữ số (0-9)!"); return; }
 
         const submitBtn = form.querySelector("button[type=submit]");
         submitBtn.disabled = true;
         submitBtn.textContent = "Đang gửi...";
 
-        const opId = "add_" + Date.now().toString(36);
+        // Giai đoạn B: sinh opId 12 ký tự ngẫu nhiên [a-zA-Z0-9_-]
+        const opId = generatePasscodeOpId(12);
+        const user = window.auth?.currentUser;
+        const userUid = user ? user.uid : "";
+        const userEmail = user ? (user.email || "") : "";
+        const userName = (user ? (user.displayName || user.email) : "") || name;
+
+        // Dùng MỘT lần update(ref(db), {...}) ghi đồng thời vào door/pending và door/passcodeOwners
+        const updates = {};
+        updates[`door/pending/${opId}`] = {
+          op: "add",
+          name: name,
+          code: code
+        };
+        updates[`door/passcodeOwners/${opId}`] = {
+          uid: userUid,
+          email: userEmail,
+          name: userName,
+          ts: Date.now()
+        };
+
         try {
-          await set(ref(db, "door/pending/" + opId), {
-            op: "add",
-            name: name,
-            code: code
-          });
+          await update(ref(db), updates);
+          try {
+            const list = JSON.parse(sessionStorage.getItem("my_created_passcodes") || "[]");
+            if (!list.includes(opId)) list.push(opId);
+            sessionStorage.setItem("my_created_passcodes", JSON.stringify(list));
+          } catch(err) {}
+
           root.replaceChildren();
           showToast(`Đã gửi yêu cầu thêm mã “${name}”. ESP32 đang lưu vào bộ nhớ...`);
         } catch (err) {
-          alert("Lỗi khi thêm mã: " + err.message);
+          if (err.code === "PERMISSION_DENIED" || (err.message && err.message.includes("PERMISSION_DENIED"))) {
+            showToast("Bạn không có quyền thêm mật khẩu mở cửa!");
+          } else {
+            showToast("Lỗi khi thêm mã: " + (err.message || err.code || err));
+          }
           submitBtn.disabled = false;
           submitBtn.textContent = "Lưu mật khẩu";
         }
