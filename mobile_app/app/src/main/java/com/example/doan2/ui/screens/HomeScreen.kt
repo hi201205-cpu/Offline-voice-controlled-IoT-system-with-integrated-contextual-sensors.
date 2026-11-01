@@ -134,8 +134,17 @@ fun HomeScreen(
             item(span = { GridItemSpan(2) }) {
                 val motionMs = if (uiState.sensorData.lastMotionTs < 10_000_000_000L) uiState.sensorData.lastMotionTs * 1000L else uiState.sensorData.lastMotionTs
                 val motionTimeStr = if (uiState.sensorData.lastMotionTs > 0) {
-                    val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-                    stringResource(R.string.last_motion_format, sdf.format(Date(motionMs)))
+                    val calNow = java.util.Calendar.getInstance()
+                    val calMotion = java.util.Calendar.getInstance().apply { timeInMillis = motionMs }
+                    val isToday = calNow.get(java.util.Calendar.YEAR) == calMotion.get(java.util.Calendar.YEAR) &&
+                                  calNow.get(java.util.Calendar.DAY_OF_YEAR) == calMotion.get(java.util.Calendar.DAY_OF_YEAR)
+                    if (isToday) {
+                        val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                        "Lúc ${sdf.format(Date(motionMs))} (Hôm nay)"
+                    } else {
+                        val sdf = SimpleDateFormat("HH:mm:ss dd/MM/yyyy", Locale.getDefault())
+                        "Lúc ${sdf.format(Date(motionMs))}"
+                    }
                 } else {
                     stringResource(R.string.no_motion_yet)
                 }

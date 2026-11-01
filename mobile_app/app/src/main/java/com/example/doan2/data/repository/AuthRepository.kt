@@ -378,92 +378,106 @@ class AuthRepository(
 
 
     fun redeemInviteCode(codeStr: String, onResult: (Boolean, String?) -> Unit) {
-
         val formattedCode = codeStr.trim().uppercase()
-
         val uid = currentUid
-
+        val userEmail = auth.currentUser?.email
         if (uid == null) {
-
             onResult(false, "Vui lòng đăng nhập lại")
-
             return
-
         }
 
+        // 1. Kiểm tra nếu là tài khoản Chủ nhà (Master)
+        val isMaster = userEmail != null && userEmail.equals(masterEmail, ignoreCase = true)
+        if (isMaster) {
+            onResult(false, "Bạn đang là Chủ nhà (Master) đã quản trị thiết bị này rồi, không cần nhập mã mời liên kết!")
+            return
+        }
 
+        // 2. Kiểm tra xem tài khoản hiện tại đã liên kết ngôi nhà này chưa
+        database.getReference("users/$uid").addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(userSnap: DataSnapshot) {
+                val pairedHome = userSnap.child("pairedHome").value as? String
+                val isAlreadyPaired = (pairedHome == DEFAULT_HOME_CODE) || (userSnap.child("is_paired").value == true)
 
-        val inviteRef = database.getReference("invites/$formattedCode")
-
-        inviteRef.addListenerForSingleValueEvent(object : ValueEventListener {
-
-            override fun onDataChange(snapshot: DataSnapshot) {
-
-                if (!snapshot.exists()) {
-
-                    onResult(false, "Mã liên kết không tồn tại hoặc đã được sử dụng")
-
-                    return
-
+                // Nếu người dùng nhập thẳng mã mô hình DEFAULT_HOME_CODE
+                if (formattedCode == DEFAULT_HOME_CODE) {
+                    if (isAlreadyPaired) {
+                        onResult(false, "Tài khoản của bạn đã được liên kết với ngôi nhà này rồi!")
+                        return
+                    }
                 }
 
+                // Kiểm tra mã mời 1 lần trong /invites/{code}
+                val inviteRef = database.getReference("invites/$formattedCode")
+                inviteRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        if (!snapshot.exists()) {
+                            onResult(false, "Mã mời không tồn tại hoặc đã hết hạn!")
+                            return
+                        }
 
+                        val status = snapshot.child("status").value as? String ?: "active"
+                        if (status != "active") {
+                            onResult(false, "Mã mời này đã được sử dụng trước đó!")
+                            return
+                        }
 
-                val expiresTs = snapshot.child("expiresTs").value as? Long ?: 0L
+                        // NẾU TÀI KHOẢN ĐÃ LIÊN KẾT: THÔNG BÁO RÕ RÀNG VÀ DỪNG LẠI, TUYỆT ĐỐI KHÔNG GẠCH MÃ MỜI!
+                        if (isAlreadyPaired) {
+                            onResult(false, "Tài khoản của bạn đã được liên kết với thiết bị này rồi! Mã mời vẫn còn nguyên hiệu lực cho thành viên khác.")
+                            return
+                        }
 
-                val nowSec = System.currentTimeMillis() / 1000L
+                        val createdBy = snapshot.child("createdBy").value as? String
+                        if (createdBy == uid) {
+                            onResult(false, "Bạn là người tạo mã mời này, không thể tự liên kết bằng mã của chính mình!")
+                            return
+                        }
 
-                if (expiresTs > 0 && nowSec > expiresTs) {
+                        val validHome = snapshot.child("homeId").value as? String ?: DEFAULT_HOME_CODE
 
-                    inviteRef.removeValue()
+                        // Cập nhật trạng thái 'used' ngay lập tức cho invite
+                        val inviteUpdates = mapOf<String, Any>(
+                            "status" to "used",
+                            "usedBy" to uid,
+                            "usedByEmail" to (userEmail ?: "Thành viên gia đình"),
+                            "usedAt" to System.currentTimeMillis()
+                        )
+                        inviteRef.updateChildren(inviteUpdates)
 
-                    onResult(false, "Mã liên kết đã hết hạn")
-
-                    return
-
-                }
-
-
-
-                val updateMap = mapOf<String, Any>(
-
-                    "is_paired" to true,
-
-                    "pairedHome" to DEFAULT_HOME_CODE
-
-                )
-
-                database.getReference("users/$uid").updateChildren(updateMap)
-
-                    .addOnSuccessListener {
-
-                        inviteRef.removeValue()
-
-                        onResult(true, "Liên kết thiết bị thành công!")
-
+                        val userUpdates = mapOf<String, Any>(
+                            "is_paired" to true,
+                            "pairedHome" to validHome,
+                            "role" to "member",
+                            "pairedAt" to System.currentTimeMillis(),
+                            "permissions" to mapOf(
+                                "light" to true,
+                                "fan" to true,
+                                "curtain" to true,
+                                "door" to true,
+                                "yard" to true
+                            )
+                        )
+                        database.getReference("users/$uid").updateChildren(userUpdates)
+                            .addOnSuccessListener {
+                                onResult(true, "Liên kết thiết bị thành công!")
+                            }
+                            .addOnFailureListener { exc ->
+                                onResult(false, exc.localizedMessage ?: "Cập nhật liên kết thất bại")
+                            }
                     }
 
-                    .addOnFailureListener { exc ->
-
-                        onResult(false, exc.localizedMessage ?: "Cập nhật liên kết thất bại")
-
+                    override fun onCancelled(error: DatabaseError) {
+                        onResult(false, error.message)
                     }
-
+                })
             }
-
-
 
             override fun onCancelled(error: DatabaseError) {
-
                 onResult(false, error.message)
-
             }
-
         })
-
     }
-
-
 
     fun sendPasswordResetEmail(email: String, onResult: (Boolean, String?) -> Unit) {
 

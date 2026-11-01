@@ -393,7 +393,8 @@ fun DoorScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
-                                    if (formattedDate.isNotEmpty()) {
+                                    val isMaster = uiState.userProfile?.role == "master"
+                                    if (isMaster && formattedDate.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = stringResource(R.string.created_at_format, formattedDate),

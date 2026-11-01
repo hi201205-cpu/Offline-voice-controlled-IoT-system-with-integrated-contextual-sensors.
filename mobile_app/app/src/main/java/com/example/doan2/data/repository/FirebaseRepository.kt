@@ -4,12 +4,14 @@ import android.os.Handler
 import android.os.Looper
 import com.example.doan2.data.model.*
 import com.google.firebase.database.*
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
 class FirebaseRepository(
-    private val database: FirebaseDatabase = FirebaseDatabase.getInstance()
+    private val database: FirebaseDatabase = FirebaseDatabase.getInstance(),
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) {
 
     private fun safeDouble(value: Any?): Double {
@@ -455,11 +457,17 @@ class FirebaseRepository(
         val nowSec = System.currentTimeMillis() / 1000L
         val expiresSec = nowSec + 86400L
 
+        val nowMs = System.currentTimeMillis()
+        val currentUid = auth.currentUser?.uid ?: ""
         val inviteData = mapOf(
             "code" to code,
-            "createdBy" to masterEmail,
+            "createdBy" to currentUid,
+            "creatorEmail" to masterEmail,
+            "createdAt" to nowMs,
             "createdTs" to nowSec,
-            "expiresTs" to expiresSec
+            "expiresTs" to expiresSec,
+            "status" to "active",
+            "homeId" to "HOME-2026-ESP32"
         )
 
         database.getReference("invites/$code").setValue(inviteData)
