@@ -238,7 +238,7 @@ void sensorsInit() {
 #endif
 
 #if ENABLE_SR501
-    pinMode(PIN_SR501, INPUT);
+    pinMode(PIN_SR501, INPUT_PULLDOWN);
     s_presenceDataValid = true;
     s_presenceDetected = (digitalRead(PIN_SR501) == HIGH);
     s_presenceState = s_presenceDetected ? 2 : 0;

@@ -533,56 +533,19 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               <button type="button" class="activity-filter" data-activity-filter="web">Web</button>
             </div>
             <ul id="logs"><li class="empty">Chưa có lịch sử thao tác</li></ul>
-            <p class="meta" id="appHistoryNote" style="margin-top:12px;">Lịch sử được đồng bộ thời gian thực từ ESP32 và Web qua Firebase.</p>
-          </section>
+                      </section>
           <section class="card" id="firmwareAutoCard">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-              <h2 style="margin:0;">Tự động hóa ESP32</h2>
-              <span id="quickAutoMasterBadge" class="mock-label" style="background:rgba(57,201,233,.12);color:var(--on);border:1px solid rgba(57,201,233,.3);font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;">● Sẵn sàng</span>
+              <h2 style="margin:0;">Tự động hóa</h2>
+              <span id="quickAutoMasterBadge" class="mock-label" style="background:rgba(57,201,233,.12);color:var(--on);border:1px solid rgba(57,201,233,.3);font-size:11.5px;padding:3.5px 12px;border-radius:20px;font-weight:600;">Đang tải...</span>
             </div>
             
-            <div class="auto-quick-grid" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px;margin-bottom:12px;">
-              <div class="auto-item-box" style="background:var(--panel-raised, rgba(255,255,255,.04));border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;">
-                <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;color:var(--accent);flex-shrink:0;"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
-                  <span style="font-weight:600;color:var(--ink);">Quạt phòng</span>
-                </div>
-                <div id="quickAutoFan" style="font-size:12px;font-weight:600;color:var(--on);">Bật khi ≥ 30°C</div>
-                <span class="meta" style="font-size:11px;">Khi có người</span>
-              </div>
-
-              <div class="auto-item-box" style="background:var(--panel-raised, rgba(255,255,255,.04));border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;">
-                <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;color:var(--accent);flex-shrink:0;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                  <span style="font-weight:600;color:var(--ink);">Vắng nhà</span>
-                </div>
-                <div id="quickAutoAbsent" style="font-size:12px;font-weight:600;color:var(--on);">Tắt sau 15p</div>
-                <span class="meta" style="font-size:11px;">Tự ngắt đèn &amp; quạt</span>
-              </div>
-
-              <div class="auto-item-box" style="background:var(--panel-raised, rgba(255,255,255,.04));border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;">
-                <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;color:var(--accent);flex-shrink:0;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                  <span style="font-weight:600;color:var(--ink);">Đèn sân vườn</span>
-                </div>
-                <div id="quickAutoGarden" style="font-size:12px;font-weight:600;color:var(--on);">Cảm biến LDR</div>
-                <span class="meta" style="font-size:11px;">Tự bật khi trời tối</span>
-              </div>
-
-              <div class="auto-item-box" style="background:var(--panel-raised, rgba(255,255,255,.04));border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;">
-                <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;color:var(--accent);flex-shrink:0;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                  <span style="font-weight:600;color:var(--ink);">Giọng nói &amp; LED</span>
-                </div>
-                <div id="quickAutoVoice" style="font-size:12px;font-weight:600;color:var(--on);">Radar mmWave</div>
-                <span class="meta" style="font-size:11px;">Bật khi có người</span>
-              </div>
+            <div id="quickAutoBody" style="margin-bottom:12px;">
+              <p class="meta" style="font-size:12.5px;margin:0;">Đang đồng bộ trạng thái quy tắc...</p>
             </div>
 
-            <p class="meta" id="firmwareAutomationSummary" style="margin-bottom:12px;font-size:11.5px;line-height:1.4;">Đang tải cấu hình từ thiết bị…</p>
-            
-            <button type="button" class="secondary" data-go-page="automation" style="width:100%;display:flex;justify-content:center;align-items:center;gap:6px;font-weight:600;padding:9px;border-radius:10px;">
-              <span>Cấu hình tự động hóa chi tiết →</span>
+            <button type="button" class="secondary" data-go-page="automation" style="width:100%;display:flex;justify-content:center;align-items:center;gap:6px;font-weight:600;padding:9.5px;border-radius:10px;cursor:pointer;">
+              <span>Quản lý quy tắc tự động hóa →</span>
             </button>
           </section>
           <section class="card wide">
@@ -1639,7 +1602,11 @@ if (btnForgotInSettings) {
     }
   };
 }
-$("btnOut").onclick = () => signOut(auth);
+$("btnOut").onclick = () => {
+  if (confirm("Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?")) {
+    signOut(auth);
+  }
+};
 
 // ---- Quản lý tài khoản Master, Mã mời 1 lần & Phân quyền thành viên ----
 const DEFAULT_HOME_CODE = "HOME-2026-ESP32";
@@ -2544,8 +2511,15 @@ function listen() {
       const ts = Number(v.last_motion_ts);
       if (ts && ts > 1700000000) {
         const mDate = new Date(ts * 1000);
+        const now = new Date();
+        const isToday = mDate.toDateString() === now.toDateString();
         const timeStr = mDate.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        motionTime.textContent = `Lúc ${timeStr}`;
+        if (isToday) {
+          motionTime.textContent = `Lúc ${timeStr} (Hôm nay)`;
+        } else {
+          const dateStr = mDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+          motionTime.textContent = `Lúc ${timeStr} ${dateStr}`;
+        }
         motionTime.title = `Lần phát hiện chuyển động gần nhất: ${mDate.toLocaleString("vi-VN")}`;
       } else {
         motionTime.textContent = "Chưa phát hiện";
@@ -2667,6 +2641,18 @@ function updateAge() {
   el.textContent = age > 120
     ? "Cập nhật lúc " + fmtTime(lastSensorTs) + ". Thiết bị có thể đang mất kết nối."
     : "Cập nhật lúc " + fmtTime(lastSensorTs);
+  if (age > 120) {
+    const mDot = $("motionDot");
+    const mText = $("motionText");
+    if (mDot) {
+      mDot.style.background = "var(--mute, #94a3b8)";
+      mDot.style.boxShadow = "none";
+    }
+    if (mText) {
+      mText.textContent = "Ngoại tuyến";
+      mText.style.color = "var(--mute)";
+    }
+  }
 }
 
 function renderFirmwareAutomation() {
@@ -3666,6 +3652,54 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
     });
     $ui("automationSummary").textContent = `${rules.filter(rule => rule.enabled).length} quy tắc đang bật`;
     $ui("automationMaster").checked = automationEnabled;
+    updateDashboardAutomationWidget();
+  }
+
+  function updateDashboardAutomationWidget() {
+    const badge = $ui("quickAutoMasterBadge");
+    const body = $ui("quickAutoBody");
+    if (!badge && !body) return;
+
+    const enabledRules = (rules || []).filter(r => r.enabled);
+
+    if (badge) {
+      if (!automationEnabled) {
+        badge.textContent = "○ Đang tạm tắt";
+        badge.style.color = "var(--mute)";
+        badge.style.background = "rgba(148,163,184,.12)";
+        badge.style.borderColor = "rgba(148,163,184,.25)";
+      } else {
+        badge.textContent = `● Đang hoạt động (${enabledRules.length} quy tắc)`;
+        badge.style.color = "var(--good)";
+        badge.style.background = "rgba(16,185,129,.12)";
+        badge.style.borderColor = "rgba(16,185,129,.3)";
+      }
+    }
+
+    if (body) {
+      if (!automationEnabled) {
+        body.innerHTML = `
+          <div style="background:var(--panel-raised, rgba(255,255,255,.03));border:1px dashed var(--line);border-radius:12px;padding:14px;text-align:center;">
+            <p style="margin:0;font-size:13px;color:var(--mute);line-height:1.5;">Tự động hóa đang tạm tắt. Tất cả thiết bị đang hoạt động theo lệnh điều khiển thủ công &amp; giọng nói.</p>
+          </div>`;
+      } else if (enabledRules.length === 0) {
+        body.innerHTML = `
+          <div style="background:var(--panel-raised, rgba(255,255,255,.03));border:1px dashed var(--line);border-radius:12px;padding:14px;text-align:center;">
+            <p style="margin:0;font-size:13px;color:var(--mute);line-height:1.5;">Chưa có quy tắc nào được bật. Bạn có thể bật các quy tắc ở trang Tự động hóa.</p>
+          </div>`;
+      } else {
+        const items = enabledRules.map(r => `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;background:var(--panel-raised, rgba(255,255,255,.03));border:1px solid var(--line);border-radius:10px;font-size:12.5px;">
+            <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 6px var(--good);flex-shrink:0;"></span>
+              <b style="color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeAttribute(r.name || "Quy tắc")}</b>
+            </div>
+            <span class="meta" style="font-size:11.5px;white-space:nowrap;flex-shrink:0;">${escapeAttribute(r.action || describeRule(r))}</span>
+          </div>
+        `).join("");
+        body.innerHTML = `<div style="display:grid;gap:8px;">${items}</div>`;
+      }
+    }
   }
   function persistRules() {
     automationStore.save(rules);
