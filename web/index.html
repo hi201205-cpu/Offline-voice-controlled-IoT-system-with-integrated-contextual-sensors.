@@ -745,8 +745,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               </div>
             </div>
             <div class="settings-accordion-right">
-              <span class="mock-label" id="keypadPassCountBadge">NVS ESP32</span>
-              <svg class="settings-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            <svg class="settings-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
           </summary>
           <div class="settings-accordion-body" id="cardKeypadSettings">
@@ -1694,9 +1693,9 @@ async function checkUserDeviceLink(user) {
       masterMembersSec.classList.toggle("hidden", currentUserRole !== "master");
     }
 
-    // Nếu là Master, tải danh sách các thành viên đã liên kết
-    if (typeof currentPasscodes !== "undefined" && Object.keys(currentPasscodes).length > 0) {
-      renderPasscodes(currentPasscodes);
+    // Tải lại giao diện danh sách mật khẩu theo quyền vai trò (Master/Member)
+    if (typeof window.renderPasscodes === "function" && window.currentPasscodes) {
+      window.renderPasscodes(window.currentPasscodes);
     }
     if (currentUserRole === "master") {
       listenSharedMembers();
@@ -3628,7 +3627,9 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       const edit = document.createElement("button");
       edit.type = "button"; edit.className = "small-button"; edit.textContent = "Sửa";
       edit.addEventListener("click", () => {
-        if (currentUserRole !== "master" && userPermissions && userPermissions.auto === false) {
+        const role = window.currentUserRole || "member";
+        const perms = window.userPermissions || {};
+        if (role !== "master" && perms.auto === false) {
           alert("Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!");
           return;
         }
@@ -3638,7 +3639,9 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       removeBtn.type = "button"; removeBtn.className = "small-button"; removeBtn.textContent = "Xóa";
       removeBtn.setAttribute("aria-label", `Xóa quy tắc ${rule.name}`);
       removeBtn.addEventListener("click", () => {
-        if (currentUserRole !== "master" && userPermissions && userPermissions.auto === false) {
+        const role = window.currentUserRole || "member";
+        const perms = window.userPermissions || {};
+        if (role !== "master" && perms.auto === false) {
           alert("Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!");
           return;
         }
@@ -4023,7 +4026,9 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
       a.type === "device" && b.type === "device" && a.device === b.device && a.value !== b.value));
   }
   $ui("addRule").addEventListener("click", () => {
-    if (currentUserRole !== "master" && userPermissions && userPermissions.auto === false) {
+    const role = window.currentUserRole || "member";
+    const perms = window.userPermissions || {};
+    if (role !== "master" && perms.auto === false) {
       alert("Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!");
       return;
     }
@@ -4349,68 +4354,79 @@ import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstati
   let currentPasscodes = {};
 
   function renderPasscodes(data) {
-    currentPasscodes = data || {};
-    const list = $ui("passcodeList");
-    if (!list) return;
-    const ids = Object.keys(currentPasscodes);
-    if (ids.length === 0) {
-      list.innerHTML = `<p class="meta">Chưa có mật khẩu nào được lưu.</p>`;
-      return;
-    }
-    const isMaster = (currentUserRole === "master" || window.currentUserRole === "master");
-    list.innerHTML = ids.map(id => {
-      const item = currentPasscodes[id] || {};
-      const name = item.name || id;
-      const dateStr = item.created_ts ? new Date(item.created_ts).toLocaleString("vi-VN") : "";
-      const metaSpan = isMaster ? `<span>ID: ${escapeAttribute(id)}${dateStr ? " · " + dateStr : ""}</span>` : "";
-      return `<div class="passcode-item">
-        <div>
-          <b>${escapeAttribute(name)}</b>
-          ${metaSpan}
-        </div>
-        <button type="button" class="passcode-del" data-del-passcode="${escapeAttribute(id)}" data-passcode-name="${escapeAttribute(name)}" aria-label="Xóa mật khẩu ${escapeAttribute(name)}">Xóa</button>
-      </div>`;
-    }).join("");
+    try {
+      currentPasscodes = data || {};
+      window.currentPasscodes = currentPasscodes;
+      const list = $ui("passcodeList");
+      if (!list) return;
+      const ids = Object.keys(currentPasscodes);
+      if (ids.length === 0) {
+        list.innerHTML = `<p class="meta">Chưa có mật khẩu nào được lưu.</p>`;
+        return;
+      }
+      const isMaster = ((window.currentUserRole || "member") === "master");
+      list.innerHTML = ids.map(id => {
+        const item = currentPasscodes[id] || {};
+        const name = item.name || id;
+        const dateStr = item.created_ts ? new Date(item.created_ts).toLocaleString("vi-VN") : "";
+        const metaSpan = isMaster ? `<span>ID: ${escapeAttribute(id)}${dateStr ? " · " + dateStr : ""}</span>` : "";
+        return `<div class="passcode-item">
+          <div>
+            <b>${escapeAttribute(name)}</b>
+            ${metaSpan}
+          </div>
+          <button type="button" class="passcode-del" data-del-passcode="${escapeAttribute(id)}" data-passcode-name="${escapeAttribute(name)}" aria-label="Xóa mật khẩu ${escapeAttribute(name)}">Xóa</button>
+        </div>`;
+      }).join("");
 
-    list.querySelectorAll("[data-del-passcode]").forEach(btn => {
-      btn.onclick = async () => {
-        const role = window.currentUserRole || "member";
-        const perms = window.userPermissions || {};
-        if (role !== "master" && perms.passcodeDel !== true) {
-          alert("Chủ nhà (Master) chưa cấp quyền xóa mật khẩu Keypad cho bạn!");
-          return;
-        }
-        const targetId = btn.dataset.delPasscode;
-        const targetName = btn.dataset.passcodeName;
-        if (Object.keys(currentPasscodes).length <= 1) {
-          alert("Không thể xóa mật khẩu duy nhất còn lại! ESP32 yêu cầu phải giữ lại ít nhất một mật khẩu mở cửa.");
-          return;
-        }
-        if (!confirm(`Bạn có chắc muốn xóa mật khẩu “${targetName}”?`)) return;
-        const opId = "del_" + Date.now().toString(36);
-        btn.disabled = true;
-        btn.textContent = "Đang xóa...";
-        try {
-          await set(ref(db, "door/pending/" + opId), {
-            op: "delete",
-            target: targetId
-          });
-          showToast(`Đã gửi yêu cầu xóa mã “${targetName}”. ESP32 đang xử lý...`);
-        } catch (err) {
-          alert("Lỗi khi gửi yêu cầu xóa: " + err.message);
-          btn.disabled = false;
-          btn.textContent = "Xóa";
-        }
-      };
-    });
+      list.querySelectorAll("[data-del-passcode]").forEach(btn => {
+        btn.onclick = async () => {
+          const role = window.currentUserRole || "member";
+          const perms = window.userPermissions || {};
+          if (role !== "master" && perms.passcodeDel !== true) {
+            alert("Chủ nhà (Master) chưa cấp quyền xóa mật khẩu Keypad cho bạn!");
+            return;
+          }
+          const targetId = btn.dataset.delPasscode;
+          const targetName = btn.dataset.passcodeName;
+          if (Object.keys(currentPasscodes).length <= 1) {
+            alert("Không thể xóa mật khẩu duy nhất còn lại! ESP32 yêu cầu phải giữ lại ít nhất một mật khẩu mở cửa.");
+            return;
+          }
+          if (!confirm(`Bạn có chắc muốn xóa mật khẩu “${targetName}”?`)) return;
+          const opId = "del_" + Date.now().toString(36);
+          btn.disabled = true;
+          btn.textContent = "Đang xóa...";
+          try {
+            await set(ref(db, "door/pending/" + opId), {
+              op: "delete",
+              target: targetId
+            });
+            showToast(`Đã gửi yêu cầu xóa mã “${targetName}”. ESP32 đang xử lý...`);
+          } catch (err) {
+            alert("Lỗi khi gửi yêu cầu xóa: " + err.message);
+            btn.disabled = false;
+            btn.textContent = "Xóa";
+          }
+        };
+      });
+    } catch (err) {
+      console.error("Lỗi khi render danh sách mật khẩu:", err);
+    }
   }
+  window.renderPasscodes = renderPasscodes;
+  window.currentPasscodes = currentPasscodes;
 
   try {
     onValue(ref(db, "door/passcodes"), s => {
       renderPasscodes(s.val() || {});
+    }, err => {
+      console.error("Lỗi lắng nghe /door/passcodes:", err);
+      const list = $ui("passcodeList");
+      if (list) list.innerHTML = `<p class="meta" style="color:var(--bad);">Lỗi tải mật khẩu: ${escapeAttribute(err.message)}</p>`;
     });
   } catch (e) {
-    console.error("Lỗi lắng nghe /door/passcodes:", e);
+    console.error("Lỗi khởi tạo lắng nghe /door/passcodes:", e);
   }
 
   const btnAddPass = $ui("btnOpenAddPasscode");
