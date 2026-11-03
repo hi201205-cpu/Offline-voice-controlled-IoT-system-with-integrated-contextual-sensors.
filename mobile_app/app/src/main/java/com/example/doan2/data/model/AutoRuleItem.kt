@@ -6,6 +6,12 @@ data class AutoAction(
     val value: String = "on" // "on", "off"
 )
 
+data class RuleCreator(
+    val uid: String = "",
+    val name: String = "",
+    val email: String = ""
+)
+
 data class AutoRuleItem(
     val id: String = "",
     val name: String = "",
@@ -19,6 +25,6 @@ data class AutoRuleItem(
     val from: String = "18:00",
     val to: String = "22:00",
     val days: List<Int> = emptyList(),
-    val lastRan: Long? = null
+    val lastRan: Long? = null,
+    val creator: RuleCreator? = null
 )
-

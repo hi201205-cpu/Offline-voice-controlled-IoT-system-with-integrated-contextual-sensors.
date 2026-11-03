@@ -22,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   SensorData _sensor = SensorData(updatedAt: DateTime.now());
   List<LogEntry> _logs = [];
   List<UserProfile> _members = [];
+  List<PasscodeItem> _passcodes = [];
   String? _busyDevice;
   bool _previousKeypadLocked = false;
 
@@ -81,12 +82,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _profileSub = _service.profileStream.listen((u) {
       if (mounted) {
         _initProfileControllers();
+        _loadPasscodes();
+        if (u?.isMaster == true) _loadMembers();
         setState(() {});
       }
     });
 
     _service.startListening();
     _loadMembers();
+    _loadPasscodes();
   }
 
   void _initProfileControllers() {
@@ -107,6 +111,11 @@ class _HomeScreenState extends State<HomeScreen> {
       final list = await _service.getMembers();
       if (mounted) setState(() => _members = list);
     }
+  }
+
+  Future<void> _loadPasscodes() async {
+    final list = await _service.getPasscodes();
+    if (mounted) setState(() => _passcodes = list);
   }
 
   @override
@@ -170,6 +179,197 @@ class _HomeScreenState extends State<HomeScreen> {
         _showSnack('Đã mở khóa an ninh bàn phím thành công!');
       } else {
         _showSnack('Không thể mở khóa, vui lòng thử lại', isError: true);
+      }
+    }
+  }
+
+  // ── MẬT KHẨU KEYPAD CỬA CHÍNH (ĐỒNG BỘ WEB) ───────────────
+  Future<void> _handleAddNewPasscode() async {
+    final nameCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Thêm mật khẩu Keypad mới'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tên mật khẩu (VD: Người thân, Khách)',
+                prefixIcon: Icon(Icons.label_outline),
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 8,
+              decoration: const InputDecoration(
+                labelText: 'Mã số mở cửa (4 - 8 chữ số)',
+                prefixIcon: Icon(Icons.pin_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Thêm mật khẩu'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      final name = nameCtrl.text.trim();
+      final code = codeCtrl.text.trim();
+      if (name.isEmpty || code.isEmpty) {
+        _showSnack('Vui lòng nhập đầy đủ tên và mã số mật khẩu!', isError: true);
+        return;
+      }
+      if (code.length < 4 || code.length > 8 || int.tryParse(code) == null) {
+        _showSnack('Mã số mở cửa phải gồm 4 đến 8 chữ số!', isError: true);
+        return;
+      }
+
+      try {
+        final success = await _service.addPasscode(code, name);
+        if (success) {
+          _showSnack('Đã gửi yêu cầu thêm mật khẩu tới chip ESP32.');
+          await Future.delayed(const Duration(milliseconds: 800));
+          _loadPasscodes();
+        } else {
+          _showSnack('Không thể thêm mật khẩu, vui lòng thử lại!', isError: true);
+        }
+      } catch (e) {
+        _showSnack(e.toString(), isError: true);
+      }
+    }
+  }
+
+  Future<void> _handleDeletePasscode(PasscodeItem item) async {
+    if (_passcodes.length <= 1) {
+      _showSnack('Không thể xóa mật khẩu duy nhất còn lại! Cần giữ ít nhất 1 mật khẩu mở cửa.', isError: true);
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa mật khẩu mở cửa?'),
+        content: Text('Bạn có chắc chắn muốn xóa mật khẩu “${item.name}” khỏi chip ESP32 không?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa mật khẩu'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final success = await _service.deletePasscode(item);
+        if (success) {
+          _showSnack('Đã gửi yêu cầu xóa mật khẩu “${item.name}”.');
+          await Future.delayed(const Duration(milliseconds: 800));
+          _loadPasscodes();
+        } else {
+          _showSnack('Không thể xóa mật khẩu, vui lòng thử lại!', isError: true);
+        }
+      } catch (e) {
+        _showSnack(e.toString(), isError: true);
+      }
+    }
+  }
+
+  // ── THÀNH VIÊN TỰ HỦY LIÊN KẾT ─────────────────────────────
+  Future<void> _handleSelfUnlink() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hủy liên kết ngôi nhà?'),
+        content: const Text(
+          'Bạn có chắc chắn muốn hủy liên kết tài khoản khỏi ngôi nhà này không?\n\n'
+          '• Sau khi hủy, bạn sẽ mất toàn bộ quyền truy cập và điều khiển thiết bị.\n'
+          '• Bạn sẽ cần mã mời mới từ Chủ nhà (Master) để liên kết lại.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hủy liên kết'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _service.unlinkSelf();
+        _showSnack('Đã hủy liên kết khỏi ngôi nhà thành công.');
+      } catch (e) {
+        _showSnack('Lỗi khi hủy liên kết: $e', isError: true);
+      }
+    }
+  }
+
+  // ── NHẬP MÃ MỜI LIÊN KẾT CHO TÀI KHOẢN CHƯA LIÊN KẾT ────────
+  Future<void> _handlePairWithInviteCode() async {
+    final codeCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nhập mã mời liên kết'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Nhập mã mời 1 lần (gồm 6 ký tự) do Chủ nhà (Master) cấp cho bạn:'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Mã mời (Ví dụ: 8A2F9B)',
+                prefixIcon: Icon(Icons.vpn_key_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xác nhận liên kết'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      final code = codeCtrl.text.trim();
+      if (code.isEmpty) {
+        _showSnack('Vui lòng nhập mã mời!', isError: true);
+        return;
+      }
+      try {
+        await _service.pairWithInviteCode(code);
+        _showSnack('Liên kết ngôi nhà thành công!');
+        _loadMembers();
+        _loadPasscodes();
+      } catch (e) {
+        _showSnack(e.toString(), isError: true);
       }
     }
   }
@@ -511,9 +711,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── TAB 0: ĐIỀU KHIỂN (CONTROLS) ─────────────────────────
   Widget _buildControlsTab(ColorScheme scheme) {
+    final user = _service.currentUser;
+    final isUnpaired = user != null && !user.isMaster && !user.pairedHome;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (isUnpaired) _buildUnlinkedBanner(),
         // CẢNH BÁO KHÓA CỨNG AN NINH KHI NHẬP SAI 4 LẦN
         if (_state.keypadLocked) ...[
           Container(
@@ -697,7 +901,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: (!permitted || isBusy) ? null : onTap,
+        onTap: isBusy
+            ? null
+            : (!permitted
+                ? () => _showSnack('Chủ nhà chưa cấp quyền điều khiển "$title" cho bạn!', isError: true)
+                : onTap),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -723,7 +931,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Switch(
                       value: isOn,
                       activeColor: activeColor,
-                      onChanged: permitted ? (_) => onTap() : null,
+                      onChanged: (permitted && !isBusy) ? (_) => onTap() : null,
                     ),
                 ],
               ),
@@ -993,10 +1201,14 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── TAB 3: CÀI ĐẶT (GỌN GÀNG DẠNG ACCORDION NHƯ WEB) ────────
   Widget _buildSettingsTab(ColorScheme scheme, UserProfile? user) {
     final isMaster = user?.isMaster ?? false;
+    final isUnpaired = user != null && !isMaster && !user.pairedHome;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // Cảnh báo nếu chưa liên kết ngôi nhà
+        if (isUnpaired) _buildUnlinkedBanner(),
+
         // THẺ 1: THÔNG TIN TÀI KHOẢN & HỒ SƠ CÁ NHÂN
         Card(
           elevation: 1,
@@ -1180,12 +1392,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // THẺ 3: PHÂN QUYỀN & QUẢN LÝ THÀNH VIÊN (CHỈ MASTER)
+        // THẺ 3: QUẢN LÝ MẬT KHẨU KEYPAD CỬA CHÍNH (CẢ MASTER & MEMBER)
+        _buildPasscodeManagementCard(user),
+        const SizedBox(height: 12),
+
+        // THẺ 4 DÀNH CHO MASTER: PHÂN QUYỀN & QUẢN LÝ THÀNH VIÊN
         if (isMaster) ...[
           Card(
             elevation: 1,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: ExpansionTile(
+              initiallyExpanded: true,
               leading: const Icon(Icons.people_outline_rounded, color: Colors.amber),
               title: const Text('Phân quyền & Quản lý thành viên', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               subtitle: Text('${_members.length} thành viên đã liên kết', style: const TextStyle(fontSize: 12, color: Colors.grey)),
@@ -1220,6 +1437,50 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 12),
+
+          // THẺ MÃ ĐỊNH DANH MÔ HÌNH (HOME ID) CHUẨN WEB
+          Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Mã định danh mô hình (Home ID)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00B4D8).withAlpha(25),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('Hệ thống ESP32', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF00B4D8))),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text('HOME-2026-ESP32', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal)),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Bảo mật: Chỉ tài khoản Master (xhai2005@gmail.com) mới có quyền tạo mã mời và quản lý phân quyền thành viên.',
+                    style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // THẺ DÀNH CHO THÀNH VIÊN: TÓM TẮT QUYỀN HẠN & TỰ HỦY LIÊN KẾT
+        if (!isMaster && user != null) ...[
+          _buildMemberPermissionsCard(user),
+          const SizedBox(height: 12),
+          _buildMemberSelfUnlinkCard(),
+          const SizedBox(height: 12),
         ],
 
         // Nút Đăng xuất
@@ -1238,6 +1499,282 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 24),
       ],
+    );
+  }
+
+  // ── BANNER CẢNH BÁO CHƯA LIÊN KẾT NGÔI NHÀ ──────────────────
+  Widget _buildUnlinkedBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orange.withAlpha(25),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+              SizedBox(width: 8),
+              Text(
+                'CHƯA LIÊN KẾT NGÔI NHÀ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.orange),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Tài khoản của bạn chưa được liên kết với mô hình nhà ESP32 (hoặc đã bị ngắt kết nối). Vui lòng nhập mã mời 1 lần từ Chủ nhà để liên kết ngay!',
+            style: TextStyle(fontSize: 12, color: Colors.black87),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: _handlePairWithInviteCode,
+            icon: const Icon(Icons.vpn_key_rounded, size: 16),
+            label: const Text('Nhập mã mời liên kết', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── THẺ QUẢN LÝ MẬT KHẨU KEYPAD CỬA CHÍNH (ĐỒNG BỘ WEB) ─────
+  Widget _buildPasscodeManagementCard(UserProfile? user) {
+    final isMaster = user?.isMaster ?? false;
+    final canAdd = isMaster || (user?.hasPermission('passcodeAdd') == true);
+    final curUid = user?.uid ?? '';
+    final curEmail = user?.email ?? '';
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ExpansionTile(
+        leading: const Icon(Icons.password_rounded, color: Colors.teal),
+        title: const Text('Mật khẩu mở cửa Keypad', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        subtitle: Text('${_passcodes.length} mật khẩu đang hoạt động', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Divider(),
+                const SizedBox(height: 6),
+                if (canAdd)
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: _handleAddNewPasscode,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Thêm mật khẩu Keypad mới'),
+                    ),
+                  )
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withAlpha(20),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.withAlpha(80)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Bạn cần được Chủ nhà (Master) cấp quyền để thêm mật khẩu Keypad mới.',
+                            style: TextStyle(fontSize: 11.5, color: Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                if (_passcodes.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text('Chưa có mật khẩu nào được lưu trong hệ thống.', style: TextStyle(color: Colors.grey, fontSize: 12.5)),
+                  )
+                else
+                  ..._passcodes.map((p) {
+                    final isMyPasscode = p.isCreatedBy(curUid, curEmail);
+                    final canDelete = isMaster || isMyPasscode;
+
+                    String creatorText = 'Không rõ người tạo';
+                    if (p.creatorName.isNotEmpty) {
+                      creatorText = p.creatorName;
+                    } else if (p.creatorEmail.isNotEmpty) {
+                      creatorText = p.creatorEmail;
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withAlpha(15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.withAlpha(50)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.pin_rounded, color: Colors.teal, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                    if (isMyPasscode) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.teal.withAlpha(30),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Text('Của bạn', style: TextStyle(fontSize: 10, color: Colors.teal, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Mã: ${p.code} · Tạo bởi: $creatorText',
+                                  style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (canDelete)
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                              tooltip: 'Xóa mật khẩu',
+                              onPressed: () => _handleDeletePasscode(p),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── THẺ TÓM TẮT QUYỀN HẠN THÀNH VIÊN ──────────────────────
+  Widget _buildMemberPermissionsCard(UserProfile user) {
+    final p = user.permissions;
+    final permItems = [
+      {'key': 'light', 'label': 'Đèn phòng', 'allowed': p['light'] == true, 'icon': Icons.lightbulb_rounded},
+      {'key': 'fan', 'label': 'Quạt làm mát', 'allowed': p['fan'] == true, 'icon': Icons.wind_power_rounded},
+      {'key': 'curtain', 'label': 'Rèm cửa', 'allowed': p['curtain'] == true, 'icon': Icons.curtains_rounded},
+      {'key': 'door', 'label': 'Cửa chính', 'allowed': p['door'] == true, 'icon': Icons.door_front_door_rounded},
+      {'key': 'yard', 'label': 'Đèn sân vườn', 'allowed': p['yard'] == true, 'icon': Icons.park_rounded},
+      {'key': 'auto', 'label': 'Cấu hình tự động hóa', 'allowed': p['auto'] == true, 'icon': Icons.auto_awesome_rounded},
+      {'key': 'passcodeAdd', 'label': 'Thêm mật khẩu Keypad', 'allowed': p['passcodeAdd'] == true, 'icon': Icons.pin_rounded},
+    ];
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        leading: const Icon(Icons.verified_user_outlined, color: Color(0xFF00B4D8)),
+        title: const Text('Quyền truy cập của bạn', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        subtitle: const Text('Các tính năng do Chủ nhà (Master) phân quyền', style: TextStyle(fontSize: 12, color: Colors.grey)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              children: [
+                const Divider(),
+                ...permItems.map((item) {
+                  final allowed = item['allowed'] as bool;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(item['icon'] as IconData, size: 18, color: allowed ? const Color(0xFF00B4D8) : Colors.grey),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(item['label'] as String, style: const TextStyle(fontSize: 13))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: allowed ? Colors.green.withAlpha(25) : Colors.grey.withAlpha(25),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: allowed ? Colors.green : Colors.grey.withAlpha(80)),
+                          ),
+                          child: Text(
+                            allowed ? 'Được phép' : 'Đã khóa',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: allowed ? Colors.green : Colors.grey),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── THẺ THÀNH VIÊN TỰ HỦY LIÊN KẾT ─────────────────────────
+  Widget _buildMemberSelfUnlinkCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.link_off_rounded, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Tự hủy liên kết ngôi nhà', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.red)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Bạn đang tham gia ngôi nhà này với vai trò Thành viên. Bạn có thể tự hủy liên kết tài khoản bất cứ lúc nào.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _handleSelfUnlink,
+                icon: const Icon(Icons.link_off_rounded, color: Colors.red),
+                label: const Text('Hủy liên kết ngôi nhà', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1293,6 +1830,24 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Divider(),
+                // Dòng thời gian liên kết & cập nhật hồ sơ
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Liên kết lúc: ${m.pairedAt ?? "Gần đây"}',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        m.updatedAt != null ? 'Cập nhật: ${m.updatedAt}' : 'Chưa cập nhật hồ sơ',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+
                 // Thông tin cá nhân
                 Container(
                   padding: const EdgeInsets.all(10),
@@ -1330,7 +1885,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // Phân quyền nâng cao
+                // Phân quyền nâng cao (Đã loại bỏ passcodeDel thừa)
                 const Text('Quyền nâng cao:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
                 const SizedBox(height: 4),
                 Wrap(
@@ -1339,7 +1894,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _buildPermCheckbox(m, 'auto', 'Cấu hình tự động hóa'),
                     _buildPermCheckbox(m, 'passcodeAdd', 'Thêm mật khẩu Keypad'),
-                    _buildPermCheckbox(m, 'passcodeDel', 'Xóa mật khẩu Keypad'),
                   ],
                 ),
               ],
@@ -1358,7 +1912,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Checkbox(
           value: isChecked,
-          activeColor: const Color(0xFF00B4D8), // Màu xanh cyan chuẩn theo yêu cầu
+          activeColor: const Color(0xFF00B4D8),
           checkColor: Colors.white,
           side: BorderSide(
             color: isChecked ? const Color(0xFF00B4D8) : Colors.grey.withAlpha(120),

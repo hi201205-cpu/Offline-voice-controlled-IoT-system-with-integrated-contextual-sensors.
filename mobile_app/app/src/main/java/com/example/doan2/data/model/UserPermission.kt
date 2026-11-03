@@ -9,6 +9,6 @@ data class UserPermission(
     val auto: Boolean = true,
     val passcodes: Boolean = true,
     val passcodeAdd: Boolean = false,
-    val passcodeDel: Boolean = false,
+    val passcodeDel: Boolean = false, // Giữ cho tương thích ngược nếu còn node cũ
     val voice: Boolean = true
 )

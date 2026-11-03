@@ -307,27 +307,53 @@ class FirebaseRepository(
         awaitClose { ref.removeEventListener(listener) }
     }
 
-    // 8. Observe /door/passcodes
+    // 8. Observe /door/passcodes and /door/passcodeOwners
     fun observePasscodes(): Flow<List<PasscodeItem>> = callbackFlow {
-        val ref = database.getReference("door/passcodes")
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<PasscodeItem>()
-                for (child in snapshot.children) {
-                    val id = child.key ?: ""
-                    val name = child.child("name").value?.toString() ?: ""
-                    val createdTs = safeLong(child.child("created_ts").value)
-                    list.add(PasscodeItem(id, name, createdTs))
-                }
-                trySend(list)
-            }
+        val passRef = database.getReference("door/passcodes")
+        val ownRef = database.getReference("door/passcodeOwners")
 
-            override fun onCancelled(error: DatabaseError) {
-                trySend(emptyList())
+        var passSnap: DataSnapshot? = null
+        var ownSnap: DataSnapshot? = null
+
+        fun emitList() {
+            val pSnap = passSnap ?: return
+            val oSnap = ownSnap
+            val list = mutableListOf<PasscodeItem>()
+            for (child in pSnap.children) {
+                val id = child.key ?: ""
+                val name = child.child("name").value?.toString() ?: ""
+                val createdTs = safeLong(child.child("created_ts").value)
+                val oChild = oSnap?.child(id)
+                val cUid = oChild?.child("uid")?.value?.toString() ?: ""
+                val cName = oChild?.child("name")?.value?.toString() ?: ""
+                val cEmail = oChild?.child("email")?.value?.toString() ?: ""
+                list.add(PasscodeItem(id, name, createdTs, cUid, cName, cEmail))
             }
+            trySend(list)
         }
-        ref.addValueEventListener(listener)
-        awaitClose { ref.removeEventListener(listener) }
+
+        val passListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                passSnap = snapshot
+                emitList()
+            }
+            override fun onCancelled(error: DatabaseError) { trySend(emptyList()) }
+        }
+
+        val ownListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                ownSnap = snapshot
+                emitList()
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+
+        passRef.addValueEventListener(passListener)
+        ownRef.addValueEventListener(ownListener)
+        awaitClose {
+            passRef.removeEventListener(passListener)
+            ownRef.removeEventListener(ownListener)
+        }
     }
 
     // 9. Observe /config/auto
@@ -802,6 +828,14 @@ class FirebaseRepository(
                         }
 
                         val lastRan = if (child.hasChild("lastRan")) safeLong(child.child("lastRan").value) else null
+                        val cSnap = child.child("creator")
+                        val creator = if (cSnap.exists()) {
+                            RuleCreator(
+                                uid = cSnap.child("uid").value?.toString() ?: "",
+                                name = cSnap.child("name").value?.toString() ?: "",
+                                email = cSnap.child("email").value?.toString() ?: ""
+                            )
+                        } else null
 
                         list.add(
                             AutoRuleItem(
@@ -817,7 +851,8 @@ class FirebaseRepository(
                                 from = from,
                                 to = to,
                                 days = daysList,
-                                lastRan = lastRan
+                                lastRan = lastRan,
+                                creator = creator
                             )
                         )
                     }
@@ -856,6 +891,9 @@ class FirebaseRepository(
             if (rule.mode == "ask") {
                 map["wait"] = rule.wait
                 map["timeout"] = rule.timeout
+            }
+            if (rule.creator != null) {
+                map["creator"] = mapOf("uid" to rule.creator.uid, "name" to rule.creator.name, "email" to rule.creator.email)
             }
             map
         }
@@ -910,7 +948,7 @@ class FirebaseRepository(
     }
 
     // Add Passcode
-    fun addPasscode(name: String, code: String, onResult: (Boolean, String?) -> Unit) {
+    fun addPasscode(name: String, code: String, currentUser: UserProfile? = null, onResult: (Boolean, String?) -> Unit) {
         val pendingRef = database.getReference("door/pending")
         val newKey = pendingRef.push().key
         if (newKey == null) {
@@ -918,11 +956,24 @@ class FirebaseRepository(
             return
         }
 
+        val nowMs = System.currentTimeMillis()
+        val curUid = currentUser?.uid ?: ""
+        val curEmail = currentUser?.email ?: ""
+        val curName = currentUser?.name?.ifEmpty { curEmail.substringBefore("@") } ?: "Chủ nhà"
+
+        val ownerMap = mapOf(
+            "uid" to curUid,
+            "name" to curName,
+            "email" to curEmail,
+            "ts" to nowMs
+        )
+
         val pendingData = mapOf(
             "op" to "add",
             "name" to name,
             "code" to code,
-            "ts" to System.currentTimeMillis() / 1000L
+            "ts" to nowMs / 1000L,
+            "owner" to ownerMap
         )
 
         val targetPendingRef = pendingRef.child(newKey)
@@ -1069,6 +1120,7 @@ class FirebaseRepository(
                             isFinished = true
                             handler.removeCallbacks(timeoutRunnable)
                             targetPendingRef.removeEventListener(pendingListener)
+                            database.getReference("door/passcodeOwners/$targetId").removeValue()
                             onResult(true, "Đã xóa")
                         }
 

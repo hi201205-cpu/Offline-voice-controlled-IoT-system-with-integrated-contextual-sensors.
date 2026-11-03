@@ -276,6 +276,8 @@ fun DoorScreen(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
+                    val canAddPass = uiState.userProfile?.role == "master" || uiState.userProfile?.permissions?.passcodeAdd == true
+                    if (canAddPass) {
                     Button(
                         onClick = { doorViewModel.openAddDialog() },
                         shape = RoundedCornerShape(12.dp),
@@ -298,6 +300,7 @@ fun DoorScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                    }
                     }
                 }
             }
@@ -393,15 +396,21 @@ fun DoorScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
-                                    val isMaster = uiState.userProfile?.role == "master"
-                                    if (isMaster && formattedDate.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = stringResource(R.string.created_at_format, formattedDate),
-                                            fontSize = 12.sp,
-                                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f)
-                                        )
-                                    }
+                                    val curProf = uiState.userProfile
+                                    val isMaster = curProf?.role == "master" || curProf?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+                                    val creatorDisplay = if (item.creatorName.isNotEmpty()) {
+                                        item.creatorName
+                                    } else if (item.creatorEmail.isNotEmpty()) {
+                                        item.creatorEmail
+                                    } else "Chủ nhà"
+                                    val dateSuffix = if (formattedDate.isNotEmpty()) " · $formattedDate" else ""
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Tạo bởi: $creatorDisplay$dateSuffix",
+                                        fontSize = 11.5.sp,
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f)
+                                    )
                                 }
                             }
 

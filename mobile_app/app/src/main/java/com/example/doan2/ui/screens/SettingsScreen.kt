@@ -659,6 +659,30 @@ fun SettingsScreen(
                                                     fontSize = 11.sp,
                                                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                                                 )
+                                                Spacer(modifier = Modifier.height(6.dp))
+
+                                                val phoneDisplay = member.phone.ifEmpty { "Chưa cập nhật" }
+                                                val dobDisplay = member.dob.ifEmpty { "Chưa cập nhật" }
+                                                val genderDisplay = when (member.gender) {
+                                                    "male" -> "Nam"
+                                                    "female" -> "Nữ"
+                                                    "other" -> "Khác"
+                                                    else -> member.gender.ifEmpty { "Chưa cập nhật" }
+                                                }
+                                                val addrDisplay = member.address.ifEmpty { "Chưa cập nhật" }
+
+                                                Surface(
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Column(modifier = Modifier.padding(10.dp)) {
+                                                        Text("Thông tin cá nhân:", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = AuroraAccentEnd)
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text("SĐT: $phoneDisplay · Ngày sinh: $dobDisplay", fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f))
+                                                        Text("Giới tính: $genderDisplay · Địa chỉ: $addrDisplay", fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f))
+                                                    }
+                                                }
                                                 Spacer(modifier = Modifier.height(8.dp))
 
                                                 // Row 1: Quyền thiết bị
@@ -712,9 +736,7 @@ fun SettingsScreen(
                                                     MemberPermCheckbox("Thêm mật khẩu Keypad", member.permissions.passcodeAdd) {
                                                         settingsViewModel.updateMemberSinglePermission(member.uid, "passcodeAdd", it)
                                                     }
-                                                    MemberPermCheckbox("Xóa mật khẩu Keypad", member.permissions.passcodeDel) {
-                                                        settingsViewModel.updateMemberSinglePermission(member.uid, "passcodeDel", it)
-                                                    }
+
                                                 }
 
                                                 Spacer(modifier = Modifier.height(12.dp))

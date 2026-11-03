@@ -250,20 +250,25 @@ fun AutomationScreen(
 
 
 
-                        Button(
+                        val canAddRule = uiState.userProfile?.role == "master" ||
+                            uiState.userProfile?.email.equals("xhai2005@gmail.com", ignoreCase = true) ||
+                            uiState.userProfile?.permissions?.auto == true
+                        if (canAddRule) {
+                            Button(
 
-                            onClick = { automationViewModel.openAddRuleDialog() },
+                                onClick = { automationViewModel.openAddRuleDialog() },
 
-                            colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
+                                colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
 
-                            shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(12.dp),
 
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
 
-                        ) {
+                            ) {
 
-                            Text("＋ Thêm quy tắc", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("＋ Thêm quy tắc", fontSize = 13.sp, fontWeight = FontWeight.Bold)
 
+                            }
                         }
 
                     }
@@ -416,7 +421,12 @@ fun AutomationScreen(
 
                                         )
 
-
+                                        val creatorDisplay = rule.creator?.name?.ifEmpty { rule.creator.email } ?: "Chủ nhà"
+                                        Text(
+                                            text = "Tạo bởi: $creatorDisplay",
+                                            fontSize = 11.5.sp,
+                                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                                        )
 
                                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -448,30 +458,37 @@ fun AutomationScreen(
 
                                             }
 
-                                            TextButton(
+                                            val prof = uiState.userProfile
+                                            val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+                                            val canEditOrDel = isMaster || (rule.creator == null) ||
+                                                (prof != null && (rule.creator.uid == prof.uid || rule.creator.email.equals(prof.email, ignoreCase = true)))
 
-                                                onClick = { automationViewModel.openEditRuleDialog(rule) },
+                                            if (canEditOrDel) {
+                                                TextButton(
 
-                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                                    onClick = { automationViewModel.openEditRuleDialog(rule) },
 
-                                            ) {
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
 
-                                                Text("Sửa", fontSize = 12.sp)
+                                                ) {
 
-                                            }
+                                                    Text("Sửa", fontSize = 12.sp)
 
-                                            TextButton(
+                                                }
 
-                                                onClick = { ruleToDelete = rule },
+                                                TextButton(
 
-                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                    onClick = { ruleToDelete = rule },
 
-                                                colors = ButtonDefaults.textButtonColors(contentColor = StateError)
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
 
-                                            ) {
+                                                    colors = ButtonDefaults.textButtonColors(contentColor = StateError)
 
-                                                Text("Xóa", fontSize = 12.sp)
+                                                ) {
 
+                                                    Text("Xóa", fontSize = 12.sp)
+
+                                                }
                                             }
 
                                         }

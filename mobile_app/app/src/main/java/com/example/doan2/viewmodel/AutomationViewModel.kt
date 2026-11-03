@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.doan2.data.model.AutoConfig
 import com.example.doan2.data.model.AutoRuleItem
+import com.example.doan2.data.model.RuleCreator
 import com.example.doan2.data.model.GardenConfig
 import com.example.doan2.data.model.UserProfile
 import com.example.doan2.data.repository.AuthRepository
@@ -108,6 +109,14 @@ class AutomationViewModel(
             _uiState.value = _uiState.value.copy(toastMessage = "Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!")
             return
         }
+        val prof = _uiState.value.userProfile
+        val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val canEdit = isMaster || (rule.creator == null) ||
+                      (prof != null && (rule.creator.uid == prof.uid || rule.creator.email.equals(prof.email, ignoreCase = true)))
+        if (!canEdit) {
+            _uiState.value = _uiState.value.copy(toastMessage = "Bạn chỉ có thể chỉnh sửa quy tắc do chính mình tạo ra!")
+            return
+        }
         _uiState.value = _uiState.value.copy(showAddEditRuleDialog = true, editingRule = rule)
     }
 
@@ -120,12 +129,25 @@ class AutomationViewModel(
             _uiState.value = _uiState.value.copy(toastMessage = "Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!")
             return
         }
+        val prof = _uiState.value.userProfile
+        val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val curCreator = if (prof != null) {
+            RuleCreator(prof.uid, prof.name.ifEmpty { prof.email.substringBefore("@") }, prof.email)
+        } else null
+
         val currentRules = _uiState.value.automationRules.toMutableList()
         val index = currentRules.indexOfFirst { it.id == rule.id }
         if (index >= 0) {
-            currentRules[index] = rule
+            val existing = currentRules[index]
+            val canEdit = isMaster || (existing.creator == null) ||
+                          (prof != null && (existing.creator.uid == prof.uid || existing.creator.email.equals(prof.email, ignoreCase = true)))
+            if (!canEdit) {
+                _uiState.value = _uiState.value.copy(toastMessage = "Bạn chỉ có thể chỉnh sửa quy tắc do mình tạo ra!")
+                return
+            }
+            currentRules[index] = rule.copy(creator = existing.creator ?: curCreator)
         } else {
-            val newRule = if (rule.id.isBlank()) rule.copy(id = "rule-${System.currentTimeMillis()}") else rule
+            val newRule = if (rule.id.isBlank()) rule.copy(id = "rule-${System.currentTimeMillis()}", creator = curCreator) else rule.copy(creator = curCreator)
             currentRules.add(newRule)
         }
         _uiState.value = _uiState.value.copy(
@@ -140,6 +162,15 @@ class AutomationViewModel(
     fun deleteRule(ruleId: String) {
         if (!checkAutoPermission()) {
             _uiState.value = _uiState.value.copy(toastMessage = "Chủ nhà (Master) chưa cấp quyền chỉnh sửa cấu hình Tự động hóa cho bạn!")
+            return
+        }
+        val prof = _uiState.value.userProfile
+        val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val targetRule = _uiState.value.automationRules.find { it.id == ruleId }
+        val canDel = isMaster || (targetRule?.creator == null) ||
+                     (prof != null && (targetRule.creator.uid == prof.uid || targetRule.creator.email.equals(prof.email, ignoreCase = true)))
+        if (!canDel) {
+            _uiState.value = _uiState.value.copy(toastMessage = "Bạn chỉ có thể xóa quy tắc do chính mình tạo ra!")
             return
         }
         val updated = _uiState.value.automationRules.filter { it.id != ruleId }

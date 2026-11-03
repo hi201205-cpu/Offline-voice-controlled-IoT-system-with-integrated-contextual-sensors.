@@ -249,6 +249,7 @@ class UserProfile {
   final String gender;
   final String address;
   final String? updatedAt;
+  final String? pairedAt;
 
   const UserProfile({
     required this.uid,
@@ -263,7 +264,6 @@ class UserProfile {
       'yard': true,
       'auto': true,
       'passcodeAdd': false,
-      'passcodeDel': false,
     },
     this.pairedHome = true,
     this.phone = '',
@@ -271,6 +271,7 @@ class UserProfile {
     this.gender = '',
     this.address = '',
     this.updatedAt,
+    this.pairedAt,
   });
 
   bool get isMaster => role == 'master' || email.toLowerCase() == 'xhai2005@gmail.com';
@@ -292,7 +293,6 @@ class UserProfile {
       'yard': true,
       'auto': true,
       'passcodeAdd': false,
-      'passcodeDel': false,
     };
 
     if (json['permissions'] is Map) {
@@ -305,35 +305,77 @@ class UserProfile {
         'yard': DeviceState.parseBool(pMap['yard'] ?? true),
         'auto': DeviceState.parseBool(pMap['auto'] ?? true),
         'passcodeAdd': DeviceState.parseBool(pMap['passcodeAdd'] ?? false),
-        'passcodeDel': DeviceState.parseBool(pMap['passcodeDel'] ?? false),
       };
     }
 
     final prof = (json['profile'] is Map) ? json['profile'] as Map : {};
 
+    // Xử lý pairedHome đồng bộ với Web: chuỗi 'HOME-2026-ESP32' hoặc boolean true
+    final rawPaired = json['pairedHome'];
+    final bool isPaired = isMasterUser ||
+        (rawPaired == 'HOME-2026-ESP32') ||
+        (rawPaired == true) ||
+        (rawPaired is String &&
+            rawPaired.trim().isNotEmpty &&
+            rawPaired.trim().toLowerCase() != 'false' &&
+            rawPaired.trim() != '0') ||
+        DeviceState.parseBool(json['is_paired'] ?? false);
+
+    // Xử lý ngày liên kết (pairedAt hoặc registeredAt)
+    final rawPairedAt = json['pairedAt'] ?? json['registeredAt'];
+    String? formattedPairedAt;
+    if (rawPairedAt != null) {
+      final ms = DeviceState.parseInt(rawPairedAt);
+      if (ms > 0) {
+        final dt = DateTime.fromMillisecondsSinceEpoch(ms > 1000000000000 ? ms : ms * 1000);
+        formattedPairedAt = '//';
+      } else {
+        formattedPairedAt = rawPairedAt.toString();
+      }
+    }
+
+    // Xử lý ngày cập nhật hồ sơ (updatedAt)
+    final rawUpdated = prof['updatedAt'] ?? json['updatedAt'];
+    String? formattedUpdatedAt;
+    if (rawUpdated != null) {
+      final ms = DeviceState.parseInt(rawUpdated);
+      if (ms > 0) {
+        final dt = DateTime.fromMillisecondsSinceEpoch(ms > 1000000000000 ? ms : ms * 1000);
+        formattedUpdatedAt = '//';
+      } else {
+        formattedUpdatedAt = rawUpdated.toString();
+      }
+    }
+
+    final name = json['displayName']?.toString() ??
+        json['name']?.toString() ??
+        (email.isNotEmpty ? email.split('@').first : 'Người dùng');
+
     return UserProfile(
       uid: uid,
       email: email,
-      displayName: json['displayName']?.toString() ?? (email.isNotEmpty ? email.split('@').first : 'Người dùng'),
+      displayName: name,
       role: isMasterUser ? 'master' : (json['role']?.toString() ?? 'member'),
       permissions: perms,
-      pairedHome: DeviceState.parseBool(json['pairedHome'] ?? true),
+      pairedHome: isPaired,
       phone: prof['phone']?.toString() ?? json['phone']?.toString() ?? '',
       dob: prof['dob']?.toString() ?? json['dob']?.toString() ?? '',
       gender: prof['gender']?.toString() ?? json['gender']?.toString() ?? '',
       address: prof['address']?.toString() ?? json['address']?.toString() ?? '',
-      updatedAt: prof['updatedAt']?.toString() ?? json['updatedAt']?.toString(),
+      updatedAt: formattedUpdatedAt,
+      pairedAt: formattedPairedAt,
     );
   }
 }
 
-/// Mã mời 1 lần cho thành viên mới
+/// Mã mời 1 lần cho thành viên mới (Đồng bộ chuẩn 'active' của Web & Security Rules)
 class InviteCode {
   final String code;
-  final String status;     // 'unused' | 'used'
+  final String status;     // 'active' | 'used'
   final String createdBy;
   final int createdAt;
   final String? usedBy;
+  final String? usedByEmail;
 
   const InviteCode({
     required this.code,
@@ -341,17 +383,63 @@ class InviteCode {
     required this.createdBy,
     required this.createdAt,
     this.usedBy,
+    this.usedByEmail,
   });
 
-  bool get isUnused => status == 'unused';
+  bool get isUnused => status == 'active' || status == 'unused';
 
   factory InviteCode.fromJson(String code, Map<dynamic, dynamic> json) {
     return InviteCode(
       code: code,
-      status: json['status']?.toString() ?? 'unused',
+      status: json['status']?.toString() ?? 'active',
       createdBy: json['createdBy']?.toString() ?? '',
       createdAt: DeviceState.parseInt(json['createdAt']),
       usedBy: json['usedBy']?.toString(),
+      usedByEmail: json['usedByEmail']?.toString(),
+    );
+  }
+}
+
+/// Mật khẩu mở cửa Keypad (Đồng bộ với Web và Firebase /door/passcodes & /door/passcodeOwners)
+class PasscodeItem {
+  final String id;
+  final String name;
+  final String code;
+  final String creatorUid;
+  final String creatorName;
+  final String creatorEmail;
+  final DateTime? createdAt;
+
+  const PasscodeItem({
+    required this.id,
+    required this.name,
+    this.code = '••••',
+    this.creatorUid = '',
+    this.creatorName = '',
+    this.creatorEmail = '',
+    this.createdAt,
+  });
+
+  bool isCreatedBy(String uid, String email) {
+    if (creatorUid.isNotEmpty && creatorUid == uid) return true;
+    if (creatorEmail.isNotEmpty && creatorEmail.toLowerCase() == email.toLowerCase()) return true;
+    return false;
+  }
+
+  factory PasscodeItem.fromJson(String id, Map<dynamic, dynamic> json, Map<dynamic, dynamic>? owner) {
+    DateTime? created;
+    if (owner != null && owner['ts'] != null) {
+      final ms = DeviceState.parseInt(owner['ts']);
+      if (ms > 0) created = DateTime.fromMillisecondsSinceEpoch(ms > 1000000000000 ? ms : ms * 1000);
+    }
+    return PasscodeItem(
+      id: id,
+      name: json['name']?.toString() ?? 'Mật khẩu ',
+      code: json['code']?.toString() ?? '••••',
+      creatorUid: owner?['uid']?.toString() ?? '',
+      creatorName: owner?['name']?.toString() ?? '',
+      creatorEmail: owner?['email']?.toString() ?? '',
+      createdAt: created,
     );
   }
 }

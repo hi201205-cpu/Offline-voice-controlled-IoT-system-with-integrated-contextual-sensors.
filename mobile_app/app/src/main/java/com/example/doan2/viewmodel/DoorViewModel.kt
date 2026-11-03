@@ -142,7 +142,7 @@ class DoorViewModel(
 
         val userEmail = uiState.value.userProfile?.email ?: authRepository.currentUserEmail ?: "App"
 
-        repository.addPasscode(name, code) { success, msg ->
+        repository.addPasscode(name, code, uiState.value.userProfile) { success, msg ->
             viewModelScope.launch {
                 if (success) {
                     repository.logWebAction("passcodes", "Thêm", userEmail, "Thêm mật khẩu: $name")
@@ -158,8 +158,14 @@ class DoorViewModel(
     }
 
     fun confirmDeletePasscode(item: PasscodeItem) {
-        if (!checkPermission("passcodeDel")) {
-            _uiState.value = _uiState.value.copy(toastMessage = "Chủ nhà (Master) chưa cấp quyền xóa mật khẩu Keypad cho bạn!")
+        val profile = uiState.value.userProfile
+        val isMaster = profile?.role == "master" || profile?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val isOwner = profile != null && (
+            (profile.uid.isNotEmpty() && item.creatorUid == profile.uid) ||
+            (profile.email.isNotEmpty() && item.creatorEmail.equals(profile.email, ignoreCase = true))
+        )
+        if (!isMaster && !isOwner) {
+            _uiState.value = _uiState.value.copy(toastMessage = "Bạn chỉ có thể xóa mật khẩu do chính mình tạo ra!")
             return
         }
         if (_uiState.value.passcodes.size <= 1) {
@@ -171,8 +177,14 @@ class DoorViewModel(
 
     fun executeDeletePasscode() {
         val item = _uiState.value.passcodeToDelete ?: return
-        if (!checkPermission("passcodeDel")) {
-            _uiState.value = _uiState.value.copy(toastMessage = "Chủ nhà (Master) chưa cấp quyền xóa mật khẩu Keypad cho bạn!")
+        val profile = uiState.value.userProfile
+        val isMaster = profile?.role == "master" || profile?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val isOwner = profile != null && (
+            (profile.uid.isNotEmpty() && item.creatorUid == profile.uid) ||
+            (profile.email.isNotEmpty() && item.creatorEmail.equals(profile.email, ignoreCase = true))
+        )
+        if (!isMaster && !isOwner) {
+            _uiState.value = _uiState.value.copy(toastMessage = "Bạn chỉ có thể xóa mật khẩu do chính mình tạo ra!")
             return
         }
 
