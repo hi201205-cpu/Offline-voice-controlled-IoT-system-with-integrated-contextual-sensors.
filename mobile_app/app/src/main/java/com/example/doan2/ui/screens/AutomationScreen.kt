@@ -335,11 +335,21 @@ fun AutomationScreen(
 
                                             )
 
+                                            val profRule = uiState.userProfile
+                                            val isMasterRule = profRule?.role == "master" || profRule?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+                                            val isOwnerRule = profRule != null && rule.creator != null && (
+                                                (profRule.uid.isNotEmpty() && rule.creator.uid == profRule.uid) ||
+                                                (profRule.email.isNotEmpty() && rule.creator.email.equals(profRule.email, ignoreCase = true))
+                                            )
+                                            val canToggleRule = isMasterRule || isOwnerRule
+
                                             PillSwitch(
 
                                                 checked = rule.enabled,
 
-                                                onCheckedChange = { automationViewModel.toggleRuleEnabled(rule.id, it) }
+                                                onCheckedChange = { automationViewModel.toggleRuleEnabled(rule.id, it) },
+
+                                                enabled = canToggleRule
 
                                             )
 
@@ -432,6 +442,10 @@ fun AutomationScreen(
 
 
 
+                                        val profForAction = uiState.userProfile
+                                        val isMasterForAction = profForAction?.role == "master" || profForAction?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+                                        val canTest = isMasterForAction || profForAction?.permissions?.auto == true
+
                                         Row(
 
                                             modifier = Modifier.fillMaxWidth(),
@@ -442,26 +456,31 @@ fun AutomationScreen(
 
                                         ) {
 
-                                            TextButton(
+                                            if (canTest) {
+                                                TextButton(
 
-                                                onClick = { automationViewModel.testRule(rule) },
+                                                    onClick = { automationViewModel.testRule(rule) },
 
-                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
 
-                                            ) {
+                                                ) {
 
-                                                Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
 
-                                                Spacer(modifier = Modifier.width(4.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
 
-                                                Text("Chạy thử", fontSize = 12.sp)
+                                                    Text("Chạy thử", fontSize = 12.sp)
 
+                                                }
                                             }
 
                                             val prof = uiState.userProfile
                                             val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
-                                            val canEditOrDel = isMaster || (rule.creator == null) ||
-                                                (prof != null && (rule.creator.uid == prof.uid || rule.creator.email.equals(prof.email, ignoreCase = true)))
+                                            val isOwner = prof != null && rule.creator != null && (
+                                                (prof.uid.isNotEmpty() && rule.creator.uid == prof.uid) ||
+                                                (prof.email.isNotEmpty() && rule.creator.email.equals(prof.email, ignoreCase = true))
+                                            )
+                                            val canEditOrDel = isMaster || isOwner
 
                                             if (canEditOrDel) {
                                                 TextButton(

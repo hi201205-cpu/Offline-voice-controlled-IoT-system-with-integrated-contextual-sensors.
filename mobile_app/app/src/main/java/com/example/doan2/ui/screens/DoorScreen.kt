@@ -335,7 +335,20 @@ fun DoorScreen(
             }
 
             // Passcode List Items
-            if (uiState.passcodes.isEmpty()) {
+            val curProf = uiState.userProfile
+            val isMaster = curProf?.role == "master" || curProf?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+            val curUid = curProf?.uid ?: ""
+            val curEmail = curProf?.email ?: ""
+            val visiblePasscodes = if (isMaster) {
+                uiState.passcodes
+            } else {
+                uiState.passcodes.filter { item ->
+                    (curUid.isNotEmpty() && item.creatorUid == curUid) ||
+                    (curEmail.isNotEmpty() && item.creatorEmail.equals(curEmail, ignoreCase = true))
+                }
+            }
+
+            if (visiblePasscodes.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -344,14 +357,14 @@ fun DoorScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Chưa có mật khẩu nào",
+                            text = if (isMaster) "Chưa có mật khẩu nào" else "Bạn chưa tạo mật khẩu Keypad nào",
                             fontSize = 14.sp,
                             color = TextSecondaryDark
                         )
                     }
                 }
             } else {
-                items(uiState.passcodes, key = { it.id }) { item ->
+                items(visiblePasscodes, key = { it.id }) { item ->
                     val createdMs = if (item.createdTs < 10_000_000_000L) item.createdTs * 1000L else item.createdTs
                     val formattedDate = if (item.createdTs > 0) {
                         SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(createdMs))
@@ -416,22 +429,29 @@ fun DoorScreen(
 
                             Spacer(modifier = Modifier.width(8.dp))
 
-                            // Glass Pill Button "Xóa"
-                            Button(
-                                onClick = { doorViewModel.confirmDeletePasscode(item) },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = StateError.copy(alpha = 0.15f),
-                                    contentColor = StateError
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                                modifier = Modifier.height(32.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.btn_delete),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                            val isOwner = curProf != null && (
+                                (curUid.isNotEmpty() && item.creatorUid == curUid) ||
+                                (curEmail.isNotEmpty() && item.creatorEmail.equals(curEmail, ignoreCase = true))
+                            )
+                            val canDeletePass = isMaster || isOwner
+                            if (canDeletePass) {
+                                // Glass Pill Button "Xóa"
+                                Button(
+                                    onClick = { doorViewModel.confirmDeletePasscode(item) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = StateError.copy(alpha = 0.15f),
+                                        contentColor = StateError
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.btn_delete),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }

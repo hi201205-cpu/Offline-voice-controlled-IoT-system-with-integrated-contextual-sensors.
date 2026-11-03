@@ -307,147 +307,185 @@ fun SettingsScreen(
 
         // Section 3: Mật khẩu mở cửa Keypad (Collapsible Accordion)
         if (doorViewModel != null) {
-            item {
-                val passcodes = doorUiState?.passcodes ?: emptyList()
-                GlassCard(
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp)
+            val allPasscodes = doorUiState?.passcodes ?: emptyList()
+            val curUid = uiState.userProfile?.uid ?: ""
+            val curEmail = uiState.userProfile?.email ?: uiState.userEmail ?: ""
+            val canAddPass = isMaster || uiState.userProfile?.permissions?.passcodeAdd == true
+
+            // Lọc danh sách passcodes: Master thấy tất cả, Member CHỈ thấy passcodes do chính mình tạo ra
+            val visiblePasscodes = if (isMaster) {
+                allPasscodes
+            } else {
+                allPasscodes.filter { item ->
+                    (curUid.isNotEmpty() && item.creatorUid == curUid) ||
+                    (curEmail.isNotEmpty() && item.creatorEmail.equals(curEmail, ignoreCase = true))
+                }
+            }
+
+            // Với Member: nếu KHÔNG có quyền passcodeAdd VÀ KHÔNG có passcode nào do mình tạo -> ẨN hoàn toàn Section này!
+            val showKeypadSection = isMaster || canAddPass || visiblePasscodes.isNotEmpty()
+
+            if (showKeypadSection) {
+                item {
+                    GlassCard(
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { isKeypadExpanded = !isKeypadExpanded },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(18.dp)
                         ) {
                             Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = AuroraAccentStart.copy(alpha = 0.2f),
-                                    modifier = Modifier.size(40.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.Pin,
-                                            contentDescription = null,
-                                            tint = AuroraAccentStart,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = "Mật khẩu Keypad",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                    Text(
-                                        text = "${passcodes.size} mã PIN mô hình ESP32",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                                    )
-                                }
-                            }
-
-                            IconButton(
-                                onClick = { isKeypadExpanded = !isKeypadExpanded },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (isKeypadExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                    contentDescription = if (isKeypadExpanded) "Thu gọn" else "Mở rộng",
-                                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                                )
-                            }
-                        }
-
-                        if (isKeypadExpanded) {
-                            Spacer(modifier = Modifier.height(14.dp))
-                            HorizontalDivider(color = dividerColor)
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { isKeypadExpanded = !isKeypadExpanded },
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "Danh sách mã PIN cửa mô hình:",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                                )
-                                Button(
-                                    onClick = { doorViewModel.openAddDialog() },
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                    modifier = Modifier.height(34.dp)
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Thêm mã mới", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = AuroraAccentStart.copy(alpha = 0.2f),
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.Pin,
+                                                contentDescription = null,
+                                                tint = AuroraAccentStart,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "Mật khẩu Keypad",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                        val subtitleText = if (isMaster) {
+                                            "${allPasscodes.size} mã PIN mô hình ESP32"
+                                        } else {
+                                            "${visiblePasscodes.size} mã PIN của bạn"
+                                        }
+                                        Text(
+                                            text = subtitleText,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = { isKeypadExpanded = !isKeypadExpanded },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isKeypadExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = if (isKeypadExpanded) "Thu gọn" else "Mở rộng",
+                                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                    )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                            if (isKeypadExpanded) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                HorizontalDivider(color = dividerColor)
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                            if (passcodes.isEmpty()) {
-                                Text(
-                                    text = "Chưa có mật khẩu nào.",
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            } else {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    passcodes.forEach { item ->
-                                        Surface(
-                                            shape = RoundedCornerShape(14.dp),
-                                            color = subCardBg,
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, subCardBorder),
-                                            modifier = Modifier.fillMaxWidth()
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (isMaster) "Danh sách mã PIN cửa mô hình:" else "Mã PIN mở cửa do bạn tạo:",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                    )
+                                    if (canAddPass) {
+                                        Button(
+                                            onClick = { doorViewModel.openAddDialog() },
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
+                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                            modifier = Modifier.height(34.dp)
                                         ) {
-                                            Row(
-                                                modifier = Modifier.padding(12.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = item.name,
-                                                        fontSize = 14.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onBackground
-                                                    )
-                                                    val dateStr = if (item.createdTs > 0) {
-                                                        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(item.createdTs))
-                                                    } else "Gần đây"
-                                                    Text(
-                                                        text = "Tạo lúc: $dateStr",
-                                                        fontSize = 11.sp,
-                                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
-                                                    )
-                                                }
+                                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Thêm mã mới", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
 
-                                                OutlinedButton(
-                                                    onClick = { doorViewModel.confirmDeletePasscode(item) },
-                                                    border = androidx.compose.foundation.BorderStroke(1.dp, StateError),
-                                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StateError),
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                                    modifier = Modifier.height(30.dp)
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                if (visiblePasscodes.isEmpty()) {
+                                    Text(
+                                        text = if (isMaster) "Chưa có mật khẩu nào." else "Bạn chưa tạo mật khẩu Keypad nào.",
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                                        modifier = Modifier.padding(vertical = 8.dp)
+                                    )
+                                } else {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        visiblePasscodes.forEach { item ->
+                                            val isOwner = curUid.isNotEmpty() && item.creatorUid == curUid ||
+                                                    (curEmail.isNotEmpty() && item.creatorEmail.equals(curEmail, ignoreCase = true))
+                                            val canDelete = isMaster || isOwner
+                                            val creatorDisplay = if (item.creatorName.isNotEmpty()) {
+                                                item.creatorName
+                                            } else if (item.creatorEmail.isNotEmpty()) {
+                                                item.creatorEmail
+                                            } else "Chủ nhà"
+
+                                            Surface(
+                                                shape = RoundedCornerShape(14.dp),
+                                                color = subCardBg,
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, subCardBorder),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(12.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Text("Xóa", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            text = item.name,
+                                                            fontSize = 14.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onBackground
+                                                        )
+                                                        val dateStr = if (item.createdTs > 0) {
+                                                            val ms = if (item.createdTs < 10_000_000_000L) item.createdTs * 1000L else item.createdTs
+                                                            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(ms))
+                                                        } else "Gần đây"
+                                                        Text(
+                                                            text = "Tạo lúc: $dateStr · Tạo bởi: $creatorDisplay",
+                                                            fontSize = 11.sp,
+                                                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
+                                                        )
+                                                    }
+
+                                                    if (canDelete) {
+                                                        OutlinedButton(
+                                                            onClick = { doorViewModel.confirmDeletePasscode(item) },
+                                                            border = androidx.compose.foundation.BorderStroke(1.dp, StateError),
+                                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = StateError),
+                                                            shape = RoundedCornerShape(10.dp),
+                                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                                            modifier = Modifier.height(30.dp)
+                                                        ) {
+                                                            Text("Xóa", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
