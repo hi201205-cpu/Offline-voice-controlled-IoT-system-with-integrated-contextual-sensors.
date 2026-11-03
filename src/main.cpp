@@ -132,6 +132,13 @@ static void on_window_ready(const int16_t *window, uint32_t window_index) {
         uint32_t detectedAtMs = millis();
         time_t detectedAt = time(nullptr);
         uint32_t relayLatencyMs = 0;
+
+        // Bỏ qua từ đánh thức "vừng ơi" nếu người dùng nói (vì nhận lệnh trực tiếp)
+        if (label == LABEL_VUNG_OI) {
+            LOG("ℹ️ Nhận từ 'vừng ơi' (bỏ qua vì đang ở chế độ nhận lệnh trực tiếp)\n");
+            return;
+        }
+
         bool executed = execute_command(label, conf, detectedAtMs, &relayLatencyMs);
         LOG("[LATENCY] KWS-to-relay=%lu ms\n",
             static_cast<unsigned long>(relayLatencyMs));

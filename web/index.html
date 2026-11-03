@@ -3437,10 +3437,12 @@ function drawKeywords(rows) {
   const allKeywords = [
     { key: "bat_den", label: "Bật đèn" },
     { key: "tat_den", label: "Tắt đèn" },
-    { key: "bat_quat", label: "Bật quạt" },
-    { key: "tat_quat", label: "Tắt quạt" },
-    { key: "bat_het", label: "Bật hết" },
-    { key: "tat_het", label: "Tắt hết" }
+    { key: "nong_qua", label: "Nóng quá" },
+    { key: "lanh_qua", label: "Lạnh quá" },
+    { key: "mo_ra", label: "Mở rèm" },
+    { key: "dong_vao", label: "Đóng rèm" },
+    { key: "xin_chao", label: "Xin chào" },
+    { key: "tam_biet", label: "Tạm biệt" }
   ];
 
   const count = {};
@@ -3716,10 +3718,16 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
   const voiceLabelMap = {
     "bat_den": "Bật đèn phòng",
     "tat_den": "Tắt đèn phòng",
+    "nong_qua": "Nóng quá (Bật quạt)",
+    "lanh_qua": "Lạnh quá (Tắt quạt)",
+    "mo_ra": "Mở rèm cửa",
+    "dong_vao": "Đóng rèm cửa",
+    "xin_chao": "Xin chào (Bật đèn & quạt)",
+    "tam_biet": "Tạm biệt (Tắt đèn & quạt)",
     "bat_quat": "Bật quạt",
     "tat_quat": "Tắt quạt",
-    "bat_het": "Bật tất cả thiết bị",
-    "tat_het": "Tắt tất cả thiết bị"
+    "bat_het": "Bật tất cả",
+    "tat_het": "Tắt tất cả"
   };
 
   const parseActivityTimestamp = (entry) => {

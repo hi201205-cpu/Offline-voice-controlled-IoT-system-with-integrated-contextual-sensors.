@@ -268,35 +268,50 @@ bool execute_command_from(int label, float confidence, RelayCommandSource source
 
         case LABEL_BAT_DEN:
             setRelay(1, true);
-            LOG("[CMD] BAT DEN  → RELAY_1 BẬT  (conf=%.1f%%)\n", confidence * 100);
+            LOG("[CMD] BAT DEN → BẬT ĐÈN (Relay 1 ON) (conf=%.1f%%)\n", confidence * 100);
             break;
 
         case LABEL_TAT_DEN:
             setRelay(1, false);
-            LOG("[CMD] TAT DEN  → RELAY_1 TẮT  (conf=%.1f%%)\n", confidence * 100);
+            LOG("[CMD] TAT DEN → TẮT ĐÈN (Relay 1 OFF) (conf=%.1f%%)\n", confidence * 100);
             break;
 
-        case LABEL_BAT_QUAT:
+        case LABEL_NONG_QUA:
             setRelay(2, true);
-            LOG("[CMD] BAT QUAT → RELAY_2 BẬT  (conf=%.1f%%)\n", confidence * 100);
+            LOG("[CMD] NONG QUA → BẬT QUẠT (Relay 2 ON) (conf=%.1f%%)\n", confidence * 100);
             break;
 
-        case LABEL_TAT_QUAT:
+        case LABEL_LANH_QUA:
             setRelay(2, false);
-            LOG("[CMD] TAT QUAT → RELAY_2 TẮT  (conf=%.1f%%)\n", confidence * 100);
+            LOG("[CMD] LANH QUA → TẮT QUẠT (Relay 2 OFF) (conf=%.1f%%)\n", confidence * 100);
             break;
 
-        case LABEL_BAT_HET:
+        case LABEL_MO_RA:
+            curtain_servo_set(true);
+            LOG("[CMD] MO RA → MỞ RÈM CỬA (conf=%.1f%%)\n", confidence * 100);
+            break;
+
+        case LABEL_DONG_VAO:
+            curtain_servo_set(false);
+            LOG("[CMD] DONG VAO → ĐÓNG RÈM CỬA (conf=%.1f%%)\n", confidence * 100);
+            break;
+
+        case LABEL_XIN_CHAO:
             setRelay(1, true);
             setRelay(2, true);
-            LOG("[CMD] BAT HET  → RELAY_1+2 BẬT (conf=%.1f%%)\n", confidence * 100);
+            LOG("[CMD] XIN CHAO → BẬT ĐÈN & QUẠT (Relay 1&2 ON) (conf=%.1f%%)\n", confidence * 100);
             break;
 
-        case LABEL_TAT_HET:
+        case LABEL_TAM_BIET:
             setRelay(1, false);
             setRelay(2, false);
-            LOG("[CMD] TAT HET  → RELAY_1+2 TẮT (conf=%.1f%%)\n", confidence * 100);
+            LOG("[CMD] TAM BIET → TẮT ĐÈN & QUẠT (Relay 1&2 OFF) (conf=%.1f%%)\n", confidence * 100);
             break;
+
+        case LABEL_VUNG_OI:
+            LOG("[CMD] VUNG OI → Bỏ qua (chế độ nhận lệnh trực tiếp)\n");
+            led_sleep();
+            return false;
 
         default:
             led_sleep();

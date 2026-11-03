@@ -125,8 +125,8 @@ bool inference_run(const int16_t *audioWindow, int *outLabel, float *outConf) {
 #endif
 
     // Nếu nhãn thắng là NOISE hoặc UNKNOWN -> bỏ qua ngay lập tức
-    if (bestIndex == LABEL_NOISE || bestIndex == LABEL_UNKNOWN) {
-        LOG("[INFERENCE] Noise hoặc Unknown (conf=%.1f%%) → bỏ qua\n", bestConf * 100.0f);
+    if (bestIndex == LABEL_UNKNOWN) {
+        LOG("[INFERENCE] Unknown (nhiễu/từ khác) (conf=%.1f%%) → bỏ qua\n", bestConf * 100.0f);
         *outLabel = -1;
         *outConf  = 0.0f;
         return false;

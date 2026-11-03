@@ -132,15 +132,17 @@
 // ║  Thứ tự phải khớp với label trong project Edge Impulse  ║
 // ╚══════════════════════════════════════════════════════════╝
 
-#define LABEL_BAT_DEN      0
-#define LABEL_BAT_HET      1
-#define LABEL_BAT_QUAT     2
-#define LABEL_NOISE        3
-#define LABEL_TAT_DEN      4
-#define LABEL_TAT_HET      5
-#define LABEL_TAT_QUAT     6
-#define LABEL_UNKNOWN      7
-#define LABEL_COUNT        8
+#define LABEL_BAT_DEN      0  // bat_den   - Bật đèn phòng (Relay 1 ON)
+#define LABEL_DONG_VAO     1  // dong_vao  - Đóng rèm cửa
+#define LABEL_LANH_QUA     2  // lanh_qua  - Lạnh quá: Tắt quạt (Relay 2 OFF)
+#define LABEL_MO_RA        3  // mo_ra     - Mở rèm cửa
+#define LABEL_NONG_QUA     4  // nong_qua  - Nóng quá: Bật quạt (Relay 2 ON)
+#define LABEL_TAM_BIET     5  // tam_biet  - Tạm biệt: Tắt quạt và đèn (Relay 1&2 OFF)
+#define LABEL_TAT_DEN      6  // tat_den   - Tắt đèn phòng (Relay 1 OFF)
+#define LABEL_UNKNOWN      7  // unknown   - Nhiễu và các từ khác ngoài danh sách (bỏ qua)
+#define LABEL_VUNG_OI      8  // vung_oi   - Từ đánh thức (tạm thời bỏ qua)
+#define LABEL_XIN_CHAO     9  // xin_chao  - Xin chào: Bật quạt và đèn (Relay 1&2 ON)
+#define LABEL_COUNT        10
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║  7. NGƯỠNG INFERENCE & COOLDOWN                         ║

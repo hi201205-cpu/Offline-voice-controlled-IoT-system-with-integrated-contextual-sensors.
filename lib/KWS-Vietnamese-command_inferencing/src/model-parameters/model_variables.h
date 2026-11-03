@@ -47,7 +47,7 @@
 #include "edge-impulse-sdk/classifier/inferencing_engines/engines.h"
 #include "edge-impulse-sdk/classifier/postprocessing/ei_postprocessing_common.h"
 
-const char* ei_classifier_inferencing_categories_1152015_1[] = { "bat_den", "bat_het", "bat_quat", "noise", "tat_den", "tat_het", "tat_quat", "unknown" };
+const char* ei_classifier_inferencing_categories_1152015_1[] = { "bat_den", "dong_vao", "lanh_qua", "mo_ra", "nong_qua", "tam_biet", "tat_den", "unknown", "vung_oi", "xin_chao" };
 
 ei_dsp_named_axis_t ei_dsp_config_1152015_2_named_axes[] = {
     { .name = "Signal", .axis = 0 }
@@ -125,7 +125,8 @@ const ei_learning_block_t ei_learning_blocks_1152015_1[ei_learning_blocks_115201
 
 ei_fill_result_classification_i8_config_t ei_fill_result_classification_i8_config_1152015_3 = {
     .zero_point = -128,
-    .scale = 0.00390625
+    .scale = 0.00390625,
+    .add_softmax = false
 };
 
 const size_t ei_postprocessing_blocks_1152015_1_size = 1;
@@ -152,7 +153,7 @@ const ei_impulse_t impulse_1152015_1 = {
     .project_name = "KWS-Vietnamese-Research",
     .impulse_id = 1,
     .impulse_name = "Impulse #1",
-    .deploy_version = 1,
+    .deploy_version = 3,
 
     .nn_input_frame_size = 650,
     .raw_sample_count = 16000,
@@ -183,7 +184,7 @@ const ei_impulse_t impulse_1152015_1 = {
     .slices_per_model_window = 4,
 
     .has_anomaly = EI_ANOMALY_TYPE_UNKNOWN,
-    .label_count = 8,
+    .label_count = 10,
     .categories = ei_classifier_inferencing_categories_1152015_1,
     .results_type = EI_CLASSIFIER_TYPE_CLASSIFICATION,
     .freeform_outputs_size = freeform_outputs_1152015_1_size,
