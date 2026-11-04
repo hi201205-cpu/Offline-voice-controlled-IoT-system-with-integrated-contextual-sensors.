@@ -18,6 +18,7 @@
 #include "bandpass_filter.h"
 #include "noise_reduction.h"
 #include "config.h"
+#include "firebase_manager.h"
 // ============================================================
 //  BIẾN NỘI BỘ
 // ============================================================
@@ -127,7 +128,10 @@ uint32_t audio_capture_frame() {
         pdMS_TO_TICKS(50)          // timeout 50ms
     );
 
-    if (err != ESP_OK || bytesRead == 0) return 0;
+    if (err != ESP_OK || bytesRead == 0) {
+        vTaskDelay(pdMS_TO_TICKS(5));
+        return 0;
+    }
 
     uint32_t samplesRead = bytesRead / sizeof(int32_t);
 
@@ -306,4 +310,37 @@ void audio_sliding_window_loop() {
             s_state = AUDIO_STATE_IDLE;
             break;
     }
+}
+// ============================================================
+//  AUDIO TASK (Core 0, Priority 2)
+// ============================================================
+
+static TaskHandle_t s_audioTaskHandle = nullptr;
+
+static void audio_task_fn(void *pvParameters) {
+    LOG("[AUDIO_TASK] Started on Core %d, Priority %d\n",
+        xPortGetCoreID(), uxTaskPriorityGet(NULL));
+    while (true) {
+        if (!firebase_voice_enabled()) {
+            s_state = AUDIO_STATE_IDLE;
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
+
+        audio_sliding_window_loop();
+    }
+}
+
+bool audio_start_task() {
+    if (s_audioTaskHandle != nullptr) return true;
+    BaseType_t res = xTaskCreatePinnedToCore(
+        audio_task_fn,
+        "audio_task",
+        8192,
+        nullptr,
+        2,          // Priority 2: uu tien cao hon inference
+        &s_audioTaskHandle,
+        0           // Core 0: doc lap voi loop() tren Core 1
+    );
+    return (res == pdPASS);
 }

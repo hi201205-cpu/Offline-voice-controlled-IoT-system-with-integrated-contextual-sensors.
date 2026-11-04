@@ -111,10 +111,59 @@ void print_memory_info() {
     LOG("=======================\n\n");
 }
 
+// ============================================================
+//  INFERENCE WORKER TASK (Core 0, Priority 1)
+//  Chạy hoàn toàn độc lập với loop() trên Core 1
+// ============================================================
+
+static int16_t s_inferenceWindowBuf[WINDOW_SAMPLES];
+static volatile bool s_inferenceBusy = false;
+static TaskHandle_t s_inferenceTaskHandle = nullptr;
+
+static void inference_task_fn(void *pvParameters) {
+    LOG("[INFERENCE_TASK] Started on Core %d, Priority %d\n",
+        xPortGetCoreID(), uxTaskPriorityGet(NULL));
+
+    while (true) {
+        // Chờ tín hiệu từ audio_task
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        s_inferenceBusy = true;
+
+        int   label = -1;
+        float conf  = 0.0f;
+        uint32_t startMs = millis();
+        bool  valid = inference_run(s_inferenceWindowBuf, &label, &conf);
+        uint32_t elapsedMs = millis() - startMs;
+        LOG("[INFERENCE_TASK] Completed in %lu ms (valid=%d, label=%d, conf=%.2f)\n",
+            static_cast<unsigned long>(elapsedMs), valid, label, conf);
+
+        if (valid) {
+            uint32_t detectedAtMs = millis();
+            time_t detectedAt = time(nullptr);
+            uint32_t relayLatencyMs = 0;
+
+            if (label == LABEL_VUNG_OI) {
+                LOG("ℹ️ Nhận từ 'vừng ơi' (bỏ qua vì đang ở chế độ nhận lệnh trực tiếp)\n");
+            } else {
+                bool executed = execute_command(label, conf, detectedAtMs, &relayLatencyMs);
+                LOG("[LATENCY] KWS-to-relay=%lu ms\n",
+                    static_cast<unsigned long>(relayLatencyMs));
+                firebase_queue_voice_log(label, conf, executed, detectedAt);
+                s_lastCmdMs = millis();
+                firebase_update(label, get_relay_state(1), get_relay_state(2), CMD_SOURCE_VOICE);
+            }
+        } else {
+            LOG("### Không nhận ra (best conf=%.1f%%)\n", conf * 100.0f);
+        }
+
+        s_inferenceBusy = false;
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}
+
 static void on_window_ready(const int16_t *window, uint32_t window_index) {
     uint32_t now = millis();
-
-    LOG("🔵 Window #%lu → inference\n", (unsigned long)window_index);
 
     // ── [1] Cooldown ──────────────────────────────────────
     if ((now - s_lastCmdMs) < COMMAND_COOLDOWN_MS) {
@@ -122,31 +171,20 @@ static void on_window_ready(const int16_t *window, uint32_t window_index) {
         return;
     }
 
-    // ── [2] Inference ─────────────────────────────────────
-    int   label = -1;
-    float conf  = 0.0f;
-    bool  valid = inference_run(window, &label, &conf);
+    // ── [2] Kiểm tra nếu inference_task đang bận tính toán ─
+    if (s_inferenceBusy) {
+        LOG("⏳ Inference bận, bỏ qua window #%lu\n", (unsigned long)window_index);
+        return;
+    }
 
-    // ── [3] Kết quả ───────────────────────────────────────
-    if (valid) {
-        uint32_t detectedAtMs = millis();
-        time_t detectedAt = time(nullptr);
-        uint32_t relayLatencyMs = 0;
-
-        // Bỏ qua từ đánh thức "vừng ơi" nếu người dùng nói (vì nhận lệnh trực tiếp)
-        if (label == LABEL_VUNG_OI) {
-            LOG("ℹ️ Nhận từ 'vừng ơi' (bỏ qua vì đang ở chế độ nhận lệnh trực tiếp)\n");
-            return;
-        }
-
-        bool executed = execute_command(label, conf, detectedAtMs, &relayLatencyMs);
-        LOG("[LATENCY] KWS-to-relay=%lu ms\n",
-            static_cast<unsigned long>(relayLatencyMs));
-        firebase_queue_voice_log(label, conf, executed, detectedAt);
-        s_lastCmdMs = millis();
-        firebase_update(label, get_relay_state(1), get_relay_state(2), CMD_SOURCE_VOICE);
+    // ── [3] Copy window sang buffer riêng và đánh thức inference_task
+    s_inferenceBusy = true;
+    memcpy(s_inferenceWindowBuf, window, sizeof(s_inferenceWindowBuf));
+    if (s_inferenceTaskHandle != nullptr) {
+        LOG("🔵 Window #%lu → gửi inference_task\n", (unsigned long)window_index);
+        xTaskNotifyGive(s_inferenceTaskHandle);
     } else {
-        LOG("### Không nhận ra (best conf=%.1f%%)\n", conf * 100.0f);
+        s_inferenceBusy = false;
     }
 }
 
@@ -203,8 +241,27 @@ void setup() {
     automationInit();
     firebase_manager_start();
 
-    // Đăng ký callback — phải gọi trước audio_sliding_window_loop()
+    // Tạo inference_task trên Core 0 (Priority 1)
+    BaseType_t infOk = xTaskCreatePinnedToCore(
+        inference_task_fn,
+        "inference_task",
+        24576,
+        nullptr,
+        1,          // Priority 1
+        &s_inferenceTaskHandle,
+        0           // Core 0
+    );
+    if (infOk != pdPASS) {
+        LOG("[ERROR] Khong tao duoc inference_task!\n");
+    }
+
+    // Đăng ký callback — gọi trước khi khởi chạy audio_task
     audio_set_window_callback(on_window_ready);
+
+    // Khởi chạy audio capture task độc lập trên Core 0 (Priority 2)
+    if (!audio_start_task()) {
+        LOG("[ERROR] Khong tao duoc audio_task!\n");
+    }
 
     LOG("\n***  Sẵn sàng — đang chờ giọng nói...\n\n");
 }
@@ -238,20 +295,15 @@ void loop() {
     bool voiceActive = firebase_voice_enabled();
 
     if (voiceActive) {
-        AudioState prevState = audio_get_state();
-
-        // ── Chạy 1 frame pipeline (20ms) ──────────────────────
-        audio_sliding_window_loop();
-
-        // ── Cập nhật LED theo trạng thái ──────────────────────
         AudioState curState = audio_get_state();
-
-        if (curState != prevState) {
+        static AudioState s_prevAudioState = AUDIO_STATE_IDLE;
+        if (curState != s_prevAudioState) {
             if (curState == AUDIO_STATE_LISTENING) {
                 LOG("🟢 VAD ON\n");
             } else {
                 LOG("⚪ VAD OFF\n");
             }
+            s_prevAudioState = curState;
         }
         led_relay_update(curState == AUDIO_STATE_LISTENING);
     } else {

@@ -52,3 +52,6 @@ typedef enum {
 } AudioState;
 
 AudioState audio_get_state();
+
+// Khởi chạy audio capture task độc lập trên Core 0
+bool audio_start_task();
