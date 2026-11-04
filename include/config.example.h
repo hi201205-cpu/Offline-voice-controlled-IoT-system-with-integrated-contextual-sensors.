@@ -98,8 +98,8 @@
 #define I2S_PORT        I2S_NUM_0
 #define SAMPLE_RATE     16000
 #define I2S_SHIFT_BITS  11            // 32-bit raw → 16-bit: >> 11
-#define DMA_BUF_COUNT   16
-#define DMA_BUF_LEN     512
+#define DMA_BUF_COUNT   8
+#define DMA_BUF_LEN     256
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║  3. RING BUFFER                                         ║

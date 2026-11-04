@@ -11,6 +11,7 @@
 #include <Arduino.h>
 #include <esp_attr.h>
 #include <esp_system.h>
+#include <nvs_flash.h>
 #include "config.h"
 #include "audio_capture.h"
 #include "led_relay.h"
@@ -45,7 +46,7 @@ static const char* reset_reason_name(esp_reset_reason_t reason) {
 
 // Override Arduino weak symbol to guarantee 64KB stack for loopTask
 size_t getArduinoLoopTaskStackSize(void) {
-    return 65536;
+    return 20480;
 }
 
 
@@ -116,7 +117,7 @@ void print_memory_info() {
 //  Chạy hoàn toàn độc lập với loop() trên Core 1
 // ============================================================
 
-static int16_t s_inferenceWindowBuf[WINDOW_SAMPLES];
+static int16_t *s_inferenceWindowBuf = nullptr;
 static volatile bool s_inferenceBusy = false;
 static TaskHandle_t s_inferenceTaskHandle = nullptr;
 
@@ -179,7 +180,7 @@ static void on_window_ready(const int16_t *window, uint32_t window_index) {
 
     // ── [3] Copy window sang buffer riêng và đánh thức inference_task
     s_inferenceBusy = true;
-    memcpy(s_inferenceWindowBuf, window, sizeof(s_inferenceWindowBuf));
+    if (s_inferenceWindowBuf != nullptr) memcpy(s_inferenceWindowBuf, window, WINDOW_SAMPLES * sizeof(int16_t));
     if (s_inferenceTaskHandle != nullptr) {
         LOG("🔵 Window #%lu → gửi inference_task\n", (unsigned long)window_index);
         xTaskNotifyGive(s_inferenceTaskHandle);
@@ -194,6 +195,16 @@ static void on_window_ready(const int16_t *window, uint32_t window_index) {
 
 void setup() {
     Serial.begin(115200);
+
+    // Đảm bảo NVS được khởi tạo thành công cho WiFi & Preferences
+    esp_err_t nvsErr = nvs_flash_init();
+    if (nvsErr == ESP_ERR_NVS_NO_FREE_PAGES || nvsErr == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        nvsErr = nvs_flash_init();
+    }
+    if (nvsErr != ESP_OK) {
+        Serial.printf("[NVS] Init failed: 0x%x\n", nvsErr);
+    }
     
     // Chờ Serial Monitor kết nối (chỉ cần khi debug)
     // Timeout 3 giây để không block mãi khi không có PC
@@ -241,11 +252,24 @@ void setup() {
     automationInit();
     firebase_manager_start();
 
-    // Tạo inference_task trên Core 0 (Priority 1)
+    // Cấp phát buffer inference trên PSRAM (32 KB) để giải phóng RAM nội bộ cho WiFi
+    if (psramFound()) {
+        s_inferenceWindowBuf = (int16_t*)ps_malloc(WINDOW_SAMPLES * sizeof(int16_t));
+        LOG("[INFERENCE] Buffer allocated in PSRAM (32 KB)\n");
+    }
+    if (s_inferenceWindowBuf == nullptr) {
+        s_inferenceWindowBuf = (int16_t*)malloc(WINDOW_SAMPLES * sizeof(int16_t));
+        LOG("[INFERENCE] Buffer allocated in internal RAM\n");
+    }
+    if (s_inferenceWindowBuf != nullptr) {
+        memset(s_inferenceWindowBuf, 0, WINDOW_SAMPLES * sizeof(int16_t));
+    }
+
+    // Tạo inference_task trên Core 0 (Priority 1, stack 16KB)
     BaseType_t infOk = xTaskCreatePinnedToCore(
         inference_task_fn,
         "inference_task",
-        24576,
+        16384,
         nullptr,
         1,          // Priority 1
         &s_inferenceTaskHandle,

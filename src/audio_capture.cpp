@@ -27,7 +27,7 @@
 static BandpassFilter s_bpf;
 
 // --- Ring buffer (ghi liên tục, đọc bằng audio_get_window) ---
-static int16_t  s_ringBuf[RING_BUF_SAMPLES];
+static int16_t *s_ringBuf = nullptr;
 static uint32_t s_ringHead = 0;          // Vị trí ghi tiếp theo
 
 // --- Buffer tạm cho I2S (32-bit raw từ INMP441) ---
@@ -90,7 +90,19 @@ void audio_init() {
     i2s_zero_dma_buffer(I2S_PORT);
 
     // Xóa toàn bộ bộ nhớ nội bộ
-    memset(s_ringBuf,  0, sizeof(s_ringBuf));
+    if (s_ringBuf == nullptr) {
+        if (psramFound()) {
+            s_ringBuf = (int16_t*)ps_malloc(RING_BUF_SAMPLES * sizeof(int16_t));
+            LOG("[AUDIO] Ring buffer allocated in PSRAM (64 KB)\n");
+        }
+        if (s_ringBuf == nullptr) {
+            s_ringBuf = (int16_t*)malloc(RING_BUF_SAMPLES * sizeof(int16_t));
+            LOG("[AUDIO] Ring buffer allocated in internal RAM\n");
+        }
+    }
+    if (s_ringBuf != nullptr) {
+        memset(s_ringBuf, 0, RING_BUF_SAMPLES * sizeof(int16_t));
+    }
     memset(s_frameBuf, 0, sizeof(s_frameBuf));
     memset(s_i2sRaw,   0, sizeof(s_i2sRaw));
 
