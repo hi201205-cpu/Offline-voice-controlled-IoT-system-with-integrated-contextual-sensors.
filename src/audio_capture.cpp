@@ -56,6 +56,15 @@ static bool vad_has_voice(const int16_t *frame, uint32_t len) {
         energy += (int64_t)frame[i] * frame[i];
     }
     energy /= len;   // mean square
+#if DEBUG_VAD
+    static uint32_t s_lastVadLogMs = 0;
+    if (energy > (VAD_ENERGY_THRESH / 5) && (millis() - s_lastVadLogMs > 400)) {
+        s_lastVadLogMs = millis();
+        LOG("[VAD] Energy=%lld (thresh=%ld) -> %s\n",
+            (long long)energy, (long)VAD_ENERGY_THRESH,
+            (energy > VAD_ENERGY_THRESH) ? "VOICE" : "low");
+    }
+#endif
     return energy > VAD_ENERGY_THRESH;
 }
 

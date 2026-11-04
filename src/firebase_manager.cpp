@@ -337,6 +337,8 @@ static void firebase_do_reinit() {
                      Firebase.getBool(s_fbWrite, "/devices/state/voice"))) {
             s_voiceEnabled = s_fbWrite.boolData();
         }
+        // Luon dam bao khoi dong he thong thi Voice Control bat mac dinh
+        s_voiceEnabled = true;
     }
     s_stateRestoreAttempted = true;
     s_lightState = get_relay_state(1);

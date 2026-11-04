@@ -114,7 +114,7 @@
 
 #define VAD_FRAME_MS                20
 #define VAD_FRAME_SAMPLES           (SAMPLE_RATE * VAD_FRAME_MS / 1000)   // 320
-#define VAD_ENERGY_THRESH           10000000L
+#define VAD_ENERGY_THRESH           7000000L
 #define VAD_HANG_OVER_MS            500
 #define VAD_SILENCE_FRAMES_THRESHOLD  (VAD_HANG_OVER_MS / VAD_FRAME_MS)  // 40 frame
 
@@ -148,7 +148,7 @@
 // ║  7. NGƯỠNG INFERENCE & COOLDOWN                         ║
 // ╚══════════════════════════════════════════════════════════╝
 
-#define COMMAND_CONFIDENCE_THRESHOLD 0.65f   // Ngưỡng tin cậy tối thiểu cho lệnh hợp lệ
+#define COMMAND_CONFIDENCE_THRESHOLD 0.50f   // Ngưỡng tin cậy tối thiểu cho lệnh hợp lệ
 #define COMMAND_COOLDOWN_MS 1000
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -180,7 +180,7 @@
 #include <Arduino.h>
 #define DEBUG_SERIAL    1
 #define DEBUG_INFERENCE 1
-#define DEBUG_VAD       0
+#define DEBUG_VAD       1
 #define DEBUG_FIRMWARE_METRICS 1
 
 #if DEBUG_SERIAL
