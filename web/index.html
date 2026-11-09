@@ -1148,6 +1148,13 @@ function showDatabaseError(error) {
   $("dbStatus").classList.add("off");
 }
 
+// Lắng nghe trạng thái kết nối Firebase RTDB ngay khi tải trang (không phụ thuộc vào auth hay pairing)
+onValue(ref(db, ".info/connected"), s => {
+  const connected = s.val() === true;
+  $("dbStatus").textContent = connected ? "Firebase: đã kết nối" : "Firebase: mất kết nối";
+  $("dbStatus").classList.toggle("off", !connected);
+}, showDatabaseError);
+
 // ---- Chuyển đổi Tab Đăng nhập / Đăng ký ----
 const tabLogin = $("tabLogin");
 const tabRegister = $("tabRegister");
@@ -1806,59 +1813,108 @@ async function checkUserDeviceLink(user) {
   try {
     const isMasterAccount = (user.email && user.email.toLowerCase() === MASTER_EMAIL.toLowerCase());
 
-    // 1. Lấy thông tin user hiện tại từ RTDB
-    const userSnap = await get(ref(db, "users/" + user.uid));
-    const uData = userSnap.val() || {};
-
     if (isMasterAccount) {
       currentUserRole = "master";
       isUserPaired = true;
       userPermissions = { light: true, fan: true, curtain: true, door: true, yard: true, voice: true, auto: true, passcodeAdd: true };
       window.currentUserRole = currentUserRole;
       window.userPermissions = userPermissions;
-      // Giai đoạn 1: Bỏ client tự ghi system/masterUid và bỏ update role:"master"/permissions cho Master
-      // Quyền bảo mật thật sự do Firebase Rules quyết định dựa trên email xác thực của tài khoản Master
-    } else {
-      currentUserRole = "member";
-      isUserPaired = (uData.pairedHome === DEFAULT_HOME_CODE);
-      if (uData.permissions) {
-        userPermissions = { ...userPermissions, ...uData.permissions };
-      }
-      window.currentUserRole = currentUserRole;
-      window.userPermissions = userPermissions;
 
-      // LẮNG NGHE REALTIME: Khi Master thay đổi quyền hoặc hủy liên kết thì lập tức cập nhật ngay không cần F5
-      onValue(ref(db, "users/" + user.uid), userSnapLive => {
-        const liveData = userSnapLive.val();
-        if (!liveData) return;
-        const livePaired = (liveData.pairedHome === DEFAULT_HOME_CODE);
-        if (livePaired !== isUserPaired) {
-          isUserPaired = livePaired;
-          applyDevicePairingUI(isUserPaired);
-          const memberLeaveSec = $("memberLeaveSection");
-          if (memberLeaveSec) {
-            memberLeaveSec.classList.toggle("hidden", currentUserRole === "master" || !isUserPaired);
-          }
-          const btnPairModal = $("btnOpenPairModal");
-          if (btnPairModal) {
-            btnPairModal.classList.toggle("hidden", currentUserRole === "master" || isUserPaired);
-          }
-          if (!isUserPaired) {
-            if (!isSelfUnlinking) {
-              showToast("Tài khoản của bạn đã bị Chủ nhà hủy liên kết khỏi ngôi nhà!");
-            }
+      // Cập nhật giao diện ngay lập tức cho Chủ nhà không cần chờ network
+      applyDevicePairingUI(true);
+
+      if (!started) {
+        started = true;
+        listen();
+      }
+
+      const roleBadge = $("userRoleBadge");
+      if (roleBadge) {
+        roleBadge.textContent = "Chủ nhà (Master)";
+        roleBadge.style.color = "var(--good)";
+      }
+      const masterSection = $("masterShareSection");
+      if (masterSection) masterSection.classList.remove("hidden");
+      const masterMembersSec = $("masterMembersSection");
+      const masterNote = $("masterOnlyNote");
+      if (masterNote) masterNote.classList.remove("hidden");
+      if (masterMembersSec) masterMembersSec.classList.remove("hidden");
+      const memberLeaveSec = $("memberLeaveSection");
+      if (memberLeaveSec) memberLeaveSec.classList.add("hidden");
+      const btnPairModal = $("btnOpenPairModal");
+      if (btnPairModal) btnPairModal.classList.add("hidden");
+
+      if (typeof window.renderPasscodes === "function" && window.currentPasscodes) {
+        window.renderPasscodes(window.currentPasscodes);
+      }
+      if (typeof window.renderRules === "function") {
+        window.renderRules();
+      }
+
+      listenSharedMembers();
+      get(ref(db, "invites")).then(snap => {
+        if (!snap.exists()) return;
+        const allInvites = snap.val();
+        for (const c in allInvites) {
+          if (allInvites[c]?.createdBy === currentUser.uid && allInvites[c]?.status === "active") {
+            watchActiveInviteCode(c);
+            break;
           }
         }
-        if (liveData.permissions) {
-          userPermissions = { ...userPermissions, ...liveData.permissions };
-          window.userPermissions = userPermissions;
-          if (typeof window.renderRules === "function") window.renderRules();
-          if (typeof window.renderPasscodes === "function" && window.currentPasscodes) {
-            window.renderPasscodes(window.currentPasscodes);
-          }
-        }
-      });
+      }).catch(() => {});
+      return;
     }
+
+    // Tài khoản thành viên: Lấy thông tin với timeout 6 giây chống treo
+    currentUserRole = "member";
+    let uData = {};
+    try {
+      const fetchPromise = get(ref(db, "users/" + user.uid));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 6000));
+      const userSnap = await Promise.race([fetchPromise, timeoutPromise]);
+      uData = (userSnap && typeof userSnap.val === "function" ? userSnap.val() : null) || {};
+    } catch (e) {
+      console.warn("Không lấy được users/" + user.uid + ", tiếp tục ở trạng thái mặc định:", e);
+    }
+
+    isUserPaired = (uData.pairedHome === DEFAULT_HOME_CODE);
+    if (uData.permissions) {
+      userPermissions = { ...userPermissions, ...uData.permissions };
+    }
+    window.currentUserRole = currentUserRole;
+    window.userPermissions = userPermissions;
+
+    // LẮNG NGHE REALTIME: Khi Master thay đổi quyền hoặc hủy liên kết thì lập tức cập nhật ngay không cần F5
+    onValue(ref(db, "users/" + user.uid), userSnapLive => {
+      const liveData = userSnapLive.val();
+      if (!liveData) return;
+      const livePaired = (liveData.pairedHome === DEFAULT_HOME_CODE);
+      if (livePaired !== isUserPaired) {
+        isUserPaired = livePaired;
+        applyDevicePairingUI(isUserPaired);
+        const memberLeaveSec = $("memberLeaveSection");
+        if (memberLeaveSec) {
+          memberLeaveSec.classList.toggle("hidden", currentUserRole === "master" || !isUserPaired);
+        }
+        const btnPairModal = $("btnOpenPairModal");
+        if (btnPairModal) {
+          btnPairModal.classList.toggle("hidden", currentUserRole === "master" || isUserPaired);
+        }
+        if (!isUserPaired) {
+          if (!isSelfUnlinking) {
+            showToast("Tài khoản của bạn đã bị Chủ nhà hủy liên kết khỏi ngôi nhà!");
+          }
+        }
+      }
+      if (liveData.permissions) {
+        userPermissions = { ...userPermissions, ...liveData.permissions };
+        window.userPermissions = userPermissions;
+        if (typeof window.renderRules === "function") window.renderRules();
+        if (typeof window.renderPasscodes === "function" && window.currentPasscodes) {
+          window.renderPasscodes(window.currentPasscodes);
+        }
+      }
+    });
 
     // Cập nhật giao diện theo trạng thái liên kết
     applyDevicePairingUI(isUserPaired);
@@ -1872,52 +1928,26 @@ async function checkUserDeviceLink(user) {
     // Cập nhật thẻ quyền trong Settings
     const roleBadge = $("userRoleBadge");
     if (roleBadge) {
-      roleBadge.textContent = currentUserRole === "master" ? "Chủ nhà (Master)" : "Thành viên gia đình";
-      roleBadge.style.color = currentUserRole === "master" ? "var(--good)" : "var(--accent)";
+      roleBadge.textContent = "Thành viên gia đình";
+      roleBadge.style.color = "var(--accent)";
     }
     const masterSection = $("masterShareSection");
-    if (masterSection) {
-      masterSection.classList.toggle("hidden", currentUserRole !== "master");
-    }
+    if (masterSection) masterSection.classList.add("hidden");
     const masterMembersSec = $("masterMembersSection");
     const masterNote = $("masterOnlyNote");
-    if (masterNote) {
-      masterNote.classList.toggle("hidden", currentUserRole !== "master");
-    }
-    if (masterMembersSec) {
-      masterMembersSec.classList.toggle("hidden", currentUserRole !== "master");
-    }
+    if (masterNote) masterNote.classList.add("hidden");
+    if (masterMembersSec) masterMembersSec.classList.add("hidden");
     const memberLeaveSec = $("memberLeaveSection");
-    if (memberLeaveSec) {
-      memberLeaveSec.classList.toggle("hidden", currentUserRole === "master" || !isUserPaired);
-    }
+    if (memberLeaveSec) memberLeaveSec.classList.toggle("hidden", !isUserPaired);
     const btnPairModal = $("btnOpenPairModal");
-    if (btnPairModal) {
-      btnPairModal.classList.toggle("hidden", currentUserRole === "master" || isUserPaired);
-    }
+    if (btnPairModal) btnPairModal.classList.toggle("hidden", isUserPaired);
 
-    // Tải lại giao diện danh sách mật khẩu và tự động hóa theo quyền vai trò (Master/Member)
     if (typeof window.renderPasscodes === "function" && window.currentPasscodes) {
       window.renderPasscodes(window.currentPasscodes);
     }
     if (typeof window.renderRules === "function") {
       window.renderRules();
     }
-    if (currentUserRole === "master") {
-      listenSharedMembers();
-      // Khôi phục theo dõi mã mời active nếu có
-      get(ref(db, "invites")).then(snap => {
-        if (!snap.exists()) return;
-        const allInvites = snap.val();
-        for (const c in allInvites) {
-          if (allInvites[c]?.createdBy === currentUser.uid && allInvites[c]?.status === "active") {
-            watchActiveInviteCode(c);
-            break;
-          }
-        }
-      }).catch(() => {});
-    }
-
   } catch (err) {
     console.warn("Lỗi kiểm tra trạng thái liên kết thiết bị:", err);
   }
@@ -3107,12 +3137,6 @@ const fmtTime = ts => new Date(ts * 1000).toLocaleTimeString("vi-VN", { hour: "2
 let lastSensorTs = 0;
 
 function listen() {
-  onValue(ref(db, ".info/connected"), s => {
-    const connected = s.val() === true;
-    $("dbStatus").textContent = connected ? "Firebase: đã kết nối" : "Firebase: mất kết nối";
-    $("dbStatus").classList.toggle("off", !connected);
-  }, showDatabaseError);
-
   onValue(ref(db, "devices/state"), s => {
     const v = s.val() || {};
     let commandAcknowledged = false;
