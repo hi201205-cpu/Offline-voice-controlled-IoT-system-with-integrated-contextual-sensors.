@@ -1127,7 +1127,7 @@ const CURTAIN_OPEN = "open", CURTAIN_CLOSE = "close";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getDatabase(app);
+const db = getDatabase(app, firebaseConfig.databaseURL);
 window.db = db;
 window.auth = auth;
 const $ = id => document.getElementById(id);
@@ -1148,11 +1148,26 @@ function showDatabaseError(error) {
   $("dbStatus").classList.add("off");
 }
 
-// Lắng nghe trạng thái kết nối Firebase RTDB ngay khi tải trang (không phụ thuộc vào auth hay pairing)
+// Lắng nghe trạng thái kết nối Firebase RTDB mượt mà (có độ trễ chờ bắt tay WebSocket 4 giây)
+let hasEverConnected = false;
+let connectGraceTimer = setTimeout(() => {
+  if (!hasEverConnected) {
+    $("dbStatus").textContent = "Firebase: mất kết nối";
+    $("dbStatus").classList.add("off");
+  }
+}, 4000);
+
 onValue(ref(db, ".info/connected"), s => {
   const connected = s.val() === true;
-  $("dbStatus").textContent = connected ? "Firebase: đã kết nối" : "Firebase: mất kết nối";
-  $("dbStatus").classList.toggle("off", !connected);
+  if (connected) {
+    hasEverConnected = true;
+    if (connectGraceTimer) clearTimeout(connectGraceTimer);
+    $("dbStatus").textContent = "Firebase: đã kết nối";
+    $("dbStatus").classList.remove("off");
+  } else if (hasEverConnected) {
+    $("dbStatus").textContent = "Firebase: mất kết nối";
+    $("dbStatus").classList.add("off");
+  }
 }, showDatabaseError);
 
 // ---- Chuyển đổi Tab Đăng nhập / Đăng ký ----
@@ -3560,7 +3575,7 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
 // Giao diện bổ sung: tùy chọn, biểu đồ và tự động hóa kết nối Firebase.
 (() => {
   const app = getApp();
-  const db = window.db || getDatabase(app);
+  const db = window.db || getDatabase(app, "https://do-an-2-f791a-default-rtdb.asia-southeast1.firebasedatabase.app");
   const $ui = id => document.getElementById(id);
   function checkIsMaster() {
     const curEmail = (window.auth?.currentUser?.email || "").toLowerCase();
