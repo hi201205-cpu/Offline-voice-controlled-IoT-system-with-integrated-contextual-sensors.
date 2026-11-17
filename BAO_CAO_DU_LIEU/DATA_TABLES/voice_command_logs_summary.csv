@@ -1,0 +1,8 @@
+Tu_Khoa_Lenh,Y_Nghia_Hanh_Dong,So_Lan_Ghi_Nhan,Do_Tin_Cay_Trung_Binh,Ty_Le_Thuc_Thi_Dung,Do_Tre_Phan_Hoi_GPIO_ms,Co_Che_Xu_Ly
+bat_quat,Bật quạt làm mát (Relay 2),164,100.0%,100.0%,< 1.0 ms,Cắt trực tiếp chân GPIO42 về mức LOW
+tat_het,Tắt toàn bộ thiết bị trong nhà,152,100.0%,100.0%,< 1.0 ms,Cắt GPIO40 41 42 về HIGH đóng servo
+tat_quat,Tắt quạt làm mát (Relay 2),149,100.0%,100.0%,< 1.0 ms,Kéo chân GPIO42 lên mức HIGH
+tat_den,Tắt đèn chiếu sáng (Relay 1),109,100.0%,100.0%,< 1.0 ms,Kéo chân GPIO41 lên mức HIGH
+bat_het,Bật toàn bộ hệ thống đèn và quạt,99,100.0%,100.0%,< 1.0 ms,Kích hoạt GPIO40 41 42 về mức LOW
+bat_den,Bật đèn chiếu sáng (Relay 1),75,100.0%,100.0%,< 1.0 ms,Kéo chân GPIO41 về mức LOW
+TONG_CONG,6 nhóm lệnh điều khiển thực tế,748,100.0%,100.0%,< 1.0 ms,100% khớp độ tin cậy >= 70%

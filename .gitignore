@@ -58,3 +58,4 @@ include/config.h
 .DS_Store
 Thumbs.db
 desktop.ini
+*.zip

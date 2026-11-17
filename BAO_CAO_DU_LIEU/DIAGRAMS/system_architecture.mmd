@@ -1,0 +1,52 @@
+graph TD
+    subgraph EdgeDevice ["ESP32-S3 Edge Computing Hub (N16R8)"]
+        subgraph AudioInference ["Core 1: Audio & TinyML Engine"]
+            INMP441["Micro I2S INMP441"] -->|I2S Bus GPIO 4,5,6| I2S_Driver["I2S DMA Driver"]
+            I2S_Driver --> AudioBuffer["Ring Buffer (16kHz, 16-bit PCM)"]
+            AudioBuffer --> VAD["VAD Energy Threshold (>7,000,000)"]
+            VAD --> MFCC["MFCC Feature Extraction (13 coeff, 32 filterbanks)"]
+            MFCC --> CNN["INT8 Quantized CNN Model (Edge Impulse)"]
+            CNN --> IntentDispatcher["Local Command Dispatcher"]
+        end
+
+        subgraph Peripherals ["Peripheral Control & Sensing"]
+            Sensors["DHT22 (GPIO16), LD2410S mmWave (GPIO10,11), LDR (GPIO1)"] --> ContextEngine["Context-aware Automation Engine"]
+            Keypad["4x3 Keypad Matrix (GPIO 13,14,15,21,7,12,2)"] --> DoorSecurity["Salted SHA-256 Door Controller"]
+            LimitSwitches["Limit Switches (GPIO 38,3) + Open Btn (GPIO 47)"] --> DoorSecurity
+            
+            IntentDispatcher --> Relays["Relays (Lights GPIO 41, Fan GPIO 42, Yard GPIO 40)"]
+            IntentDispatcher --> Servos["Servos (Door GPIO 39, Curtain GPIO 9)"]
+            ContextEngine --> Relays
+            DoorSecurity --> Servos
+            DoorSecurity --> Buzzer["Buzzer Alarm (GPIO 48)"]
+        end
+
+        subgraph FreeRTOS_Comm ["Core 0: Cloud Sync Task (Priority 1)"]
+            Queue["Inter-Core FreeRTOS Queue (s_fbQueue)"]
+            FirebaseDriver["Firebase ESP Client SDK"]
+            Queue --> FirebaseDriver
+        end
+
+        IntentDispatcher -.->|Async Event| Queue
+        ContextEngine -.->|Telemetry Event| Queue
+        DoorSecurity -.->|Security Event| Queue
+    end
+
+    subgraph CloudService ["Google Firebase Cloud Platform"]
+        RTDB[("Firebase Realtime Database")]
+        Auth["Firebase Authentication (Email/Password)"]
+        Hosting["Firebase Web Hosting (do-an-2-f791a.web.app)"]
+        Rules["Security Rules (Role-based Master/Member)"]
+    end
+
+    subgraph ClientLayer ["Client Applications"]
+        WebSPA["Web Single Page App (Vanilla JS, 5506 lines)"]
+        AndroidNative["Android Native App (Kotlin, Jetpack)"]
+        FlutterApp["Cross-platform Mobile App (Flutter SDK)"]
+    end
+
+    FirebaseDriver <==>|WiFi WSS / REST Stream| RTDB
+    WebSPA <==>|Firebase JS SDK v10| RTDB
+    AndroidNative <==>|Firebase Android SDK| RTDB
+    FlutterApp <==>|firebase_database plugin| RTDB
+    WebSPA --- Hosting

@@ -1,0 +1,40 @@
+flowchart TD
+    Start(["Khởi động ESP32-S3 (setup)"]) --> InitHardware["Khởi tạo GPIO, I2S0, UART1, ADC, LEDC PWM"]
+    InitHardware --> InitNVS["Đọc cấu hình & Passcode Hash từ NVS Flash"]
+    InitNVS --> InitTinyML["Khởi tạo Edge Impulse Inferencing (Tensor Arena 12KB)"]
+    InitTinyML --> CreateFreeRTOSTask["Tạo Task Firebase trên Core 0 (s_fbQueue)"]
+    CreateFreeRTOSTask --> MainLoop(["Vòng lặp chính loop() trên Core 1"])
+
+    subgraph Step1_Audio ["1. Xử lý Âm thanh & Nhận diện Giọng nói"]
+        MainLoop --> ReadI2S["Đọc mẫu PCM từ DMA I2S (INMP441)"]
+        ReadI2S --> VADTest{"RMS Energy > 7,000,000?"}
+        VADTest -- Có --> RunKWS["Chạy run_classifier_continuous()"]
+        RunKWS --> CheckConfidence{"Confidence >= 0.70 & Nhãn hợp lệ?"}
+        CheckConfidence -- Có --> DispatchVoice["Thực thi lệnh giọng nói & gửi Queue"]
+        CheckConfidence -- Không --> SkipVoice["Bỏ qua"]
+        VADTest -- Không --> SkipVoice
+    end
+
+    subgraph Step2_Sensors ["2. Thu thập Cảm biến Định kỳ"]
+        SkipVoice --> CheckSensorsTimer{"Đến hạn đọc Cảm biến?"}
+        DispatchVoice --> CheckSensorsTimer
+        CheckSensorsTimer -- Mỗi 2000ms --> ReadDHT["Đọc Nhiệt độ & Độ ẩm DHT22"]
+        CheckSensorsTimer -- Mỗi 500ms --> ReadLDR["Đọc Cảm biến Quang trở LDR (ADC1_CH0)"]
+        CheckSensorsTimer -- Liên tục --> ReadRadar["Đọc UART LD2410S (Hiện diện & Khoảng cách)"]
+        ReadDHT --> ProcessAutomation
+        ReadLDR --> ProcessAutomation
+        ReadRadar --> ProcessAutomation
+        CheckSensorsTimer -- Chưa đến hạn --> ProcessAutomation["3. Đánh giá Động cơ Tự động hóa (Rule Engine)"]
+    end
+
+    subgraph Step3_Security ["4. Bảo mật Cửa & Bàn phím"]
+        ProcessAutomation --> ReadKeypad["Quét ma trận phím 4x3 & Nút bấm cơ GPIO 47"]
+        ReadKeypad --> CheckDoorStates["Kiểm tra công tắc hành trình GPIO 38, 3"]
+        CheckDoorStates --> UpdateDoorServo["Điều khiển động cơ Servo Cửa (LEDC Ch6)"]
+    end
+
+    subgraph Step4_CloudQueue ["5. Xử lý Hàng đợi & Đồng bộ"]
+        UpdateDoorServo --> CheckLocalQueue["Đẩy các thay đổi trạng thái vào s_fbQueue"]
+        CheckLocalQueue --> Yield["Task Yield / Delay ngắn (1ms) cho FreeRTOS"]
+        Yield --> MainLoop
+    end

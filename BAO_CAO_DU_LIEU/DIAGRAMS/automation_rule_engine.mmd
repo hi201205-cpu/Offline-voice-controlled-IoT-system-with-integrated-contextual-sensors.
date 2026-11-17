@@ -1,0 +1,32 @@
+flowchart TD
+    Start["Bắt đầu chu kỳ đánh giá Rule (Mỗi 1000ms)"] --> CheckRules{"Có danh sách Rules từ Cloud/NVS không?"}
+    CheckRules -- Không --> End["Kết thúc chu kỳ"]
+    CheckRules -- Có --> ReadTelemetry["Đọc Telemetry: Nhiệt độ, Độ ẩm (DHT22), Chuyển động (LD2410S), Ánh sáng (LDR), Giờ NTP"]
+    
+    ReadTelemetry --> LoopRules["Duyệt qua từng Rule theo thứ tự danh sách"]
+    
+    subgraph RuleEvaluation ["Đánh giá điều kiện từng Rule"]
+        EvalCond{"Tất cả điều kiện (ALL) thỏa mãn?"}
+        EvalCond -- Không --> NextRule["Bỏ qua, xét Rule kế tiếp"]
+        EvalCond -- Có --> GenCandidate["Tạo lệnh ứng viên (Candidate Action)"]
+    end
+
+    LoopRules --> EvalCond
+    NextRule --> MoreRules{"Còn Rule nào không?"}
+    GenCandidate --> RegAction["Ghi nhận Action cho từng thiết bị"]
+    RegAction --> MoreRules
+    MoreRules -- Còn --> LoopRules
+    
+    MoreRules -- Hết --> ConflictRes["Thuật toán giải quyết xung đột (Conflict Resolution)"]
+    
+    subgraph ConflictResolution ["Quy tắc ưu tiên xung đột"]
+        SafetyFirst{"Xung đột trạng thái: BẬT vs TẮT / MỞ vs ĐÓNG?"}
+        SafetyFirst -- Có xung đột --> PickSafety["Ưu tiên An toàn Tuyệt đối: TẮT (OFF) và ĐÓNG (CLOSE) thắng"]
+        SafetyFirst -- Không xung đột --> PickIndex["Ưu tiên Rule có chỉ số Index nhỏ hơn"]
+    end
+
+    ConflictRes --> SafetyFirst
+    PickSafety --> FinalExec["Thực thi lệnh cuối cùng lên Phần cứng"]
+    PickIndex --> FinalExec
+    FinalExec --> SyncCloud["Cập nhật trạng thái mới lên Firebase nếu có thay đổi"]
+    SyncCloud --> End

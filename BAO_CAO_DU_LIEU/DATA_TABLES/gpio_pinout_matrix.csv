@@ -1,0 +1,27 @@
+GPIO,Pin_Name,Chuc_Nang_Phan_Cung,Loai_Tin_Hieu,Che_Do_Dien,Dien_Ap,Source_Code_Citation
+GPIO 1,LDR_PIN,Cảm biến ánh sáng LDR quang trở,Analog Input,ADC1_CHANNEL_0,0 - 3.3V,include/config.h:62
+GPIO 2,KEYPAD_C3,Bàn phím ma trận Cột 3,Digital Input,INPUT_PULLUP,3.3V,include/config.h:47
+GPIO 3,LIMIT_SW_CLOSE,Công tắc hành trình Đóng cửa,Digital Input,INPUT_PULLUP,3.3V,include/config.h:67
+GPIO 4,I2S_SD_PIN,Micro INMP441 Serial Data (SD),Digital Input,I2S0 Data In,3.3V,include/config.h:19
+GPIO 5,I2S_WS_PIN,Micro INMP441 Word Select (WS/LRCK),Digital Output,I2S0 Clock,3.3V,include/config.h:18
+GPIO 6,I2S_SCK_PIN,Micro INMP441 Bit Clock (BCLK/SCK),Digital Output,I2S0 Clock,3.3V,include/config.h:17
+GPIO 7,KEYPAD_C1,Bàn phím ma trận Cột 1,Digital Input,INPUT_PULLUP,3.3V,include/config.h:45
+GPIO 8,LED_PIN_B,LED RGB Kênh Xanh Lam (Blue),Digital Output,LEDC Ch2 PWM (5kHz),3.3V,include/config.h:25
+GPIO 9,SERVO_CURTAIN_PIN,Servo điều khiển Rèm cửa,Digital Output,LEDC Ch7 PWM (50Hz),5V Signal,include/config.h:36
+GPIO 10,RADAR_RX_PIN,Radar mmWave LD2410S RX (ESP32 RX),Digital Input,UART1 RX (115200),3.3V Tolerant,include/config.h:55
+GPIO 11,RADAR_TX_PIN,Radar mmWave LD2410S TX (ESP32 TX),Digital Output,UART1 TX (115200),3.3V,include/config.h:56
+GPIO 12,KEYPAD_C2,Bàn phím ma trận Cột 2,Digital Input,INPUT_PULLUP,3.3V,include/config.h:46
+GPIO 13,KEYPAD_R1,Bàn phím ma trận Hàng 1,Digital Output,Open Drain / Low Pulse,3.3V,include/config.h:40
+GPIO 14,KEYPAD_R2,Bàn phím ma trận Hàng 2,Digital Output,Open Drain / Low Pulse,3.3V,include/config.h:41
+GPIO 15,KEYPAD_R3,Bàn phím ma trận Hàng 3,Digital Output,Open Drain / Low Pulse,3.3V,include/config.h:42
+GPIO 16,DHTPIN,Cảm biến Nhiệt độ - Độ ẩm DHT22,Bidirectional,1-Wire Data (+10k Pullup),3.3V - 5V,include/config.h:51
+GPIO 17,LED_PIN_R,LED RGB Kênh Đỏ (Red),Digital Output,LEDC Ch0 PWM (5kHz),3.3V,include/config.h:23
+GPIO 18,LED_PIN_G,LED RGB Kênh Xanh Lá (Green),Digital Output,LEDC Ch1 PWM (5kHz),3.3V,include/config.h:24
+GPIO 21,KEYPAD_R4,Bàn phím ma trận Hàng 4,Digital Output,Open Drain / Low Pulse,3.3V,include/config.h:43
+GPIO 38,LIMIT_SW_OPEN,Công tắc hành trình Mở cửa,Digital Input,INPUT_PULLUP,3.3V,include/config.h:66
+GPIO 39,SERVO_DOOR_PIN,Servo điều khiển Cửa trượt,Digital Output,LEDC Ch6 PWM (50Hz),5V Signal,include/config.h:35
+GPIO 40,RELAY_YARD,Relay Kênh 3 (Đèn Sân Vườn),Digital Output,Active LOW (Optocoupler),5V Coil,include/config.h:31
+GPIO 41,RELAY_LIGHT,Relay Kênh 1 (Đèn Sinh Hoạt),Digital Output,Active LOW (Optocoupler),5V Coil,include/config.h:29
+GPIO 42,RELAY_FAN,Relay Kênh 2 (Quạt Làm Mát),Digital Output,Active LOW (Optocoupler),5V Coil,include/config.h:30
+GPIO 47,DOOR_BUTTON_PIN,Nút bấm vật lý Mở cửa (Exit button),Digital Input,INPUT (External 10k Pullup),3.3V,include/config.h:68
+GPIO 48,BUZZER_PIN,Còi báo động Buzzer Active 5V,Digital Output,LEDC Ch5 / Digital Out,5V VCC,include/config.h:71

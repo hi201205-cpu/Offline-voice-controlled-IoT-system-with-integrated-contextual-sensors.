@@ -1,0 +1,12 @@
+Class_ID,Label,Y_Nghia_Lenh,Tap_Training_Mau,Tap_Testing_Mau,Tong_Mau,Ty_Le_Train_Test,Thoi_Luong_Moi_Mau_Giay
+0,bat_den,Bật đèn sinh hoạt,1198,280,1478,81.1% / 18.9%,1.0s (16000 samples @ 16kHz)
+1,dong_vao,Đóng cửa / Đóng rèm,1139,266,1405,81.1% / 18.9%,1.0s (16000 samples @ 16kHz)
+2,lanh_qua,Lạnh quá (Tắt quạt tự động),1230,287,1517,81.1% / 18.9%,1.0s (16000 samples @ 16kHz)
+3,mo_ra,Mở cửa / Mở rèm,1160,271,1431,81.1% / 18.9%,1.0s (16000 samples @ 16kHz)
+4,nong_qua,Nóng quá (Bật quạt tự động),1159,271,1430,81.0% / 19.0%,1.0s (16000 samples @ 16kHz)
+5,tam_biet,Tạm biệt (Chế độ rời nhà),1178,275,1453,81.1% / 18.9%,1.0s (16000 samples @ 16kHz)
+6,tat_den,Tắt đèn sinh hoạt,1197,279,1476,81.1% / 18.9%,1.0s (16000 samples @ 16kHz)
+7,unknown,Từ ngoài tập từ vựng,3195,746,3941,81.1% / 18.9%,1.0s (16000 samples @ 16kHz)
+8,vung_oi,Từ khóa đánh thức (Wake-word),1173,274,1447,81.1% / 18.9%,1.0s (16000 samples @ 16kHz)
+9,xin_chao,Xin chào (Chào mừng),1193,278,1471,81.1% / 18.9%,1.0s (16000 samples @ 16kHz)
+TOTAL,-,Toàn bộ tập dữ liệu,13822,3227,17049,81.1% / 18.9%,17049 giây (~4.74 giờ audio)

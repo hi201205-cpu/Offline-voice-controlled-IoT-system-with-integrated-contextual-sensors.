@@ -1,0 +1,16 @@
+STT,Ten_Linh_Kien,Model_Thong_So,So_Luong,Dien_Ap_Hoat_Dong,Giao_Tiep,Chuc_Nang_He_Thong,Ghi_Chu
+1,Bo vi dieu khien Edge AI,ESP32-S3-DevKitC-1 N16R8,1,5V (MicroUSB/Vin) / 3.3V,WiFi 2.4GHz + BLE 5.0,Xu ly trung tam TinyML chay 2 Core FreeRTOS,16MB Flash Octal + 8MB PSRAM OPI
+2,Microphone thu am ky thuat so,INMP441 MEMS Omnidirectional,1,3.3V,I2S Digital Audio,Thu am thanh giong noi 16kHz 16-bit PCM, SNR 61 dBA
+3,Cam bien hien dien mmWave,Hi-Link HLK-LD2410S 24GHz,1,5V (DC),UART TTL 115200 bps,Phat hien nguoi dong va tinh (khoang cach 0.75m - 6m),Do nhay cao xuyen vat lieu nhe
+4,Cam bien nhiet do - do am,Aosong DHT22 / AM2302,1,3.3V - 5.5V,1-Wire Digital Bus,Do nhiet do (-40 den 80 C) va do am (0-100% RH),Do chinh xac +-0.5 C
+5,Cam bien cuong do anh sang,Quang tro LDR GL5528 + Tro 10k,1,3.3V,Analog (ADC1_CH0),Do muc do sang moi truong (Lux tuong doi),Phan ap ADC 12-bit
+6,Module Ro-le 3 kenh cach ly,Relay Module 3-Ch 5V Optocoupler,1,5V Coil,Active LOW Digital,Dong ngat thiet bi 220VAC (Den phong Quat Den san),Tiep diem 10A 250VAC
+7,Dong co Servo dieu khien Cua,TowerPro MG996R / SG90 Metal Gear,1,4.8V - 6.0V,LEDC PWM (50Hz 1000-2000us),Keo dong mo he thong cua truot,Dong stall len den 1.5A
+8,Dong co Servo dieu khien Rem,TowerPro SG90 / MG90S Micro Servo,1,4.8V - 6.0V,LEDC PWM (50Hz 1000-2000us),Xoay co cau mo / dong rem cua so,Goc quay 0 - 180 do
+9,Ban phim ma tran bao mat,Keypad Matrix 4x3 Membrane,1,3.3V Logic,4 Hang x 3 Cot Digital IO,Nhap ma PIN mo cua tai cho,Do ben 1 trieu lan bam
+10,Cong tac hanh trinh cua,Micro Limit Switch SPDT,2,3.3V Logic,Digital Input Pullup,Xac dinh vi tri gioi han Dong het va Mo het cua cua,Tiep diem co khi tin cay
+11,Nut bam thoat hiem / Mo cua,Push Button 12x12mm,1,3.3V Logic,Digital Input,Mo cua khan cap tu ben trong nha,Kenh GPIO 47 co tro treo ngoai 10k
+12,Coi chip bao dong,Active Buzzer 5V,1,5V DC,Digital Trigger / PWM,Canh bao nhap sai ma PIN 4 lan canh bao he thong,Am luong >= 85dB tai 10cm
+13,LED RGB chi thi trang thai,LED RGB 5mm Common Cathode,1,3.3V,LEDC PWM 3 kenh (5kHz),Bao trang thai AI: Xanh (Ready) Do (Busy) Vang (Listen),Tro han dong 220 Ohm moi kenh
+14,Nguon cap tong he thong,Nguon Adapter 5V / 3A DC,1,220VAC vao -> 5VDC ra,DC Jack 5.5x2.1mm,Cung cap toan bo dien nang cho mach ESP32 va co cau chap hanh,Tranh sụt áp khi Servo de-pa
+15,Tu loc nguon chong sut ap,Tu dien hoa 1000uF/16V + 100nF Ceramic,2,5V Rail,Parallel Power Filter,Chong Brownout Reset cho ESP32 khi Servo va Relay dong ngat,Dat sat chan nguon ESP32 va Servo

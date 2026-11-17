@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+    actor User as Người dùng (Web / App / Giọng nói)
+    participant Client as Web App / Mobile App
+    participant RTDB as Firebase Realtime Database
+    participant Core0 as ESP32 Core 0 (Cloud Task)
+    participant Queue as FreeRTOS Queue (s_fbQueue)
+    participant Core1 as ESP32 Core 1 (Hardware Engine)
+    participant Actuator as Thiết bị chấp hành (Relay / Servo)
+
+    Note over User, Actuator: Kịch bản 1: Điều khiển từ Giao diện Web / App
+    User->>Client: Bấm bật "Đèn phòng"
+    Client->>RTDB: Ghi { "light": true } vào path /commands/light
+    RTDB-->>Core0: Bắn event qua WebSocket Stream listener
+    Core0->>Queue: Đẩy command payload vào FreeRTOS Queue
+    Queue->>Core1: Nhận command từ Queue trong chu kỳ loop()
+    Core1->>Actuator: Kích hoạt GPIO41 = LOW (Bật Relay Đèn)
+    Core1->>Queue: Đẩy trạng thái mới { "light": true } để đồng bộ
+    Queue->>Core0: Dequeue trạng thái phần cứng
+    Core0->>RTDB: Cập nhật /devices/state/light = true
+    RTDB-->>Client: Real-time Listener cập nhật giao diện Dashboard lập tức
+
+    Note over User, Actuator: Kịch bản 2: Ra lệnh bằng Giọng nói tại chỗ (Offline)
+    User->>Core1: Nói "Bật đèn"
+    Core1->>Core1: TinyML nhận diện nhãn "bat_den" (Confidence >= 70%)
+    Core1->>Actuator: Kích hoạt GPIO41 = LOW (Bật Relay Đèn ngay lập tức)
+    Core1->>Queue: Gửi Event { "event": "voice", "cmd": "bat_den", "conf": 0.98 }
+    Queue->>Core0: Core 0 nhận event
+    Core0->>RTDB: Ghi log vào /logs/voice và cập nhật /devices/state/light
+    RTDB-->>Client: Toast thông báo giọng nói & Switch đèn tự động bật trên Web

@@ -1,0 +1,16 @@
+flowchart TD
+    A["Tín hiệu âm thanh môi trường"] --> B["Micro I2S MEMS INMP441"]
+    B -->|16kHz, 16-bit Mono PCM| C["I2S DMA Ring Buffer (Core 1)"]
+    C --> D["Sliding Window Buffer (16,000 samples = 1000ms)"]
+    D --> E{"Tính năng lượng khung (RMS Energy) > 7,000,000?"}
+    E -- Không (Yên tĩnh) --> F["Chế độ IDLE / Bỏ qua suy luận (CPU ~0%)"]
+    E -- Có (Phát hiện giọng nói) --> G["Kích hoạt Trích xuất đặc trưng MFCC"]
+    G --> H["Bộ lọc Filterbank (32 bộ lọc Mel, 256 FFT, Frame 20ms, Stride 20ms)"]
+    H --> I["13 Hệ số Cepstral x 50 Khung = 650 Ma trận Đặc trưng"]
+    I --> J["INT8 Quantized 2D-CNN Model (Tensor Arena: 12,006 bytes)"]
+    J --> K["Softmax Output: Phân phối xác suất 10 nhãn"]
+    K --> L{"Max Confidence >= 0.70 và Label != 'unknown'?"}
+    L -- Không --> M["Bỏ qua lệnh / Ghi nhận âm thanh không xác định"]
+    L -- Có --> N["Kích hoạt thực thi lệnh tương ứng"]
+    N --> O["Điều khiển tức thì GPIO Relays / Servos (Latency ~ 0ms)"]
+    N --> P["Đẩy Event vào FreeRTOS Queue để đồng bộ lên Firebase"]

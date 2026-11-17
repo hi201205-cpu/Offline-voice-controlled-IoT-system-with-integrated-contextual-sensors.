@@ -1,0 +1,48 @@
+stateDiagram-v2
+    [*] --> IDLE : Khởi động hệ thống
+    
+    state IDLE {
+        [*] --> ChoNhapPhim : Chờ ký tự từ ma trận 4x3
+        ChoNhapPhim --> NhapKyTu : Người dùng bấm phím [0-9]
+        NhapKyTu --> BufferDay : Đủ độ dài mã PIN (4-8 số) hoặc bấm phím '#'
+        BufferDay --> BamXoa : Bấm phím '*' (Xóa buffer nhập)
+        BamXoa --> ChoNhapPhim
+    }
+
+    IDLE --> XAC_THUC : Người dùng bấm '#' xác nhận
+    
+    state XAC_THUC {
+        [*] --> BamSHA256 : Tính Salted SHA-256 (PIN + Salt)
+        BamSHA256 --> SoSanhHash : So khớp với danh sách Hash trong NVS / RAM
+        SoSanhHash --> DungPass : Hash khớp với Passcode hợp lệ
+        SoSanhHash --> SaiPass : Hash không khớp
+    }
+
+    DungPass --> MO_CUA : Mở cửa thành công
+    state MO_CUA {
+        [*] --> ResetDemSai : Reset wrong_attempts = 0
+        ResetDemSai --> QuayServoMo : Servo GPIO 39 quay 2000µs
+        QuayServoMo --> ChoCongTac : Đợi công tắc hành trình hoặc hết timeout 7s
+        ChoCongTac --> DungServo : Servo dừng (1500µs)
+        DungServo --> TuDongDong : Hẹn giờ tự động đóng sau 5s
+    }
+    MO_CUA --> IDLE : Cửa đã đóng hoàn tất
+
+    SaiPass --> KIEM_TRA_KHOA : wrong_attempts++
+    state KIEM_TRA_KHOA {
+        [*] --> Check4Lan : Kiểm tra wrong_attempts >= 4?
+        Check4Lan -- Chưa đủ 4 lần --> BeepCanhBao : Buzzer kêu 2 tiếng ngắn cảnh báo
+        Check4Lan -- Đã đạt 4 lần --> KichHoatKhoa : Khóa cứng bàn phím 120s
+    }
+    BeepCanhBao --> IDLE : Quay lại chờ nhập tiếp
+
+    KichHoatKhoa --> BI_KHOA : Chuyển sang chế độ Lockout
+    state BI_KHOA {
+        [*] --> BatBuzzerBaoDong : Buzzer kêu liên tục cảnh báo đột nhập
+        BatBuzzerBaoDong --> GuiCloudLockout : Cập nhật keypad_locked = true lên Firebase
+        GuiCloudLockout --> DemNguoc120s : Đếm ngược 120 giây (Bỏ qua mọi phím bấm)
+        DemNguoc120s --> HetThoiGianKhoa : Hết 120s
+    }
+
+    BI_KHOA --> IDLE : Mở khóa lại, wrong_attempts = 0
+    BI_KHOA --> MO_CUA : Mở khẩn cấp từ Web Master / App / Nút cơ GPIO 47

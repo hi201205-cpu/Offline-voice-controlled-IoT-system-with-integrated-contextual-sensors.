@@ -1,0 +1,47 @@
+graph LR
+    subgraph PowerSupply ["Nguồn Cấp Điện"]
+        Adapter["Adapter 5V / 3A DC"] --> Rail5V["Đường nguồn 5V"]
+        Rail5V --> Buck["AMS1117-3.3V (On-board ESP32)"]
+        Buck --> Rail3V3["Đường nguồn 3.3V"]
+        Rail5V --> Cap["Tụ lọc nguồn 1000uF + 100nF"]
+    end
+
+    subgraph MCU ["ESP32-S3-WROOM-1 / DevKitC-1 N16R8"]
+        GPIO_I2S["I2S0 (GPIO 4, 5, 6)"]
+        GPIO_UART["UART1 (GPIO 10, 11)"]
+        GPIO_ADC["ADC1_CH0 (GPIO 1)"]
+        GPIO_1WIRE["1-Wire (GPIO 16)"]
+        GPIO_PWM["LEDC PWM (GPIO 9, 39, 17, 18, 8, 48)"]
+        GPIO_OUT["Digital Output (GPIO 40, 41, 42)"]
+        GPIO_IN["Digital Input Pullup (GPIO 2, 3, 7, 12, 13, 14, 15, 21, 38, 47)"]
+    end
+
+    subgraph AudioIn ["Âm Thanh"]
+        INMP441["Microphone INMP441 MEMS"] -->|3.3V, I2S| GPIO_I2S
+    end
+
+    subgraph Sensing ["Cảm Biến"]
+        DHT22["Cảm biến nhiệt ẩm DHT22"] -->|3.3V, Data| GPIO_1WIRE
+        LD2410S["Radar mmWave LD2410S"] -->|5V, UART 115200| GPIO_UART
+        LDR["Quang trở LDR + Phân áp 10k"] -->|3.3V, Analog| GPIO_ADC
+    end
+
+    subgraph Actuation ["Cơ Cấu Chấp Hành"]
+        GPIO_OUT --> Relays["3-Channel Relay Module (Active LOW, 5V)"]
+        Relays --> Light["Đèn Phòng 220VAC / 12VDC"]
+        Relays --> Fan["Quạt Làm Mát 220VAC / 12VDC"]
+        Relays --> YardLight["Đèn Sân Vườn 220VAC / 12VDC"]
+
+        GPIO_PWM --> Servos["Servo MG996R / SG90 (5V Rail)"]
+        Servos --> DoorMechanic["Cơ cấu Cửa trượt"]
+        Servos --> CurtainMechanic["Cơ cấu Rèm tự động"]
+        
+        GPIO_PWM --> RGB["LED RGB (Chỉ thị trạng thái AI)"]
+        GPIO_PWM --> Buzzer["Còi báo động Buzzer Active 5V"]
+    end
+
+    subgraph SecurityInput ["Bảo Mật & Giao Tiếp"]
+        Keypad["Bàn phím ma trận 4x3"] --> GPIO_IN
+        Switches["Công tắc hành trình Cửa (Đóng/Mở)"] --> GPIO_IN
+        BtnDoor["Nút bấm Mở cửa trong nhà (+10k Pullup)"] --> GPIO_IN
+    end

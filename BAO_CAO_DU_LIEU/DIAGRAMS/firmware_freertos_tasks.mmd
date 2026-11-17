@@ -1,0 +1,32 @@
+graph TD
+    subgraph ESP32_DualCore ["ESP32-S3 FreeRTOS Scheduling Architecture"]
+        subgraph Core1 ["Core 1: Real-time Audio, TinyML & Hardware Loop (Prio 1)"]
+            LoopTask["loop() Task"]
+            LoopTask --> ScanI2S["1. Đọc I2S DMA Buffer (INMP441)"]
+            ScanI2S --> VADCheck["2. VAD RMS Energy Check"]
+            VADCheck --> RunInference["3. TinyML Continuous Inference"]
+            RunInference --> ScanSensors["4. Quét Sensors (DHT22 2s, mmWave, LDR 500ms)"]
+            ScanSensors --> ScanKeypad["5. Quét Ma trận Bàn phím 4x3 & Nút bấm"]
+            ScanKeypad --> RuleEngine["6. Chạy Automation Rule Engine"]
+            RuleEngine --> LocalActuate["7. Cập nhật GPIO Output (Relay, PWM Servo, LED RGB)"]
+        end
+
+        subgraph InterCoreComm ["FreeRTOS Inter-Task Communication"]
+            Queue["Queue: s_fbQueue (QueueHandle_t)"]
+            Mutex["Mutex: State Synchronization Mutex"]
+        end
+
+        subgraph Core0 ["Core 0: Network & Cloud Background Task (Prio 1)"]
+            FbTask["firebaseTask (Core 0, Prio 1, Stack 8192 words)"]
+            FbTask --> WiFiWatch["1. Giám sát kết nối Wi-Fi (Auto Reconnect)"]
+            WiFiWatch --> ReadStream["2. Lắng nghe WebSocket Stream Firebase (/commands)"]
+            ReadStream --> ExecCloudCmd["3. Xử lý lệnh Cloud & Đẩy vào Local Queue"]
+            ExecCloudCmd --> DequeueSend["4. Lấy gói tin từ s_fbQueue -> Gửi PUT/PATCH lên RTDB"]
+            DequeueSend --> HeartbeatSend["5. Gửi Heartbeat định kỳ (30s) lên /system/heartbeat"]
+        end
+
+        LocalActuate -.->|xQueueSend| Queue
+        Queue -.->|xQueueReceive| DequeueSend
+        ExecCloudCmd -.->|Local State Update| Mutex
+        LocalActuate -.->|Thread-safe Access| Mutex
+    end

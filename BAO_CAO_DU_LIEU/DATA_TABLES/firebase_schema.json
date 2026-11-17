@@ -1,0 +1,129 @@
+{
+  "$schema_description": "Cấu trúc dữ liệu Firebase Realtime Database hệ sinh thái IoT Smart Home & TinyML ESP32-S3",
+  "project_id": "do-an-2-f791a",
+  "database_url": "https://do-an-2-f791a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "master_account": "xhai2005@gmail.com",
+  "paired_home_id": "HOME-2026-ESP32",
+  "schema": {
+    "system": {
+      "heartbeat": { "type": "number", "unit": "timestamp_ms", "description": "Thời điểm gửi nhịp tim gần nhất từ ESP32-S3 (chu kỳ 30s)" },
+      "ip": { "type": "string", "description": "Địa chỉ IP cục bộ ESP32 trong mạng Wi-Fi gia đình" },
+      "uptime": { "type": "number", "unit": "seconds", "description": "Thời gian hoạt động liên tục của bo mạch kể từ khi boot" },
+      "free_heap": { "type": "number", "unit": "bytes", "description": "Dung lượng bộ nhớ RAM nội tuyến còn trống" },
+      "free_psram": { "type": "number", "unit": "bytes", "description": "Dung lượng bộ nhớ PSRAM Octal 8MB còn trống" },
+      "fw_version": { "type": "string", "description": "Phiên bản firmware nhúng hiện tại" }
+    },
+    "devices": {
+      "state": {
+        "light": { "type": "boolean", "description": "Trạng thái Đèn sinh hoạt (true: BẬT, false: TẮT) [GPIO41]" },
+        "fan": { "type": "boolean", "description": "Trạng thái Quạt làm mát (true: BẬT, false: TẮT) [GPIO42]" },
+        "yard": { "type": "boolean", "description": "Trạng thái Đèn sân vườn (true: BẬT, false: TẮT) [GPIO40]" },
+        "curtain": { "type": "string", "enum": ["open", "closed", "opening", "closing", "stopped"], "description": "Trạng thái Rèm cửa [GPIO9]" },
+        "door": { "type": "string", "enum": ["open", "closed", "opening", "closing", "stopped"], "description": "Trạng thái Cửa trượt chính [GPIO39]" },
+        "keypad_locked": { "type": "boolean", "description": "Khóa cứng bàn phím do nhập sai mã PIN 4 lần liên tiếp" },
+        "lock_remaining_s": { "type": "number", "description": "Thời gian khóa cứng còn lại (giây)" }
+      }
+    },
+    "commands": {
+      "light": { "type": "boolean", "description": "Lệnh điều khiển Đèn từ Web/App client" },
+      "fan": { "type": "boolean", "description": "Lệnh điều khiển Quạt từ Web/App client" },
+      "yard": { "type": "boolean", "description": "Lệnh điều khiển Đèn sân từ Web/App client" },
+      "curtain": { "type": "string", "enum": ["open", "close", "stop"], "description": "Lệnh đóng/mở/dừng Rèm cửa" },
+      "door": { "type": "string", "enum": ["open", "close", "stop"], "description": "Lệnh đóng/mở/dừng Cửa chính" },
+      "voice": { "type": "string", "description": "Mô phỏng lệnh giọng nói từ giao diện web" }
+    },
+    "sensors": {
+      "latest": {
+        "temperature": { "type": "number", "unit": "Celsius", "description": "Nhiệt độ phòng từ cảm biến DHT22 [GPIO16]" },
+        "humidity": { "type": "number", "unit": "Percentage", "description": "Độ ẩm không khí từ cảm biến DHT22 [GPIO16]" },
+        "presence": { "type": "boolean", "description": "Phát hiện có người hay không từ Radar mmWave LD2410S [GPIO10,11]" },
+        "target_distance": { "type": "number", "unit": "cm", "description": "Khoảng cách mục tiêu phát hiện được" },
+        "light_level": { "type": "number", "unit": "ADC_12bit", "range": "0-4095", "description": "Mức độ sáng quang trở LDR [GPIO1]" },
+        "updated_at": { "type": "number", "unit": "timestamp_ms", "description": "Thời điểm cập nhật cảm biến mới nhất" }
+      }
+    },
+    "automation": {
+      "rules": {
+        "type": "array",
+        "description": "Danh sách các quy tắc tự động hóa ngữ cảnh do người dùng cấu hình",
+        "items": {
+          "id": "string",
+          "name": "string",
+          "enabled": "boolean",
+          "conditions": {
+            "temperature_op": { "type": "string", "enum": [">", "<", ">=", "<="] },
+            "temperature_val": "number",
+            "presence": "boolean",
+            "light_op": { "type": "string", "enum": [">", "<"] },
+            "light_val": "number",
+            "time_range": { "start": "HH:MM", "end": "HH:MM" }
+          },
+          "actions": {
+            "light": "boolean",
+            "fan": "boolean",
+            "curtain": "string",
+            "yard": "boolean"
+          }
+        }
+      }
+    },
+    "door": {
+      "passcodes": {
+        "type": "object",
+        "description": "Danh sách mã PIN được lưu dưới dạng Salted SHA-256",
+        "example_child": {
+          "hash": "string (64 hex characters)",
+          "salt": "string (16 hex characters)",
+          "name": "Mã PIN Chủ nhà / Khách",
+          "created_at": "number"
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        "email": "string",
+        "name": "string",
+        "role": { "type": "string", "enum": ["master", "member"] },
+        "pairedHome": "string (Mã định danh ngôi nhà, vd: HOME-2026-ESP32)",
+        "inviteCode": "string",
+        "permissions": {
+          "light": "boolean",
+          "fan": "boolean",
+          "curtain": "boolean",
+          "door": "boolean",
+          "yard": "boolean",
+          "voice": "boolean"
+        }
+      }
+    },
+    "invites": {
+      "$code": {
+        "status": { "type": "string", "enum": ["active", "used", "revoked"] },
+        "homeId": "string",
+        "usedBy": "string (UID người dùng)",
+        "usedByEmail": "string",
+        "createdAt": "number"
+      }
+    },
+    "logs": {
+      "voice": {
+        "$log_id": {
+          "timestamp": "number",
+          "keyword": "string",
+          "confidence": "number",
+          "executed": "boolean",
+          "latency_ms": "number"
+        }
+      },
+      "sensors": {
+        "$log_id": {
+          "timestamp": "number",
+          "temperature": "number",
+          "humidity": "number",
+          "presence": "boolean",
+          "light_level": "number"
+        }
+      }
+    }
+  }
+}
