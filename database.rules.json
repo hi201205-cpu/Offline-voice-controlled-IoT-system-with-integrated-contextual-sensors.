@@ -75,6 +75,12 @@
       "factory_reset": {
         ".write": "root.child('system').child('masterUid').val() === auth.uid"
       },
+      "ota": {
+        ".write": "root.child('system').child('masterUid').val() === auth.uid"
+      },
+      "firmware": {
+        ".write": "root.child('system').child('masterUid').val() === auth.uid"
+      },
       "light": {
         ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && root.child('users').child(auth.uid).child('permissions').child('light').val() !== false)"
       },

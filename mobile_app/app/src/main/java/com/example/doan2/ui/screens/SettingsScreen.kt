@@ -1770,100 +1770,100 @@ fun SettingsScreen(
             }
         }
 
-                // Section: Firmware thiết bị ESP32 (Chuẩn Mi Home)
-        item {
-            GlassCard(
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp)
+                // Section: Firmware thiết bị ESP32 (Chuẩn Mi Home) - CHỈ hiển thị cho Chủ nhà (Master) đã liên kết
+        if (isMaster) {
+            item {
+                GlassCard(
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp)
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = AuroraAccentEnd.copy(alpha = 0.2f),
-                            modifier = Modifier.size(40.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.DeveloperBoard,
-                                    contentDescription = null,
-                                    tint = AuroraAccentEnd,
-                                    modifier = Modifier.size(22.dp)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = AuroraAccentEnd.copy(alpha = 0.2f),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeveloperBoard,
+                                        contentDescription = null,
+                                        tint = AuroraAccentEnd,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Firmware thiết bị (ESP32)",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Text(
+                                    text = "Bản hiện tại: v$currentFirmwareVersion • OTA Wi-Fi",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Firmware thiết bị (ESP32)",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            Text(
-                                text = "Bản hiện tại: v$currentFirmwareVersion • OTA Wi-Fi",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    if (otaStatus == "downloading" || otaStatus == "flashing") {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Đang nạp Firmware qua Wi-Fi...", fontSize = 12.sp, color = AuroraAccentEnd)
-                                Text("$otaProgress%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AuroraAccentEnd)
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            LinearProgressIndicator(
-                                progress = { otaProgress / 100f },
-                                modifier = Modifier.fillMaxWidth().height(6.dp),
-                                color = AuroraAccentEnd
-                            )
-                        }
-                    } else {
-                        Button(
-                            onClick = {
-                                isCheckingFirmware = true
-                                firmwareUpdateManager.checkForFirmwareUpdate { info, hasUpdate, _ ->
-                                    isCheckingFirmware = false
-                                    if (hasUpdate && info != null) {
-                                        availableFirmwareUpdate = info
-                                    } else {
-                                        Toast.makeText(context, "Thiết bị ESP32 đang chạy Firmware mới nhất (v$currentFirmwareVersion)!", Toast.LENGTH_SHORT).show()
-                                    }
+                        if (otaStatus == "downloading" || otaStatus == "flashing") {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Đang nạp Firmware qua Wi-Fi...", fontSize = 12.sp, color = AuroraAccentEnd)
+                                    Text("$otaProgress%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AuroraAccentEnd)
                                 }
-                            },
-                            enabled = !isCheckingFirmware,
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentEnd),
-                            modifier = Modifier.fillMaxWidth().height(44.dp)
-                        ) {
-                            if (isCheckingFirmware) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Đang kiểm tra Firmware...", fontSize = 13.sp)
-                            } else {
-                                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Kiểm tra Firmware mới cho ESP32", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { otaProgress / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                                    color = AuroraAccentEnd
+                                )
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    isCheckingFirmware = true
+                                    firmwareUpdateManager.checkForFirmwareUpdate { info, hasUpdate, _ ->
+                                        isCheckingFirmware = false
+                                        if (hasUpdate && info != null) {
+                                            availableFirmwareUpdate = info
+                                        } else {
+                                            Toast.makeText(context, "Thiết bị ESP32 đang chạy Firmware mới nhất (v$currentFirmwareVersion)!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                enabled = !isCheckingFirmware,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentEnd),
+                                modifier = Modifier.fillMaxWidth().height(44.dp)
+                            ) {
+                                if (isCheckingFirmware) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Đang kiểm tra Firmware...", fontSize = 13.sp)
+                                } else {
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Kiểm tra Firmware mới cho ESP32", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
-                    }
 
-                    if (isMaster) {
                         Spacer(modifier = Modifier.height(14.dp))
                         HorizontalDivider(color = dividerColor)
                         Spacer(modifier = Modifier.height(14.dp))
@@ -2348,6 +2348,22 @@ fun SettingsScreen(
                 }
             },
             onDismiss = { availableUpdate = null }
+        )
+    }
+
+    availableFirmwareUpdate?.let { fwInfo ->
+        FirmwareUpdateDialog(
+            firmwareInfo = fwInfo,
+            currentFirmwareVersion = currentFirmwareVersion,
+            otaProgress = otaProgress,
+            otaStatus = otaStatus,
+            otaError = otaError,
+            onConfirmUpdate = {
+                firmwareUpdateManager.triggerOtaUpdate(fwInfo.url, fwInfo.version) { success, msg ->
+                    Toast.makeText(context, msg ?: (if (success) "Đã gửi lệnh cập nhật!" else "Lỗi cập nhật"), Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { availableFirmwareUpdate = null }
         )
     }
 }
