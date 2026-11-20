@@ -178,13 +178,13 @@ fun BleProvisioningDialog(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = if (selectedDevice == null) "Quét thiết bị SmartHome" else "Cài đặt Wi-Fi ESP32",
+                                text = if (selectedDevice == null) "Quét tìm thiết bị" else "Cài đặt Wi-Fi",
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = "Chuẩn kết nối BLE Xiaomi",
+                                text = "Kết nối qua Bluetooth",
                                 fontSize = 11.5.sp,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                             )
@@ -319,7 +319,7 @@ fun BleProvisioningDialog(
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Text(
-                                        text = "Đang tìm kiếm thiết bị ESP32 ở gần...",
+                                        text = "Đang tìm kiếm thiết bị ở gần...",
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                                         textAlign = TextAlign.Center
@@ -333,14 +333,14 @@ fun BleProvisioningDialog(
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
-                                        text = "Chưa phát hiện thiết bị ESP32 nào.",
+                                        text = "Chưa phát hiện thiết bị nào.",
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
-                                        text = "💡 Mẹo: Nhấn giữ nút bấm trên ESP32 trong 5 giây cho đến khi còi bíp để bật chế độ cài đặt Bluetooth.",
+                                        text = "💡 Mẹo: Nhấn giữ nút trên thiết bị trong 5 giây để bật chế độ cài đặt Bluetooth.",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                                         textAlign = TextAlign.Center,
@@ -378,7 +378,7 @@ fun BleProvisioningDialog(
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = dev.name.ifEmpty { "ESP32 Device" },
+                                                text = dev.name.ifEmpty { "Thiết bị SmartHome" },
                                                 fontSize = 14.5.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.onBackground
@@ -433,7 +433,7 @@ fun BleProvisioningDialog(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = selectedDevice?.name?.ifEmpty { "Thiết bị ESP32" } ?: "",
+                                        text = selectedDevice?.name?.ifEmpty { "Thiết bị SmartHome" } ?: "",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onBackground

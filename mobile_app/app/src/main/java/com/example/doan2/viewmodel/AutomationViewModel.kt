@@ -255,7 +255,7 @@ class AutomationViewModel(
         }
         firebaseRepository.updateAutoConfig(_uiState.value.autoConfig)
         _uiState.value = _uiState.value.copy(
-            toastMessage = "Thiết bị ESP32 áp dụng trong khoảng 30 giây"
+            toastMessage = "Thiết bị sẽ áp dụng sau vài giây"
         )
     }
 

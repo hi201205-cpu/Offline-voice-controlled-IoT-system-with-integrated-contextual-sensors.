@@ -87,7 +87,7 @@ fun UnpairedLockOverlay(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Chào mừng bạn đến với hệ thống Smart Home! Bạn chưa được kết nối với thiết bị ESP32 nào.\n\nVui lòng chọn phương thức kết nối bên dưới để bắt đầu:",
+                    text = "Tài khoản của bạn chưa được liên kết với ngôi nhà nào.\nVui lòng chọn phương thức kết nối để bắt đầu:",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                     lineHeight = 19.sp,
@@ -125,7 +125,7 @@ fun UnpairedLockOverlay(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "★ Ưu tiên cho Chủ nhà: Quét BLE và nạp Wi-Fi cho ESP32 mới hoặc sau khi Reset thiết bị.",
+                    text = "Dành cho Chủ nhà kết nối và cài đặt thiết bị mới",
                     fontSize = 11.5.sp,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
@@ -169,7 +169,7 @@ fun UnpairedLockOverlay(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Nhập mã mời liên kết (Thành viên)",
+                        text = "Nhập mã mời liên kết",
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = AuroraAccentStart,
@@ -180,7 +180,7 @@ fun UnpairedLockOverlay(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Dành cho người thân, thành viên trong nhà được Chủ nhà cấp mã mời HM-XXXX.",
+                    text = "Dành cho thành viên được Chủ nhà cấp mã mời gia đình",
                     fontSize = 11.5.sp,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,

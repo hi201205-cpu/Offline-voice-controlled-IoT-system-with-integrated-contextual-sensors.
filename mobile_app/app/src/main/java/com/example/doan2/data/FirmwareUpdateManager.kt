@@ -110,7 +110,7 @@ class FirmwareUpdateManager {
         )
         database.getReference("commands/ota").setValue(payload)
             .addOnSuccessListener {
-                onResult(true, "Đã gửi lệnh cập nhật Firmware tới thiết bị ESP32!")
+                onResult(true, "Đã gửi lệnh cập nhật Firmware tới thiết bị!")
             }
             .addOnFailureListener { exc ->
                 onResult(false, exc.localizedMessage ?: "Gửi lệnh OTA thất bại")

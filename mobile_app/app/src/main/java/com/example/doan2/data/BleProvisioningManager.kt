@@ -106,7 +106,7 @@ class BleProvisioningManager(private val context: Context) {
             stopScan()
             if (_discoveredDevices.value.isEmpty() && _status.value == BleStatus.SCANNING) {
                 _status.value = BleStatus.IDLE
-                _statusMessage.value = "Không tìm thấy thiết bị nào ở gần. Hãy đảm bảo ESP32 đang bật chế độ Setup."
+                _statusMessage.value = "Không tìm thấy thiết bị nào ở gần. Hãy bật chế độ Setup trên thiết bị."
             }
         }, timeoutMs)
     }
@@ -229,10 +229,10 @@ class BleProvisioningManager(private val context: Context) {
         override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 _status.value = BleStatus.ESP_CONNECTING_WIFI
-                _statusMessage.value = "Đã gửi Wi-Fi! Đang chờ ESP32 kiểm tra kết nối..."
+                _statusMessage.value = "Đã gửi Wi-Fi! Đang chờ thiết bị kiểm tra kết nối..."
             } else {
                 _status.value = BleStatus.FAILED
-                _statusMessage.value = "Không thể gửi dữ liệu Wi-Fi sang ESP32"
+                _statusMessage.value = "Không thể gửi dữ liệu Wi-Fi sang thiết bị"
             }
         }
 
@@ -245,7 +245,7 @@ class BleProvisioningManager(private val context: Context) {
                     when (code) {
                         4 -> { // BLE_PROV_CONNECTING_WIFI
                             _status.value = BleStatus.ESP_CONNECTING_WIFI
-                            _statusMessage.value = "ESP32 đang kết nối vào Wi-Fi..."
+                            _statusMessage.value = "Thiết bị đang kết nối vào Wi-Fi..."
                         }
                         5 -> { // BLE_PROV_SUCCESS
                             _status.value = BleStatus.SUCCESS

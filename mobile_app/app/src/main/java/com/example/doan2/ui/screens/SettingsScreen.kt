@@ -457,7 +457,7 @@ fun SettingsScreen(
                                             color = MaterialTheme.colorScheme.onBackground
                                         )
                                         val subtitleText = if (isMaster) {
-                                            "${allPasscodes.size} mã PIN mô hình ESP32"
+                                            "${allPasscodes.size} mã PIN mở cửa"
                                         } else {
                                             "${visiblePasscodes.size} mã PIN của bạn"
                                         }
@@ -1069,7 +1069,7 @@ fun SettingsScreen(
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Text(
-                                    text = "Quét & nạp Wi-Fi cho ESP32 ở gần (chuẩn Xiaomi)",
+                                    text = "Quét và cấu hình Wi-Fi cho thiết bị ở gần",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                                 )
@@ -1803,7 +1803,7 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Firmware thiết bị (ESP32)",
+                                    text = "Firmware thiết bị",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onBackground
@@ -1843,7 +1843,7 @@ fun SettingsScreen(
                                         if (hasUpdate && info != null) {
                                             availableFirmwareUpdate = info
                                         } else {
-                                            Toast.makeText(context, "Thiết bị ESP32 đang chạy Firmware mới nhất (v$currentFirmwareVersion)!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Thiết bị đang chạy bản Firmware mới nhất (v$currentFirmwareVersion)!", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 },
@@ -1859,7 +1859,7 @@ fun SettingsScreen(
                                 } else {
                                     Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Kiểm tra Firmware mới cho ESP32", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    Text("Kiểm tra Firmware mới", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -1998,7 +1998,7 @@ fun SettingsScreen(
             onDismissRequest = { showBleConfigDialog = false },
             title = {
                 Text(
-                    text = "Cài đặt Wi-Fi cho ESP32",
+                    text = "Cài đặt Wi-Fi cho thiết bị",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
@@ -2118,22 +2118,22 @@ fun SettingsScreen(
         )
     }
 
-    // Dialog: Khởi động lại ESP32 từ xa
+    // Dialog: Khởi động lại thiết bị từ xa
     if (showRebootConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showRebootConfirmDialog = false },
             title = {
-                Text("Khởi động lại ESP32", fontWeight = FontWeight.Bold)
+                Text("Khởi động lại thiết bị", fontWeight = FontWeight.Bold)
             },
             text = {
-                Text("Lệnh khởi động lại sẽ được gửi qua Firebase tới vi điều khiển ESP32. Thiết bị sẽ tự động nạp lại hệ thống và kết nối lại sau vài giây.")
+                Text("Lệnh khởi động lại sẽ được gửi tới thiết bị. Thiết bị sẽ tự động khởi động và kết nối lại sau vài giây.")
             },
             confirmButton = {
                 Button(
                     onClick = {
                         showRebootConfirmDialog = false
                         authViewModel.remoteRebootEsp32 { success, msg ->
-                            Toast.makeText(context, msg ?: "Đã gửi lệnh khởi động lại ESP32", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, msg ?: "Đã gửi lệnh khởi động lại thiết bị", Toast.LENGTH_SHORT).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart)
@@ -2149,7 +2149,7 @@ fun SettingsScreen(
         )
     }
 
-    // Dialog: Khôi phục cài đặt gốc ESP32
+    // Dialog: Khôi phục cài đặt gốc thiết bị
     if (showFactoryResetConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showFactoryResetConfirmDialog = false },
@@ -2157,7 +2157,7 @@ fun SettingsScreen(
                 Text("CẢNH BÁO: Khôi phục cài đặt gốc", fontWeight = FontWeight.Bold, color = StateError)
             },
             text = {
-                Text("Toàn bộ thông tin Wi-Fi, mật khẩu cửa trên bộ nhớ Flash ESP32 sẽ bị xóa sạch hoàn toàn. Quyền Chủ nhà cũng sẽ được giải phóng để người dùng mới có thể quét Bluetooth cài đặt lại từ đầu.\n\nBạn có chắc chắn muốn thực hiện thao tác này?")
+                Text("Toàn bộ thông tin Wi-Fi và mật khẩu trên thiết bị sẽ được xóa về mặc định xuất xưởng. Quyền Chủ nhà cũng sẽ được giải phóng.\n\nBạn có chắc chắn muốn thực hiện thao tác này?")
             },
             confirmButton = {
                 Button(
@@ -2311,7 +2311,7 @@ fun SettingsScreen(
                 )
             },
             text = {
-                Text("Bạn có chắc muốn xóa mật khẩu '${itemToDelete?.name}' khỏi bàn phím ESP32 không?")
+                Text("Bạn có chắc muốn xóa mã PIN '${itemToDelete?.name}' không?")
             },
             confirmButton = {
                 Button(

@@ -87,7 +87,7 @@ fun FirmwareUpdateDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Cập nhật Firmware ESP32",
+                    text = "Cập nhật Firmware thiết bị",
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -210,7 +210,7 @@ fun FirmwareUpdateDialog(
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = StateOk, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Nạp Firmware thành công! ESP32 đang khởi động lại...", fontSize = 12.5.sp, color = StateOk, fontWeight = FontWeight.Medium)
+                        Text("Nạp Firmware thành công! Thiết bị đang khởi động lại...", fontSize = 12.5.sp, color = StateOk, fontWeight = FontWeight.Medium)
                     }
                 } else if (otaStatus == "failed") {
                     Row(
