@@ -68,7 +68,7 @@ class AutomationViewModel(
     private fun checkAutoPermission(): Boolean {
         val profile = _uiState.value.userProfile
         val email = profile?.email ?: authRepository.currentUserEmail ?: ""
-        val isMaster = profile?.role == "master" || email.equals(AuthRepository.masterEmail, ignoreCase = true)
+        val isMaster = profile?.role == "master"
         if (isMaster) return true
         if (profile == null) return false
         return profile.permissions.auto
@@ -90,7 +90,7 @@ class AutomationViewModel(
         }
         val targetRule = _uiState.value.automationRules.find { it.id == ruleId }
         val prof = _uiState.value.userProfile
-        val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val isMaster = prof?.role == "master"
         val isOwner = prof != null && targetRule?.creator != null && (
             (prof.uid.isNotEmpty() && targetRule.creator.uid == prof.uid) ||
             (prof.email.isNotEmpty() && targetRule.creator.email.equals(prof.email, ignoreCase = true))
@@ -121,7 +121,7 @@ class AutomationViewModel(
             return
         }
         val prof = _uiState.value.userProfile
-        val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val isMaster = prof?.role == "master"
         val isOwner = prof != null && rule.creator != null && (
             (prof.uid.isNotEmpty() && rule.creator.uid == prof.uid) ||
             (prof.email.isNotEmpty() && rule.creator.email.equals(prof.email, ignoreCase = true))
@@ -144,7 +144,7 @@ class AutomationViewModel(
             return
         }
         val prof = _uiState.value.userProfile
-        val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val isMaster = prof?.role == "master"
         val curCreator = if (prof != null) {
             RuleCreator(prof.uid, prof.name.ifEmpty { prof.email.substringBefore("@") }, prof.email)
         } else null
@@ -182,7 +182,7 @@ class AutomationViewModel(
             return
         }
         val prof = _uiState.value.userProfile
-        val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val isMaster = prof?.role == "master"
         val targetRule = _uiState.value.automationRules.find { it.id == ruleId }
         val isOwner = prof != null && targetRule?.creator != null && (
             (prof.uid.isNotEmpty() && targetRule.creator.uid == prof.uid) ||

@@ -513,7 +513,7 @@ class FirebaseRepository(
                     val name = child.child("name").value?.toString() ?: email.substringBefore("@")
                     val role = child.child("role").value?.toString() ?: "member"
                     val pairedHome = child.child("pairedHome").value?.toString()
-                    val isMaster = role == "master" || email.equals("xhai2005@gmail.com", ignoreCase = true)
+                    val isMaster = role == "master"
 
                     // TUYỆT ĐỐI KHÔNG hiển thị Master trong danh sách thành viên gia đình (giống Web 100%)
                     if (isMaster) {

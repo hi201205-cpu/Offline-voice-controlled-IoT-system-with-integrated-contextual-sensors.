@@ -143,7 +143,7 @@ class HomeViewModel(
     private fun checkPermission(permName: String): Boolean {
         val profile = uiState.value.userProfile
         val email = profile?.email ?: authRepository.currentUserEmail ?: ""
-        val isMaster = profile?.role == "master" || email.equals(com.example.doan2.data.repository.AuthRepository.masterEmail, ignoreCase = true)
+        val isMaster = profile?.role == "master"
         if (isMaster) return true
         if (profile == null) return false
         val perm = profile.permissions

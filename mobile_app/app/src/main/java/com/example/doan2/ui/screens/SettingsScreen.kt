@@ -74,7 +74,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val themeController = LocalThemeController.current
 
-    val isMaster = uiState.userProfile?.role == "master" || uiState.userEmail?.equals("xhai2005@gmail.com", ignoreCase = true) == true
+    val isMaster = uiState.userProfile?.role == "master"
     val isPaired = uiState.userProfile?.isPaired == true || isMaster
     val isDark = when (themeController.themeMode) {
         AppThemeMode.LIGHT -> false

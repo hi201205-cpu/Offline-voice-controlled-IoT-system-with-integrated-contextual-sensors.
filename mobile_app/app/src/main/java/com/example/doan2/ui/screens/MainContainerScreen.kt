@@ -99,7 +99,7 @@ fun MainContainerScreen(
         else -> "Chào buổi tối"
     }
 
-    val isMaster = profile?.role == "master" || authState.currentUserEmail?.equals("xhai2005@gmail.com", ignoreCase = true) == true
+    val isMaster = profile?.role == "master"
     val isPaired = profile?.isPaired == true || isMaster
 
     val themeController = LocalThemeController.current

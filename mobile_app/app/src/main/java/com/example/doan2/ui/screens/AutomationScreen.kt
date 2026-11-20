@@ -251,7 +251,6 @@ fun AutomationScreen(
 
 
                         val canAddRule = uiState.userProfile?.role == "master" ||
-                            uiState.userProfile?.email.equals("xhai2005@gmail.com", ignoreCase = true) ||
                             uiState.userProfile?.permissions?.auto == true
                         if (canAddRule) {
                             Button(
@@ -336,7 +335,7 @@ fun AutomationScreen(
                                             )
 
                                             val profRule = uiState.userProfile
-                                            val isMasterRule = profRule?.role == "master" || profRule?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+                                            val isMasterRule = profRule?.role == "master"
                                             val isOwnerRule = profRule != null && rule.creator != null && (
                                                 (profRule.uid.isNotEmpty() && rule.creator.uid == profRule.uid) ||
                                                 (profRule.email.isNotEmpty() && rule.creator.email.equals(profRule.email, ignoreCase = true))
@@ -443,7 +442,7 @@ fun AutomationScreen(
 
 
                                         val profForAction = uiState.userProfile
-                                        val isMasterForAction = profForAction?.role == "master" || profForAction?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+                                        val isMasterForAction = profForAction?.role == "master"
                                         val canTest = isMasterForAction || profForAction?.permissions?.auto == true
 
                                         Row(
@@ -475,7 +474,7 @@ fun AutomationScreen(
                                             }
 
                                             val prof = uiState.userProfile
-                                            val isMaster = prof?.role == "master" || prof?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+                                            val isMaster = prof?.role == "master"
                                             val isOwner = prof != null && rule.creator != null && (
                                                 (prof.uid.isNotEmpty() && rule.creator.uid == prof.uid) ||
                                                 (prof.email.isNotEmpty() && rule.creator.email.equals(prof.email, ignoreCase = true))

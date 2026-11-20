@@ -37,12 +37,8 @@ class AuthRepository(
 
 
     companion object {
-        const val masterEmail = "xhai2005@gmail.com"
         const val DEFAULT_HOME_CODE = "HOME-2026-ESP32"
     }
-
-    val masterEmail: String
-        get() = Companion.masterEmail
 
 
 
@@ -191,7 +187,7 @@ class AuthRepository(
 
             override fun onDataChange(snapshot: DataSnapshot) {
 
-                val isMaster = email.equals(masterEmail, ignoreCase = true)
+                val isMaster = snapshot.child("role").value?.toString() == "master"
 
                 val existingName = snapshot.child("name").value?.toString()
 
@@ -297,7 +293,7 @@ class AuthRepository(
 
                 val rawRole = snapshot.child("role").value?.toString()
 
-                val isMaster = email.equals(masterEmail, ignoreCase = true) || rawRole == "master"
+                val isMaster = snapshot.child("role").value?.toString() == "master" || rawRole == "master"
 
                 val defaultName = if (isMaster) "Chủ nhà" else email.substringBefore("@")
 
@@ -388,16 +384,15 @@ class AuthRepository(
             return
         }
 
-        // 1. Kiểm tra nếu là tài khoản Chủ nhà (Master)
-        val isMaster = userEmail != null && userEmail.equals(masterEmail, ignoreCase = true)
-        if (isMaster) {
-            onResult(false, "Bạn đang là Chủ nhà (Master) đã quản trị thiết bị này rồi, không cần nhập mã mời liên kết!")
-            return
-        }
-
-        // 2. Kiểm tra xem tài khoản hiện tại đã liên kết ngôi nhà này chưa
+        // 1. Kiểm tra tài khoản người dùng
         database.getReference("users/$uid").addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(userSnap: DataSnapshot) {
+                val isMaster = userSnap.child("role").value?.toString() == "master"
+                if (isMaster) {
+                    onResult(false, "Bạn đang là Chủ nhà (Master) đã quản trị thiết bị này rồi, không cần nhập mã mời liên kết!")
+                    return
+                }
+
                 val pairedHome = userSnap.child("pairedHome").value as? String
                 val isAlreadyPaired = (pairedHome == DEFAULT_HOME_CODE) || (userSnap.child("is_paired").value == true)
 

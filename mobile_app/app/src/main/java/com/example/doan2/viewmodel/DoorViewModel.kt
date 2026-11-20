@@ -81,7 +81,7 @@ class DoorViewModel(
     private fun checkPermission(permName: String): Boolean {
         val profile = uiState.value.userProfile
         val email = profile?.email ?: authRepository.currentUserEmail ?: ""
-        val isMaster = profile?.role == "master" || email.equals(com.example.doan2.data.repository.AuthRepository.masterEmail, ignoreCase = true)
+        val isMaster = profile?.role == "master"
         if (isMaster) return true
         if (profile == null) return false
         return when (permName) {
@@ -159,7 +159,7 @@ class DoorViewModel(
 
     fun confirmDeletePasscode(item: PasscodeItem) {
         val profile = uiState.value.userProfile
-        val isMaster = profile?.role == "master" || profile?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val isMaster = profile?.role == "master"
         val isOwner = profile != null && (
             (profile.uid.isNotEmpty() && item.creatorUid == profile.uid) ||
             (profile.email.isNotEmpty() && item.creatorEmail.equals(profile.email, ignoreCase = true))
@@ -178,7 +178,7 @@ class DoorViewModel(
     fun executeDeletePasscode() {
         val item = _uiState.value.passcodeToDelete ?: return
         val profile = uiState.value.userProfile
-        val isMaster = profile?.role == "master" || profile?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+        val isMaster = profile?.role == "master"
         val isOwner = profile != null && (
             (profile.uid.isNotEmpty() && item.creatorUid == profile.uid) ||
             (profile.email.isNotEmpty() && item.creatorEmail.equals(profile.email, ignoreCase = true))

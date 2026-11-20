@@ -336,7 +336,7 @@ fun DoorScreen(
 
             // Passcode List Items
             val curProf = uiState.userProfile
-            val isMaster = curProf?.role == "master" || curProf?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+            val isMaster = curProf?.role == "master"
             val curUid = curProf?.uid ?: ""
             val curEmail = curProf?.email ?: ""
             val visiblePasscodes = if (isMaster) {
@@ -410,7 +410,7 @@ fun DoorScreen(
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
                                     val curProf = uiState.userProfile
-                                    val isMaster = curProf?.role == "master" || curProf?.email.equals("xhai2005@gmail.com", ignoreCase = true)
+                                    val isMaster = curProf?.role == "master"
                                     val creatorDisplay = if (item.creatorName.isNotEmpty()) {
                                         item.creatorName
                                     } else if (item.creatorEmail.isNotEmpty()) {

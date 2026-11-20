@@ -997,7 +997,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
                 </button>
               </div>
             </div>
-            <p class="meta hidden" id="masterOnlyNote" style="margin-top:12px;font-size:12px;">Bảo mật: Chỉ tài khoản Master (xhai2005@gmail.com) mới có quyền tạo mã mời và quản lý phân quyền thành viên.</p>
+            <p class="meta hidden" id="masterOnlyNote" style="margin-top:12px;font-size:12px;">Bảo mật: Chỉ tài khoản Chủ nhà (Master) mới có quyền tạo mã mời và quản lý phân quyền thành viên.</p>
 
             <!-- Khu vực dành cho Thành viên gia đình: Tự hủy liên kết -->
             <div id="memberLeaveSection" class="hidden" style="margin-top:14px;padding:16px;border:1px solid rgba(239,68,68,0.25);border-radius:16px;background:rgba(239,68,68,0.04);">
@@ -1830,7 +1830,6 @@ $("btnOut").onclick = () => {
 
 // ---- Quản lý tài khoản Master, Mã mời 1 lần & Phân quyền thành viên ----
 const DEFAULT_HOME_CODE = "HOME-2026-ESP32";
-const MASTER_EMAIL = "xhai2005@gmail.com";
 let currentUserRole = "member";
 let isUserPaired = false;
 let isSelfUnlinking = false;
@@ -1855,9 +1854,7 @@ async function checkUserDeviceLink(user) {
       if (uSnap.exists()) userRole = uSnap.val();
     } catch(e) {}
 
-    const isMasterAccount = (user.email && user.email.toLowerCase() === MASTER_EMAIL.toLowerCase()) || 
-                            (masterUid && masterUid === user.uid) ||
-                            (userRole === "master");
+    const isMasterAccount = (masterUid && masterUid === user.uid) || (userRole === "master");
 
     if (isMasterAccount) {
       currentUserRole = "master";
@@ -3682,9 +3679,8 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
   const db = window.db || getDatabase(app, "https://do-an-2-f791a-default-rtdb.asia-southeast1.firebasedatabase.app");
   const $ui = id => document.getElementById(id);
   function checkIsMaster() {
-    const curEmail = (window.auth?.currentUser?.email || "").toLowerCase();
     return (window.currentUserRole === "master") || 
-      (curEmail === "xhai2005@gmail.com");
+      (window.masterUid && window.auth?.currentUser?.uid === window.masterUid);
   }
 
   function readPreference(key) {
