@@ -24,10 +24,13 @@ data class AppUpdateInfo(
     val versionName: String = "",
     val downloadUrl: String = "",
     val releaseNotes: String = "",
-    val force: Boolean = false
+    val force: Boolean = false,
+    val githubToken: String = ""
 )
 
 class AppUpdateManager(private val context: Context) {
+
+    private var cachedGithubToken: String = ""
 
     private val database = FirebaseDatabase.getInstance(
         "https://do-an-2-f791a-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -71,13 +74,16 @@ class AppUpdateManager(private val context: Context) {
                 val downloadUrl = snapshot.child("downloadUrl").value?.toString() ?: ""
                 val releaseNotes = snapshot.child("releaseNotes").value?.toString() ?: ""
                 val force = snapshot.child("force").value as? Boolean ?: false
+                val githubToken = snapshot.child("githubToken").value?.toString() ?: ""
+                cachedGithubToken = githubToken
 
                 val info = AppUpdateInfo(
                     versionCode = remoteVersionCode,
                     versionName = remoteVersionName,
                     downloadUrl = downloadUrl,
                     releaseNotes = releaseNotes,
-                    force = force
+                    force = force,
+                    githubToken = githubToken
                 )
 
                 val currentCode = getCurrentVersionCode()
@@ -94,6 +100,7 @@ class AppUpdateManager(private val context: Context) {
 
     suspend fun downloadAndInstall(
         downloadUrl: String,
+        githubToken: String = "",
         onProgress: (Int) -> Unit,
         onError: (String) -> Unit
     ) {
@@ -119,7 +126,8 @@ class AppUpdateManager(private val context: Context) {
                     apkFile.delete()
                 }
 
-                var connection = openConnectionWithRedirects(downloadUrl)
+                val effectiveToken = githubToken.ifBlank { cachedGithubToken }
+                var connection = openConnectionWithRedirects(downloadUrl, effectiveToken)
                 val responseCode = connection.responseCode
                 if (responseCode !in 200..299) {
                     withContext(Dispatchers.Main) {
@@ -169,7 +177,7 @@ class AppUpdateManager(private val context: Context) {
         }
     }
 
-    private fun openConnectionWithRedirects(urlStr: String): HttpURLConnection {
+    private fun openConnectionWithRedirects(urlStr: String, token: String = ""): HttpURLConnection {
         var currentUrl = urlStr
         var redirects = 0
         while (redirects < 5) {
@@ -178,6 +186,10 @@ class AppUpdateManager(private val context: Context) {
             conn.instanceFollowRedirects = false
             conn.connectTimeout = 15000
             conn.readTimeout = 30000
+            if (token.isNotBlank()) {
+                conn.setRequestProperty("Authorization", "token $token")
+            }
+            conn.setRequestProperty("User-Agent", "SmartHome-Android-App")
             conn.connect()
 
             val status = conn.responseCode

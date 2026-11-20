@@ -98,6 +98,13 @@ static void execute_ota_download(const String& url) {
         return;
     }
 
+#ifdef GITHUB_OTA_TOKEN
+    if (strlen(GITHUB_OTA_TOKEN) > 0) {
+        https.addHeader("Authorization", String("token ") + GITHUB_OTA_TOKEN);
+        https.addHeader("User-Agent", "ESP32-OTA-Client");
+    }
+#endif
+
     int httpCode = https.GET();
     if (httpCode != HTTP_CODE_OK) {
         snprintf(s_otaErrorMsg, sizeof(s_otaErrorMsg), "HTTP loi ma: %d", httpCode);

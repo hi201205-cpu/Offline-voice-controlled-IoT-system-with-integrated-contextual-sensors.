@@ -196,4 +196,10 @@
 #define TELEGRAM_BOT_TOKEN             "YOUR_TELEGRAM_BOT_TOKEN"
 #define TELEGRAM_CHAT_ID               "YOUR_TELEGRAM_CHAT_ID"
 
+// ╔══════════════════════════════════════════════════════════╗
+// ║  11. GITHUB PRIVATE REPO TOKEN CHO OTA CẬP NHẬT TỪ XA    ║
+// ╚══════════════════════════════════════════════════════════╝
+#define GITHUB_OTA_TOKEN               "ghp_YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"
+
+
 
