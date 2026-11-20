@@ -983,6 +983,20 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
               </div>
               <span class="mock-label">Hệ thống ESP32</span>
             </div>
+
+            <!-- Quản lý phần cứng ESP32 từ xa (Chỉ hiển thị cho Master) -->
+            <div id="masterDeviceActionsSection" class="hidden" style="margin-top:14px;border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:16px;">
+              <b style="font-size:14px;display:block;margin-bottom:4px;">Thao tác thiết bị ESP32 từ xa</b>
+              <span class="meta" style="font-size:12px;margin:0 0 12px;display:block;">Điều khiển vi điều khiển trực tiếp qua đám mây Firebase.</span>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button type="button" id="btnRemoteReboot" class="small-button" style="padding:8px 16px;border-radius:10px;font-weight:600;display:flex;align-items:center;gap:6px;">
+                  🔄 Khởi động lại ESP32
+                </button>
+                <button type="button" id="btnRemoteFactoryReset" class="small-button" style="padding:8px 16px;border-radius:10px;font-weight:600;color:var(--bad);border-color:var(--bad);display:flex;align-items:center;gap:6px;">
+                  ⚠️ Khôi phục cài đặt gốc & Hủy liên kết
+                </button>
+              </div>
+            </div>
             <p class="meta hidden" id="masterOnlyNote" style="margin-top:12px;font-size:12px;">Bảo mật: Chỉ tài khoản Master (xhai2005@gmail.com) mới có quyền tạo mã mời và quản lý phân quyền thành viên.</p>
 
             <!-- Khu vực dành cho Thành viên gia đình: Tự hủy liên kết -->
@@ -1826,7 +1840,24 @@ let userPermissions = { light: true, fan: true, curtain: true, door: true, yard:
 async function checkUserDeviceLink(user) {
   if (!user) return;
   try {
-    const isMasterAccount = (user.email && user.email.toLowerCase() === MASTER_EMAIL.toLowerCase());
+    let masterUid = null;
+    try {
+      const sysSnap = await get(ref(db, "system/masterUid"));
+      if (sysSnap.exists()) {
+        masterUid = sysSnap.val();
+      }
+    } catch(e) {}
+    window.masterUid = masterUid;
+
+    let userRole = null;
+    try {
+      const uSnap = await get(ref(db, "users/" + user.uid + "/role"));
+      if (uSnap.exists()) userRole = uSnap.val();
+    } catch(e) {}
+
+    const isMasterAccount = (user.email && user.email.toLowerCase() === MASTER_EMAIL.toLowerCase()) || 
+                            (masterUid && masterUid === user.uid) ||
+                            (userRole === "master");
 
     if (isMasterAccount) {
       currentUserRole = "master";
@@ -1854,6 +1885,8 @@ async function checkUserDeviceLink(user) {
       const masterNote = $("masterOnlyNote");
       if (masterNote) masterNote.classList.remove("hidden");
       if (masterMembersSec) masterMembersSec.classList.remove("hidden");
+      const masterActionsSec = $("masterDeviceActionsSection");
+      if (masterActionsSec) masterActionsSec.classList.remove("hidden");
       const memberLeaveSec = $("memberLeaveSection");
       if (memberLeaveSec) memberLeaveSec.classList.add("hidden");
       const btnPairModal = $("btnOpenPairModal");
@@ -1952,6 +1985,8 @@ async function checkUserDeviceLink(user) {
     const masterNote = $("masterOnlyNote");
     if (masterNote) masterNote.classList.add("hidden");
     if (masterMembersSec) masterMembersSec.classList.add("hidden");
+    const masterActionsSec = $("masterDeviceActionsSection");
+    if (masterActionsSec) masterActionsSec.classList.add("hidden");
     const memberLeaveSec = $("memberLeaveSection");
     if (memberLeaveSec) memberLeaveSec.classList.toggle("hidden", !isUserPaired);
     const btnPairModal = $("btnOpenPairModal");
@@ -2039,6 +2074,7 @@ function listenSharedMembers() {
               </div>
             </div>
             <div class="member-actions-wrap">
+              <button type="button" class="small-button" data-transfer-member="${safeUid}" data-member-name="${safeName}" data-member-email="${safeEmail}" style="padding:5px 10px;font-size:11.5px;color:var(--accent);border-color:var(--accent);">Chuyển Chủ nhà</button>
               <button type="button" class="passcode-del" data-remove-member="${safeUid}" data-member-name="${safeName}" data-member-email="${safeEmail}" style="padding:5px 12px;font-size:11.5px;">Hủy liên kết</button>
               <div class="member-chevron-wrap" title="Xem chi tiết">
                 <svg class="member-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
@@ -2110,6 +2146,38 @@ function listenSharedMembers() {
           showToast(`Đã cập nhật quyền [${dev}] cho thành viên.`);
         } catch (e) {
           showToast("Lỗi cập nhật quyền: " + (e.message || e));
+        }
+      };
+    });
+
+    // Bắt sự kiện chuyển quyền Chủ nhà (Master) cho thành viên khác
+    listEl.querySelectorAll("[data-transfer-member]").forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const targetUid = btn.dataset.transferMember;
+        const targetEmail = btn.dataset.memberEmail || "";
+        const targetName = btn.dataset.memberName || "Thành viên";
+        if (!confirm(`Bạn có chắc chắn muốn chuyển giao toàn bộ quyền Chủ nhà (Master) cho "${targetName}" (${targetEmail})?\n\nSau khi chuyển, tài khoản của bạn sẽ trở thành Thành viên bình thường.`)) return;
+        try {
+          await update(ref(db, "system"), {
+            masterUid: targetUid,
+            masterEmail: targetEmail
+          });
+          await update(ref(db, "users/" + targetUid), {
+            role: "master",
+            is_paired: true,
+            pairedHome: DEFAULT_HOME_CODE
+          });
+          if (currentUser) {
+            await update(ref(db, "users/" + currentUser.uid), {
+              role: "member"
+            });
+          }
+          showToast(`Đã chuyển quyền Chủ nhà thành công cho ${targetEmail}!`);
+          setTimeout(() => location.reload(), 1500);
+        } catch(err) {
+          showToast("Lỗi chuyển quyền: " + (err.message || err));
         }
       };
     });
@@ -2492,6 +2560,42 @@ if (btnCopyInviteCode) {
 
 const btnGenInviteCode = $("btnGenInviteCode");
 if (btnGenInviteCode) btnGenInviteCode.onclick = generateOneTimeInviteCode;
+
+const btnReboot = $("btnRemoteReboot");
+if (btnReboot) {
+  btnReboot.onclick = async () => {
+    if (!confirm("Bạn có chắc chắn muốn khởi động lại thiết bị ESP32 từ xa không?")) return;
+    try {
+      await set(ref(db, "commands/reboot"), true);
+      showToast("Đã gửi lệnh khởi động lại ESP32!");
+    } catch (e) {
+      showToast("Lỗi gửi lệnh khởi động: " + (e.message || e));
+    }
+  };
+}
+
+const btnFactoryReset = $("btnRemoteFactoryReset");
+if (btnFactoryReset) {
+  btnFactoryReset.onclick = async () => {
+    if (!confirm("CẢNH BÁO: Toàn bộ cấu hình Wi-Fi, mật khẩu cửa trên Flash ESP32 sẽ bị xóa sạch và quyền Chủ nhà sẽ được giải phóng.\n\nBạn có chắc chắn muốn khôi phục cài đặt gốc?")) return;
+    try {
+      await set(ref(db, "commands/factory_reset"), true);
+      await remove(ref(db, "system/masterUid"));
+      await remove(ref(db, "system/masterEmail"));
+      if (currentUser) {
+        await update(ref(db, "users/" + currentUser.uid), {
+          is_paired: false,
+          pairedHome: null,
+          role: "member"
+        });
+      }
+      showToast("Đã gửi lệnh khôi phục cài đặt gốc và hủy liên kết thiết bị!");
+      setTimeout(() => location.reload(), 1500);
+    } catch (e) {
+      showToast("Lỗi gửi lệnh khôi phục: " + (e.message || e));
+    }
+  };
+}
 
 // Hiển thị modal Nhập mã chia sẻ / liên kết thiết bị
 function openDevicePairModal(isNewAccount = false) {

@@ -189,3 +189,11 @@
   #define LOG(...)
 #endif
 
+// ╔══════════════════════════════════════════════════════════╗
+// ║  10. THÔNG BÁO TELEGRAM                                 ║
+// ╚══════════════════════════════════════════════════════════╝
+#define ENABLE_TELEGRAM_NOTIFICATIONS  1
+#define TELEGRAM_BOT_TOKEN             "YOUR_TELEGRAM_BOT_TOKEN"
+#define TELEGRAM_CHAT_ID               "YOUR_TELEGRAM_CHAT_ID"
+
+

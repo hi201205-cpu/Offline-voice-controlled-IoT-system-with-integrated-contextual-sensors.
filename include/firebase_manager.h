@@ -61,3 +61,5 @@ void firebase_queue_automation_pending(const char* ruleId, const char* ruleName,
                                        time_t createdAt, time_t expiresAt,
                                        const char* timeoutAction);
 void firebase_queue_automation_pending_cleanup(const char* ruleId);
+
+void firebase_report_ota_progress(int progress, const char* status, const char* error = nullptr);

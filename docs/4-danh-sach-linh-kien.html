@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Danh sách linh kiện phần cứng — Smart Home ESP32-S3 KWS</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    background: #fff;
+    line-height: 1.35;
+    padding: 10px 15px;
+  }
+  .doc-title {
+    text-align: center;
+    font-size: 15pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .doc-subtitle {
+    text-align: center;
+    font-size: 10.5pt;
+    font-style: italic;
+    margin-bottom: 14px;
+  }
+  .section-title {
+    font-size: 11pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 12px 0 6px 0;
+    border-bottom: 1px solid #000;
+    padding-bottom: 2px;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0 10px 0;
+    font-size: 9pt;
+  }
+  th {
+    border: 1px solid #000;
+    background: #f0f0f0;
+    color: #000;
+    padding: 4px 6px;
+    text-align: left;
+    font-weight: bold;
+  }
+  td {
+    border: 1px solid #000;
+    padding: 3.5px 6px;
+    vertical-align: middle;
+  }
+  tr:nth-child(even) {
+    background: #fafafa;
+  }
+  .text-center {
+    text-align: center;
+  }
+  .text-right {
+    text-align: right;
+  }
+  .code-text {
+    font-family: Consolas, monospace;
+    font-size: 8.5pt;
+  }
+  .explain-box {
+    border: 1px solid #000;
+    padding: 6px 10px;
+    font-size: 9pt;
+    margin-top: 8px;
+    background: #fff;
+  }
+  .explain-box ul {
+    margin-left: 20px;
+  }
+  .footer {
+    text-align: right;
+    font-size: 8.5pt;
+    font-style: italic;
+    margin-top: 15px;
+    border-top: 0.5px solid #666;
+    padding-top: 3px;
+  }
+</style>
+</head>
+<body>
+
+<!-- TRANG 1: DANH MỤC LINH KIỆN ĐIỆN TỬ -->
+<div class="doc-title">BẢNG DANH MỤC LINH KIỆN VÀ THIẾT BỊ DỰ ÁN</div>
+<div class="doc-subtitle">Hệ thống nhà thông minh điều khiển giọng nói tiếng Việt — ESP32-S3</div>
+
+<div class="section-title">1. Bảng kê chi tiết linh kiện điện tử và mô đun chức năng</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 5%;" class="text-center">STT</th>
+      <th style="width: 24%;">Tên linh kiện / Mô-đun</th>
+      <th style="width: 25%;">Mã linh kiện / Thông số kỹ thuật</th>
+      <th style="width: 8%;" class="text-center">SL</th>
+      <th style="width: 12%;">Chân kết nối</th>
+      <th style="width: 26%;">Vai trò trong hệ thống</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- 1. Vi điều khiển -->
+    <tr>
+      <td class="text-center">1</td>
+      <td><strong>Board vi điều khiển trung tâm</strong></td>
+      <td>ESP32-S3-DevKitC-1<br>(ESP32-S3-WROOM-1 N16R8: 16MB Flash, 8MB PSRAM)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">25 Chân GPIO</td>
+      <td>Bộ xử lý trung tâm, chạy mô hình AI KWS, FreeRTOS và đồng bộ Cloud</td>
+    </tr>
+
+    <!-- 2. Nguồn & Hạ áp -->
+    <tr>
+      <td class="text-center">2</td>
+      <td><strong>Nguồn Adapter DC</strong></td>
+      <td>AC-DC 220V ra 5V / 2.5A – 3A (Jack DC 5.5×2.1mm hoặc Type-C)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">5V, GND</td>
+      <td>Cấp nguồn chính cho toàn bộ hệ thống (ESP32, Relay, Servo)</td>
+    </tr>
+    <tr>
+      <td class="text-center">3</td>
+      <td><strong>Mô-đun giảm áp Step-Down</strong><br><em>(Dùng khi dùng nguồn 9V/12V)</em></td>
+      <td>LM2596 DC-DC hoặc MP1584EN<br>(Vào: 7–28V, Ra: 5V / 3A ổn dòng)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">IN+, IN-<br>OUT+, OUT-</td>
+      <td>Hạ áp cấp nguồn 5V riêng biệt ổn định cho Servo và cuộn hút Relay</td>
+    </tr>
+    <tr>
+      <td class="text-center">4</td>
+      <td><strong>IC Ổn áp 3.3V LDO</strong></td>
+      <td>AMS1117-3.3V (800mA)<br><em>(Có sẵn trên board ESP32)</em></td>
+      <td class="text-center">01</td>
+      <td class="code-text">VIN, 3V3, GND</td>
+      <td>Hạ áp từ 5V xuống 3.3V cấp cho chip ESP32, Mic I2S, cảm biến DHT22</td>
+    </tr>
+    <tr>
+      <td class="text-center">5</td>
+      <td><strong>Tụ hóa bù dòng lớn</strong></td>
+      <td>Tụ hóa 1000µF / 16V hoặc 2200µF / 16V</td>
+      <td class="text-center">02</td>
+      <td class="code-text">Song song 5V-GND</td>
+      <td>Lọc dòng đỉnh, chống sụt áp làm reset ESP32 khi 2 Servo và Relay khởi động</td>
+    </tr>
+    <tr>
+      <td class="text-center">6</td>
+      <td><strong>Tụ gốm lọc nhiễu cao tần</strong></td>
+      <td>Tụ gốm 100nF (Mã 104 / 50V)</td>
+      <td class="text-center">04</td>
+      <td class="code-text">VCC - GND</td>
+      <td>Khử nhiễu tần số cao tại chân nguồn của ESP32, Mic và cảm biến</td>
+    </tr>
+
+    <!-- 3. Audio & Voice -->
+    <tr>
+      <td class="text-center">7</td>
+      <td><strong>Microphone MEMS I2S</strong></td>
+      <td>Module INMP441 I2S Omnidirectional (SNR: 61 dBA)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 4, 5, 6<br>(SD, WS, SCK)</td>
+      <td>Thu âm giọng nói độ phân giải cao, chuyển trực tiếp dữ liệu số PCM qua I2S</td>
+    </tr>
+
+    <!-- 4. Actuators -->
+    <tr>
+      <td class="text-center">8</td>
+      <td><strong>Module Rơ le 3 Kênh</strong></td>
+      <td>Module 3 Relay 5V có cách ly quang Opto (Tiếp điểm 10A/250VAC)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 41, 42, 40<br>(Relay 1, 2, 3)</td>
+      <td>Đóng ngắt thiết bị 220V: Đèn phòng khách (R1), Quạt (R2), Đèn sân (R3)</td>
+    </tr>
+    <tr>
+      <td class="text-center">9</td>
+      <td><strong>Động cơ Servo Cửa chính</strong></td>
+      <td>Servo MG996R hoặc SG90 xoay 360 độ (Bánh răng kim loại, 5V)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 39 (PWM)<br>5V Nguồn ngoài</td>
+      <td>Kéo/đẩy then khóa hoặc cơ cấu cánh cửa chính đóng/mở tự động</td>
+    </tr>
+    <tr>
+      <td class="text-center">10</td>
+      <td><strong>Động cơ Servo Rèm cửa</strong></td>
+      <td>Servo SG90 / MG90S (Góc quay 180° hoặc 360°, 5V)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 9 (PWM)<br>5V Nguồn ngoài</td>
+      <td>Kéo đóng / mở rèm cửa thông minh theo lệnh giọng nói hoặc kịch bản TĐH</td>
+    </tr>
+
+    <!-- 5. Sensors -->
+    <tr>
+      <td class="text-center">11</td>
+      <td><strong>Cảm biến Nhiệt độ - Độ ẩm</strong></td>
+      <td>DHT22 / AM2302 (Đo -40~80°C, 0~100% RH)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 16 (Data)<br>3.3V, GND</td>
+      <td>Giám sát môi trường phòng, làm điều kiện kích hoạt quạt tự động</td>
+    </tr>
+    <tr>
+      <td class="text-center">12</td>
+      <td><strong>Cảm biến Radar mmWave</strong></td>
+      <td>Hi-Link LD2410S (Băng tần 24GHz mmWave, UART 115200)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 10 (RX)<br>GPIO 11 (TX)</td>
+      <td>Phát hiện chuyển động vi mô và sự hiện diện của con người thời gian thực</td>
+    </tr>
+    <tr>
+      <td class="text-center">13</td>
+      <td><strong>Cảm biến Quang trở LDR</strong></td>
+      <td>Quang trở CDS LDR 5mm (GL5528)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 1 (ADC1_0)</td>
+      <td>Cảm nhận cường độ sáng tự nhiên để tự động bật/tắt đèn sân vườn</td>
+    </tr>
+
+    <!-- 6. UI & Security -->
+    <tr>
+      <td class="text-center">14</td>
+      <td><strong>Bàn phím ma trận 4×3</strong></td>
+      <td>Bàn phím mềm hoặc phím cứng Matrix Keypad 12 phím (0-9, *, #)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 13,14,15,21<br>GPIO 7, 12, 2</td>
+      <td>Nhập mã PIN bảo mật mở cửa ngoài nhà (4 hàng Output, 3 cột Input Pullup)</td>
+    </tr>
+    <tr>
+      <td class="text-center">15</td>
+      <td><strong>Công tắc hành trình Microswitch</strong></td>
+      <td>Công tắc hành trình có cần gạt (Limit Switch NC/NO 5A/125VAC)</td>
+      <td class="text-center">02</td>
+      <td class="code-text">GPIO 38 (Mở)<br>GPIO 3 (Đóng)</td>
+      <td>Tự động ngắt xung động cơ Servo khi cửa đã mở hết hoặc đóng kín</td>
+    </tr>
+    <tr>
+      <td class="text-center">16</td>
+      <td><strong>Nút nhấn mở cửa cơ học</strong></td>
+      <td>Nút nhấn nhả Push Button 12×12mm (4 chân)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 47, GND</td>
+      <td>Mở cửa nhanh từ phía trong nhà không cần bấm mật khẩu</td>
+    </tr>
+    <tr>
+      <td class="text-center">17</td>
+      <td><strong>Còi báo động Active Buzzer</strong></td>
+      <td>Còi chíp 5V Active Buzzer (kêu khi cấp mức HIGH)</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 48, GND</td>
+      <td>Phát âm thanh bíp phản hồi phím và hú 10 nhịp khi nhập sai 4 lần</td>
+    </tr>
+    <tr>
+      <td class="text-center">18</td>
+      <td><strong>LED RGB 4 chân</strong></td>
+      <td>LED RGB 5mm Common Cathode (Cực âm chung) hoặc Anode chung</td>
+      <td class="text-center">01</td>
+      <td class="code-text">GPIO 17 (R)<br>GPIO 18 (G)<br>GPIO 8 (B)</td>
+      <td>Chỉ thị trạng thái hệ thống: Xanh lá (Lắng nghe VAD), Xanh dương (Lệnh), Đỏ (Lỗi)</td>
+    </tr>
+
+    <!-- 7. Linh kiện thụ động -->
+    <tr>
+      <td class="text-center">19</td>
+      <td><strong>Điện trở kéo / hạn dòng</strong></td>
+      <td>Điện trở cắm 10kΩ - 1/4W (Kéo DHT22, kéo LDR, chống nhiễu GPIO 47)</td>
+      <td class="text-center">04</td>
+      <td class="code-text">—</td>
+      <td>Tạo cầu phân áp quang trở, kéo nguồn 3.3V cho DHT22 và nút nhấn cửa</td>
+    </tr>
+    <tr>
+      <td class="text-center">20</td>
+      <td><strong>Điện trở hạn dòng LED</strong></td>
+      <td>Điện trở cắm 220Ω hoặc 330Ω - 1/4W</td>
+      <td class="text-center">03</td>
+      <td class="code-text">—</td>
+      <td>Hạn dòng bảo vệ 3 chân R, G, B của LED RGB khi điều khiển PWM</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="footer">Trang 1/2 — Bảng danh mục linh kiện dự án</div>
+
+<!-- TRANG 2: VẬT TƯ THI CÔNG & LƯU Ý PHẦN CỨNG -->
+<div class="page-break"></div>
+
+<div class="doc-title">BẢNG DANH MỤC LINH KIỆN VÀ THIẾT BỊ DỰ ÁN</div>
+<div class="doc-subtitle">Hệ thống nhà thông minh điều khiển giọng nói tiếng Việt — ESP32-S3</div>
+
+<div class="section-title">2. Danh mục phụ kiện đấu nối, thi công và cơ khí</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 6%;" class="text-center">STT</th>
+      <th style="width: 28%;">Tên vật tư / Phụ kiện</th>
+      <th style="width: 28%;">Quy cách kỹ thuật</th>
+      <th style="width: 10%;" class="text-center">Số lượng</th>
+      <th style="width: 28%;">Mục đích sử dụng</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="text-center">21</td>
+      <td>Bo mạch thử nghiệm (Breadboard) / PCB đục lỗ</td>
+      <td>Breadboard 830 lỗ hoặc PCB phíp sợi thủy tinh 9×15cm</td>
+      <td class="text-center">01 cái</td>
+      <td>Cắm nối linh kiện thử nghiệm và hàn cố định mạch mẫu mô hình</td>
+    </tr>
+    <tr>
+      <td class="text-center">22</td>
+      <td>Dây bẹ cắm nối Dupont</td>
+      <td>Chuẩn 2.54mm, dài 20cm (Đực-Cái, Đực-Đực, Cái-Cái)</td>
+      <td class="text-center">01 tép (40 sợi)</td>
+      <td>Kết nối tín hiệu giữa board ESP32-S3 và các module ngoại vi</td>
+    </tr>
+    <tr>
+      <td class="text-center">23</td>
+      <td>Cầu đấu dây vặn vít (Terminal Block)</td>
+      <td>Domino 2 chân / 3 chân bước 5.08mm hoặc 3.81mm</td>
+      <td class="text-center">04 cái</td>
+      <td>Đấu nối dây điện 220VAC ra bóng đèn, quạt an toàn chống chập</td>
+    </tr>
+    <tr>
+      <td class="text-center">24</td>
+      <td>Cáp dữ liệu nạp nạp code</td>
+      <td>Cáp Type-C USB chuẩn 2.0 (hỗ trợ Data &amp; Power)</td>
+      <td class="text-center">01 sợi</td>
+      <td>Nạp firmware PlatformIO và hiển thị Serial Monitor gỡ lỗi</td>
+    </tr>
+    <tr>
+      <td class="text-center">25</td>
+      <td>Cầu chì bảo vệ đường tải</td>
+      <td>Cầu chì ống thủy tinh 2A / 250VAC kèm đế gắn</td>
+      <td class="text-center">01 bộ</td>
+      <td>Bảo vệ quá dòng cho đường tải xoay chiều của module Relay</td>
+    </tr>
+    <tr>
+      <td class="text-center">26</td>
+      <td>Mô hình nhà demo / Gá cơ khí Servo</td>
+      <td>Gá nhôm / mica gắn động cơ Servo vào cánh cửa và ray rèm</td>
+      <td class="text-center">01 bộ</td>
+      <td>Lắp đặt cánh cửa, thanh trượt rèm và bố trí các cảm biến thực tế</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="section-title">3. Hướng dẫn chọn nguồn và biện pháp chống sụt áp phần cứng</div>
+
+<div class="explain-box">
+  <strong>Yêu cầu thiết yếu về nguồn cấp (Power Supply Integrity):</strong>
+  <ul>
+    <li><strong>Tại sao không được dùng củ sạc điện thoại 5V-1A kém chất lượng:</strong> ESP32-S3 khi phát sóng WiFi đỉnh dòng vọt lên 350mA–500mA. Đồng thời, cuộn hút 3 Relay tiêu thụ ~210mA, và 2 động cơ Servo khi bắt đầu chuyển động dòng đề (stall current) có thể vọt từ 0.5A đến 1.5A. Tổng dòng tức thời có thể đạt <strong>1.8A – 2.0A</strong>. Củ sạc yếu hoặc cáp USB dài mỏng sẽ sụt áp xuống dưới 2.8V, làm bộ giám sát điện áp Brownout Reset của ESP32 kích hoạt ngay lập tức.</li>
+    <li><strong>Giải pháp tụ lọc bù áp:</strong> Bắt buộc lắp <strong>tụ hóa dung lượng ≥ 1000µF / 16V</strong> (khuyến nghị 2200µF) trực tiếp tại thanh nối nguồn 5V của Servo. Tụ này đóng vai trò như một bình tích năng lượng siêu nhỏ, phóng điện ngay trong micro-giây khi servo khởi động, giữ cho điện áp 5V không bị gợn sụt.</li>
+    <li><strong>Trở kéo chống nhiễu chân Nút nhấn GPIO 47:</strong> Chân GPIO 47 nằm cạnh GPIO 48 (Còi Buzzer). Khi còi kêu, dòng điện cảm ứng xung quanh có thể kéo tụt chân 47 nếu chỉ dùng trở kéo nội yếu (~45kΩ) của chip, làm ESP32 hiểu nhầm là người dùng bấm nút mở cửa. Bắt buộc lắp <strong>1 điện trở kéo lên ngoài 10kΩ nối từ GPIO 47 lên 3.3V</strong> để triệt tiêu hoàn toàn hiện tượng cửa tự mở.</li>
+    <li><strong>Quy tắc Mass chung (Common Ground):</strong> Khi dùng nguồn 5V riêng cho Servo/Relay và nguồn máy tính cho ESP32, toàn bộ các chân GND của 2 bộ nguồn PHẢI được nối trực tiếp với nhau.</li>
+  </ul>
+</div>
+
+<div class="footer">Trang 2/2 — Bảng danh mục linh kiện dự án</div>
+
+</body>
+</html>
+

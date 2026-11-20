@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lưu đồ thuật toán hệ thống — ESP32-S3 Smart Home</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    background: #fff;
+    line-height: 1.4;
+    padding: 10px 15px;
+  }
+  .doc-title {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .doc-subtitle {
+    text-align: center;
+    font-size: 11pt;
+    font-style: italic;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 12pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 14px 0 6px 0;
+    border-bottom: 1px solid #000;
+    padding-bottom: 3px;
+  }
+  .caption {
+    text-align: center;
+    font-size: 10.5pt;
+    font-weight: bold;
+    margin-top: 6px;
+    margin-bottom: 12px;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  .chart-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 4px 0;
+  }
+  svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  /* Typography inside svg shapes */
+  .flow-text-title {
+    font-size: 9.5pt;
+    font-weight: bold;
+    fill: #000;
+    text-anchor: middle;
+  }
+  .flow-text {
+    font-size: 8.5pt;
+    fill: #000;
+    text-anchor: middle;
+  }
+  .branch-text {
+    font-size: 8.5pt;
+    font-weight: bold;
+    fill: #000;
+  }
+  .explain-box {
+    border: 1px solid #000;
+    padding: 6px 10px;
+    font-size: 9.5pt;
+    margin-top: 6px;
+    background: #fff;
+  }
+  .explain-box ul {
+    margin-left: 20px;
+  }
+  .footer {
+    text-align: right;
+    font-size: 9pt;
+    font-style: italic;
+    margin-top: 15px;
+    border-top: 0.5px solid #666;
+    padding-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- TRANG 1: LƯU ĐỒ VÒNG LẶP CHÍNH CỦA HỆ THỐNG -->
+<!-- ============================================================ -->
+<div class="doc-title">LƯU ĐỒ THUẬT TOÁN HỆ THỐNG</div>
+<div class="doc-subtitle">Hệ thống nhà thông minh điều khiển giọng nói tiếng Việt — ESP32-S3</div>
+
+<div class="section-title">1. Lưu đồ thuật toán vòng lặp chính (Main Program Loop)</div>
+
+<div class="chart-container">
+<svg viewBox="0 0 560 690" width="560" height="690" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/>
+    </marker>
+  </defs>
+
+  <!-- START -->
+  <rect x="210" y="15" width="140" height="30" rx="15" ry="15" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="34" class="flow-text-title">BẮT ĐẦU</text>
+  <line x1="280" y1="45" x2="280" y2="70" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- SETUP -->
+  <rect x="150" y="70" width="260" height="42" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="87" class="flow-text-title">Khởi tạo hệ thống (setup)</text>
+  <text x="280" y="102" class="flow-text">I2S Mic, LEDC PWM, Relay, Cảm biến, Cửa, WiFi</text>
+  <line x1="280" y1="112" x2="280" y2="135" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- LOOP HEADER / CONNECTOR -->
+  <rect x="180" y="135" width="200" height="26" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="152" class="flow-text-title">Vòng lặp loop() [chu kỳ 20ms]</text>
+  <line x1="280" y1="161" x2="280" y2="185" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- SENSORS UPDATE -->
+  <rect x="160" y="185" width="240" height="32" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="200" class="flow-text-title">sensorsUpdate()</text>
+  <text x="280" y="212" class="flow-text">Đọc DHT22, LDR, mmWave LD2410S</text>
+  <line x1="280" y1="217" x2="280" y2="240" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- FIREBASE LOOP -->
+  <rect x="160" y="240" width="240" height="32" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="255" class="flow-text-title">firebase_manager_loop()</text>
+  <text x="280" y="267" class="flow-text">Xử lý hàng đợi lệnh từ Web Dashboard</text>
+  <line x1="280" y1="272" x2="280" y2="295" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- DOOR UPDATE -->
+  <rect x="160" y="295" width="240" height="32" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="310" class="flow-text-title">doorUpdate()</text>
+  <text x="280" y="322" class="flow-text">Quét Keypad 4×3, kiểm tra hành trình, còi</text>
+  <line x1="280" y1="327" x2="280" y2="350" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- AUTOMATION UPDATE -->
+  <rect x="160" y="350" width="240" height="32" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="365" class="flow-text-title">automationUpdate()</text>
+  <text x="280" y="377" class="flow-text">Đánh giá các quy tắc ngữ cảnh tự động</text>
+  <line x1="280" y1="382" x2="280" y2="405" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- SENSORS PUSH -->
+  <rect x="160" y="405" width="240" height="30" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="424" class="flow-text-title">sensorsPush(): Đồng bộ dữ liệu lên Cloud</text>
+  <line x1="280" y1="435" x2="280" y2="460" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- DECISION: VOICE ENABLED -->
+  <polygon points="280,460 380,490 280,520 180,490" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="487" class="flow-text">Giọng nói &amp; LED</text>
+  <text x="280" y="499" class="flow-text-title">đang BẬT?</text>
+
+  <!-- NO branch -->
+  <line x1="180" y1="490" x2="95" y2="490" stroke="#000" stroke-width="1.2"/>
+  <line x1="95" y1="490" x2="95" y2="525" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <text x="135" y="483" class="branch-text">Sai</text>
+  
+  <rect x="35" y="525" width="120" height="36" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="95" y="542" class="flow-text-title">led_off()</text>
+  <text x="95" y="554" class="flow-text">Tắt hoàn toàn LED</text>
+
+  <!-- YES branch -->
+  <line x1="380" y1="490" x2="465" y2="490" stroke="#000" stroke-width="1.2"/>
+  <line x1="465" y1="490" x2="465" y2="520" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <text x="400" y="483" class="branch-text">Đúng</text>
+
+  <rect x="375" y="520" width="180" height="45" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="465" y="537" class="flow-text-title">KWS Audio Pipeline</text>
+  <text x="465" y="549" class="flow-text">Thu âm frame 20ms, VAD,</text>
+  <text x="465" y="560" class="flow-text">Inference &amp; cập nhật LED</text>
+
+  <!-- REJOIN PATH -->
+  <line x1="95" y1="561" x2="95" y2="600" stroke="#000" stroke-width="1.2"/>
+  <line x1="465" y1="565" x2="465" y2="600" stroke="#000" stroke-width="1.2"/>
+  <line x1="95" y1="600" x2="465" y2="600" stroke="#000" stroke-width="1.2"/>
+
+  <!-- LOOP BACK TO TOP -->
+  <line x1="280" y1="600" x2="280" y2="625" stroke="#000" stroke-width="1.2"/>
+  <line x1="280" y1="625" x2="20" y2="625" stroke="#000" stroke-width="1.2"/>
+  <line x1="20" y1="625" x2="20" y2="148" stroke="#000" stroke-width="1.2"/>
+  <line x1="20" y1="148" x2="180" y2="148" stroke="#000" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <text x="25" y="380" font-size="8pt" fill="#000" transform="rotate(-90 25 380)">Lặp lại liên tục chu kỳ 20ms</text>
+</svg>
+</div>
+
+<div class="caption">Hình 1. Lưu đồ thuật toán vòng lặp thực thi chính (Main Program Loop) trên vi điều khiển ESP32-S3</div>
+
+<div class="explain-box">
+  <strong>Giải thích hoạt động:</strong>
+  <ul>
+    <li>Chương trình khởi động hàm <code>setup()</code> để thiết lập phần cứng ngoại vi và kết nối WiFi, Firebase.</li>
+    <li>Mỗi chu kỳ <code>loop()</code> thực hiện trong khoảng 20ms, lần lượt đọc cảm biến, xử lý lệnh mạng, quét bàn phím và chạy thuật toán tự động hóa.</li>
+    <li>Nếu tính năng Nhận diện giọng nói được bật, vi điều khiển sẽ kích hoạt pipeline thu âm I2S và suy luận mô hình học máy TinyML.</li>
+  </ul>
+</div>
+
+<div class="footer">Trang 1/4 — Lưu đồ thuật toán hệ thống</div>
+
+<!-- ============================================================ -->
+<!-- TRANG 2: LƯU ĐỒ NHẬN DIỆN GIỌNG NÓI TINYML (KWS) -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+
+<div class="doc-title">LƯU ĐỒ THUẬT TOÁN HỆ THỐNG</div>
+<div class="doc-subtitle">Hệ thống nhà thông minh điều khiển giọng nói tiếng Việt — ESP32-S3</div>
+
+<div class="section-title">2. Lưu đồ nhận diện giọng nói tiếng Việt (KWS TinyML Pipeline)</div>
+
+<div class="chart-container">
+<svg viewBox="0 0 560 670" width="560" height="670" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/>
+    </marker>
+  </defs>
+
+  <!-- START -->
+  <rect x="180" y="10" width="200" height="28" rx="14" ry="14" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="28" class="flow-text-title">BẮT ĐẦU FRAME I2S (20ms)</text>
+  <line x1="280" y1="38" x2="280" y2="60" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+  <!-- READ I2S & RING BUFFER -->
+  <rect x="150" y="60" width="260" height="34" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="75" class="flow-text-title">Đọc 320 mẫu PCM (16kHz, 16-bit)</text>
+  <text x="280" y="87" class="flow-text">Ghi vào bộ đệm vòng (Ring Buffer 2s)</text>
+  <line x1="280" y1="94" x2="280" y2="115" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+  <!-- VAD DECISION -->
+  <polygon points="280,115 390,145 280,175 170,145" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="141" class="flow-text">Năng lượng RMS²</text>
+  <text x="280" y="154" class="flow-text-title">> Ngưỡng VAD?</text>
+
+  <!-- VAD = NO -->
+  <line x1="170" y1="145" x2="90" y2="145" stroke="#000" stroke-width="1.2"/>
+  <line x1="90" y1="145" x2="90" y2="175" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+  <text x="125" y="138" class="branch-text">Sai</text>
+
+  <rect x="30" y="175" width="120" height="34" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="90" y="191" class="flow-text-title">Chế độ IDLE</text>
+  <text x="90" y="202" class="flow-text">Tắt LED (led_sleep)</text>
+
+  <!-- VAD = YES -->
+  <line x1="280" y1="175" x2="280" y2="205" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+  <text x="285" y="192" class="branch-text">Đúng</text>
+
+  <rect x="180" y="205" width="200" height="34" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="221" class="flow-text-title">Chế độ LISTENING</text>
+  <text x="280" y="233" class="flow-text">Sáng LED Xanh lá (PWM 18%)</text>
+  <line x1="280" y1="239" x2="280" y2="265" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+  <!-- SLIDING HOP DECISION -->
+  <polygon points="280,265 390,295 280,325 170,295" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="291" class="flow-text">Đủ bước nhảy HOP</text>
+  <text x="280" y="303" class="flow-text-title">(200ms = 3200 mẫu)?</text>
+
+  <line x1="170" y1="295" x2="110" y2="295" stroke="#000" stroke-width="1.2"/>
+  <text x="135" y="288" class="branch-text">Chưa</text>
+  <line x1="110" y1="295" x2="110" y2="630" stroke="#000" stroke-width="1.2"/>
+
+  <!-- HOP = YES -->
+  <line x1="280" y1="325" x2="280" y2="350" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+  <text x="285" y="340" class="branch-text">Đủ</text>
+
+  <!-- COOLDOWN DECISION -->
+  <polygon points="280,350 380,378 280,406 180,378" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="375" class="flow-text">Hết thời gian</text>
+  <text x="280" y="386" class="flow-text-title">Cooldown (1s)?</text>
+
+  <line x1="380" y1="378" x2="450" y2="378" stroke="#000" stroke-width="1.2"/>
+  <text x="400" y="372" class="branch-text">Chưa</text>
+  <line x1="450" y1="378" x2="450" y2="630" stroke="#000" stroke-width="1.2"/>
+
+  <!-- COOLDOWN = YES -->
+  <line x1="280" y1="406" x2="280" y2="430" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+  <text x="285" y="420" class="branch-text">Đã hết</text>
+
+  <!-- INFERENCE PROCESS -->
+  <rect x="150" y="430" width="260" height="34" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="445" class="flow-text-title">inference_run(window 1000ms)</text>
+  <text x="280" y="457" class="flow-text">Trích xuất MFCC &amp; chạy mô hình Edge Impulse</text>
+  <line x1="280" y1="464" x2="280" y2="488" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+  <!-- RESULT VALID? -->
+  <polygon points="280,488 385,516 280,544 175,516" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="512" class="flow-text">Độ tin cậy ≥ 70%</text>
+  <text x="280" y="524" class="flow-text-title">&amp; khác "noise"?</text>
+
+  <line x1="175" y1="516" x2="130" y2="516" stroke="#000" stroke-width="1.2"/>
+  <text x="145" y="510" class="branch-text">Sai</text>
+  <line x1="130" y1="516" x2="130" y2="630" stroke="#000" stroke-width="1.2"/>
+
+  <!-- VALID = YES -->
+  <line x1="280" y1="544" x2="280" y2="568" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+  <text x="285" y="558" class="branch-text">Đúng</text>
+
+  <rect x="140" y="568" width="280" height="38" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="583" class="flow-text-title">execute_command(nhãn lệnh)</text>
+  <text x="280" y="595" class="flow-text">Bật/tắt Relay tương ứng, bật LED Xanh dương 500ms</text>
+  <text x="280" y="605" class="flow-text">Ghi log nhận diện lên Firebase RTDB</text>
+  <line x1="280" y1="606" x2="280" y2="630" stroke="#000" stroke-width="1.2"/>
+
+  <!-- BOTTOM REJOIN -->
+  <line x1="90" y1="209" x2="90" y2="630" stroke="#000" stroke-width="1.2"/>
+  <line x1="90" y1="630" x2="450" y2="630" stroke="#000" stroke-width="1.2"/>
+  <line x1="280" y1="630" x2="280" y2="650" stroke="#000" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+  <rect x="210" y="650" width="140" height="20" rx="10" ry="10" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="664" class="flow-text-title">KẾT THÚC FRAME</text>
+</svg>
+</div>
+
+<div class="caption">Hình 2. Lưu đồ pipeline xử lý âm thanh số và nhận diện từ khóa (KWS) sử dụng TinyML</div>
+
+<div class="explain-box">
+  <strong>Mô tả 7 nhãn lệnh nhận diện:</strong>
+  <ul>
+    <li><code>bat_den</code>: Bật Relay 1 (Đèn phòng).</li>
+    <li><code>tat_den</code>: Tắt Relay 1 (Đèn phòng).</li>
+    <li><code>bat_quat</code>: Bật Relay 2 (Quạt).</li>
+    <li><code>tat_quat</code>: Tắt Relay 2 (Quạt).</li>
+    <li><code>bat_het</code>: Bật đồng thời Relay 1 và Relay 2.</li>
+    <li><code>tat_het</code>: Tắt đồng thời Relay 1 và Relay 2.</li>
+    <li><code>noise</code>: Tạp âm môi trường (bỏ qua, không điều khiển thiết bị).</li>
+  </ul>
+</div>
+
+<div class="footer">Trang 2/4 — Lưu đồ thuật toán hệ thống</div>
+
+<!-- ============================================================ -->
+<!-- TRANG 3: LƯU ĐỒ BẢO MẬT KHÓA CỬA KEYPAD -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+
+<div class="doc-title">LƯU ĐỒ THUẬT TOÁN HỆ THỐNG</div>
+<div class="doc-subtitle">Hệ thống nhà thông minh điều khiển giọng nói tiếng Việt — ESP32-S3</div>
+
+<div class="section-title">3. Lưu đồ thuật toán xác thực mật khẩu &amp; khóa an ninh cửa (Keypad Lockout)</div>
+
+<div class="chart-container">
+<svg viewBox="0 0 560 670" width="560" height="670" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/>
+    </marker>
+  </defs>
+
+  <!-- START -->
+  <rect x="180" y="10" width="200" height="28" rx="14" ry="14" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="28" class="flow-text-title">Người dùng nhấn phím '#'</text>
+  <line x1="280" y1="38" x2="280" y2="60" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <!-- IS LOCKED? -->
+  <polygon points="280,60 380,88 280,116 180,88" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="85" class="flow-text">Bàn phím đang</text>
+  <text x="280" y="96" class="flow-text-title">bị khóa an ninh?</text>
+
+  <!-- LOCKED = YES -->
+  <line x1="380" y1="88" x2="455" y2="88" stroke="#000" stroke-width="1.2"/>
+  <text x="400" y="82" class="branch-text">Đúng</text>
+  <line x1="455" y1="88" x2="455" y2="120" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <rect x="390" y="120" width="130" height="38" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="455" y="136" class="flow-text-title">Buzzer báo ERROR</text>
+  <text x="455" y="148" class="flow-text">Từ chối mọi thao tác</text>
+  <line x1="455" y1="158" x2="455" y2="640" stroke="#000" stroke-width="1.2"/>
+
+  <!-- LOCKED = NO -->
+  <line x1="280" y1="116" x2="280" y2="140" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+  <text x="285" y="130" class="branch-text">Sai</text>
+
+  <!-- CHECK LENGTH -->
+  <polygon points="280,140 380,168 280,196 180,168" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="165" class="flow-text">Độ dài chuỗi nhập</text>
+  <text x="280" y="176" class="flow-text-title">từ 4 đến 8 ký tự?</text>
+
+  <line x1="180" y1="168" x2="90" y2="168" stroke="#000" stroke-width="1.2"/>
+  <text x="135" y="162" class="branch-text">Sai</text>
+  <line x1="90" y1="168" x2="90" y2="200" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <rect x="30" y="200" width="120" height="34" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="90" y="215" class="flow-text-title">Buzzer báo lỗi</text>
+  <text x="90" y="226" class="flow-text">Xóa đệm chuỗi nhập</text>
+  <line x1="90" y1="234" x2="90" y2="640" stroke="#000" stroke-width="1.2"/>
+
+  <!-- LENGTH = OK -->
+  <line x1="280" y1="196" x2="280" y2="225" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+  <text x="285" y="215" class="branch-text">Đúng</text>
+
+  <!-- HASH PROCESS -->
+  <rect x="150" y="225" width="260" height="36" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="241" class="flow-text-title">Băm SHA-256 (Salt + Mã nhập)</text>
+  <text x="280" y="253" class="flow-text">So sánh Constant-time với danh sách NVS Flash</text>
+  <line x1="280" y1="261" x2="280" y2="290" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <!-- MATCH DECISION -->
+  <polygon points="280,290 380,318 280,346 180,318" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="315" class="flow-text">Mã băm khớp với</text>
+  <text x="280" y="326" class="flow-text-title">mật khẩu hợp lệ?</text>
+
+  <!-- MATCH = YES -->
+  <line x1="180" y1="318" x2="110" y2="318" stroke="#000" stroke-width="1.2"/>
+  <text x="135" y="312" class="branch-text">Đúng</text>
+  <line x1="110" y1="318" x2="110" y2="345" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <rect x="20" y="345" width="180" height="60" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="110" y="362" class="flow-text-title">MỞ CỬA THÀNH CÔNG</text>
+  <text x="110" y="374" class="flow-text">• Servo quay góc mở (2000µs)</text>
+  <text x="110" y="386" class="flow-text">• Còi báo SUCCESS, reset đếm sai = 0</text>
+  <text x="110" y="398" class="flow-text">• Hẹn giờ tự đóng sau 5 giây</text>
+  <line x1="110" y1="405" x2="110" y2="640" stroke="#000" stroke-width="1.2"/>
+
+  <!-- MATCH = NO -->
+  <line x1="280" y1="346" x2="280" y2="375" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+  <text x="285" y="362" class="branch-text">Sai</text>
+
+  <rect x="180" y="375" width="200" height="34" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="391" class="flow-text-title">Tăng đếm: wrongAttempts++</text>
+  <text x="280" y="403" class="flow-text">Buzzer ERROR, gửi cảnh báo lên Cloud</text>
+  <line x1="280" y1="409" x2="280" y2="435" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <!-- WRONG >= 4? -->
+  <polygon points="280,435 385,465 280,495 175,465" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="461" class="flow-text">Số lần nhập sai</text>
+  <text x="280" y="473" class="flow-text-title">wrongAttempts ≥ 4?</text>
+
+  <line x1="175" y1="465" x2="150" y2="465" stroke="#000" stroke-width="1.2"/>
+  <text x="155" y="458" class="branch-text">Chưa</text>
+  <line x1="150" y1="465" x2="150" y2="640" stroke="#000" stroke-width="1.2"/>
+
+  <!-- WRONG >= 4 = YES -->
+  <line x1="280" y1="495" x2="280" y2="525" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+  <text x="285" y="512" class="branch-text">Đủ 4 lần</text>
+
+  <!-- LOCKOUT BOX -->
+  <rect x="150" y="525" width="260" height="52" fill="#fff" stroke="#000" stroke-width="1.5"/>
+  <text x="280" y="542" class="flow-text-title">KÍCH HOẠT KHÓA AN NINH CỨNG</text>
+  <text x="280" y="554" class="flow-text">• Hú còi báo động khẩn cấp 10 hồi (ALARM)</text>
+  <text x="280" y="565" class="flow-text">• Lưu cờ khóa "kplock: true" vào NVS Flash</text>
+  <text x="280" y="575" class="flow-text">• Đẩy thông báo khẩn cấp lên Web Dashboard</text>
+  <line x1="280" y1="577" x2="280" y2="600" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <rect x="170" y="600" width="220" height="26" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="617" class="flow-text">Chỉ mở lại khi Admin nhấn Mở khóa trên Web</text>
+  <line x1="280" y1="626" x2="280" y2="640" stroke="#000" stroke-width="1.2"/>
+
+  <!-- REJOIN -->
+  <line x1="90" y1="640" x2="455" y2="640" stroke="#000" stroke-width="1.2"/>
+  <line x1="280" y1="640" x2="280" y2="655" stroke="#000" stroke-width="1.2" marker-end="url(#arrow3)"/>
+
+  <rect x="220" y="655" width="120" height="20" rx="10" ry="10" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="669" class="flow-text-title">KẾT THÚC</text>
+</svg>
+</div>
+
+<div class="caption">Hình 3. Lưu đồ thuật toán bảo mật mật mã mở cửa và cơ chế khóa cứng bàn phím khi nhập sai 4 lần</div>
+
+<div class="explain-box">
+  <strong>Đặc điểm an ninh:</strong>
+  <ul>
+    <li>Mật khẩu được lưu trữ dưới dạng mã băm SHA-256 kèm chuỗi Salt ngẫu nhiên trong bộ nhớ bất biến NVS Flash.</li>
+    <li>Thuật toán so sánh thời gian hằng số (<code>constant_time_equal</code>) chống lại các cuộc tấn công kênh kề (Side-channel Timing Attack).</li>
+    <li>Trạng thái khóa an ninh được bảo toàn qua các lần mất nguồn hoặc khởi động lại chip ESP32.</li>
+  </ul>
+</div>
+
+<div class="footer">Trang 3/4 — Lưu đồ thuật toán hệ thống</div>
+
+<!-- ============================================================ -->
+<!-- TRANG 4: LƯU ĐỒ TỰ ĐỘNG HÓA THÔNG MINH -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+
+<div class="doc-title">LƯU ĐỒ THUẬT TOÁN HỆ THỐNG</div>
+<div class="doc-subtitle">Hệ thống nhà thông minh điều khiển giọng nói tiếng Việt — ESP32-S3</div>
+
+<div class="section-title">4. Lưu đồ thuật toán công cụ tự động hóa (Automation Engine)</div>
+
+<div class="chart-container">
+<svg viewBox="0 0 560 670" width="560" height="670" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/>
+    </marker>
+  </defs>
+
+  <!-- START -->
+  <rect x="180" y="10" width="200" height="28" rx="14" ry="14" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="28" class="flow-text-title">automationUpdate()</text>
+  <line x1="280" y1="38" x2="280" y2="60" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <!-- MASTER ENABLED? -->
+  <polygon points="280,60 380,88 280,116 180,88" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="85" class="flow-text">Công tắc chính</text>
+  <text x="280" y="96" class="flow-text-title">(Master) đang BẬT?</text>
+
+  <line x1="180" y1="88" x2="90" y2="88" stroke="#000" stroke-width="1.2"/>
+  <text x="135" y="82" class="branch-text">Tắt</text>
+  <line x1="90" y1="88" x2="90" y2="640" stroke="#000" stroke-width="1.2"/>
+
+  <!-- MASTER = YES -->
+  <line x1="280" y1="116" x2="280" y2="140" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+  <text x="285" y="130" class="branch-text">Bật</text>
+
+  <!-- READ SENSORS -->
+  <rect x="150" y="140" width="260" height="32" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="155" class="flow-text-title">Đọc giá trị môi trường hiện tại</text>
+  <text x="280" y="166" class="flow-text">Nhiệt độ, độ ẩm, ánh sáng LDR, Radar mmWave, giờ NTP</text>
+  <line x1="280" y1="172" x2="280" y2="198" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <!-- LOOP RULES -->
+  <rect x="170" y="198" width="220" height="28" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="216" class="flow-text-title">Duyệt từng quy tắc i (i = 0 .. N-1)</text>
+  <line x1="280" y1="226" x2="280" y2="250" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <!-- RULE ENABLED? -->
+  <polygon points="280,250 370,276 280,302 190,276" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="273" class="flow-text">Quy tắc i đang</text>
+  <text x="280" y="284" class="flow-text-title">được kích hoạt?</text>
+
+  <line x1="190" y1="276" x2="130" y2="276" stroke="#000" stroke-width="1.2"/>
+  <text x="150" y="270" class="branch-text">Tắt</text>
+  <line x1="130" y1="276" x2="130" y2="600" stroke="#000" stroke-width="1.2"/>
+
+  <!-- RULE = YES -->
+  <line x1="280" y1="302" x2="280" y2="328" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+  <text x="285" y="318" class="branch-text">Bật</text>
+
+  <!-- EVALUATE CONDITION -->
+  <rect x="150" y="328" width="260" height="32" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="343" class="flow-text-title">evaluate_condition(rule_i)</text>
+  <text x="280" y="354" class="flow-text">So sánh ngưỡng cảm biến / khung giờ thời gian</text>
+  <line x1="280" y1="360" x2="280" y2="385" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <!-- EDGE-TRIGGER DECISION -->
+  <polygon points="280,385 390,418 280,451 170,418" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="411" class="flow-text">Edge-Trigger thỏa mãn?</text>
+  <text x="280" y="422" class="flow-text-title">(Sai → Đúng &amp; Cooldown 30s)</text>
+
+  <line x1="170" y1="418" x2="150" y2="418" stroke="#000" stroke-width="1.2"/>
+  <text x="155" y="412" class="branch-text">Sai</text>
+  <line x1="150" y1="418" x2="150" y2="600" stroke="#000" stroke-width="1.2"/>
+
+  <!-- EDGE = YES -->
+  <line x1="280" y1="451" x2="280" y2="480" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+  <text x="285" y="468" class="branch-text">Đúng</text>
+
+  <!-- MODE DECISION -->
+  <polygon points="280,480 370,506 280,532 190,506" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="503" class="flow-text">Chế độ quy tắc</text>
+  <text x="280" y="514" class="flow-text-title">(rule.mode)?</text>
+
+  <!-- MODE = ASK -->
+  <line x1="190" y1="506" x2="105" y2="506" stroke="#000" stroke-width="1.2"/>
+  <text x="135" y="500" class="branch-text">Hỏi trước</text>
+  <line x1="105" y1="506" x2="105" y2="538" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <rect x="30" y="538" width="150" height="42" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="105" y="554" class="flow-text-title">Tạo câu hỏi chờ (Pending)</text>
+  <text x="105" y="565" class="flow-text">Gửi thông báo lên Web</text>
+  <text x="105" y="575" class="flow-text">Chờ người dùng xác nhận</text>
+  <line x1="105" y1="580" x2="105" y2="600" stroke="#000" stroke-width="1.2"/>
+
+  <!-- MODE = AUTO -->
+  <line x1="370" y1="506" x2="455" y2="506" stroke="#000" stroke-width="1.2"/>
+  <text x="390" y="500" class="branch-text">Tự động</text>
+  <line x1="455" y1="506" x2="455" y2="538" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <rect x="370" y="538" width="170" height="42" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="455" y="554" class="flow-text-title">Thực thi hành động</text>
+  <text x="455" y="565" class="flow-text">Ưu tiên lệnh TẮT nếu xung đột</text>
+  <text x="455" y="575" class="flow-text">Đóng/ngắt Relay, Servo, Voice</text>
+  <line x1="455" y1="580" x2="455" y2="600" stroke="#000" stroke-width="1.2"/>
+
+  <!-- REJOIN RULES LOOP -->
+  <line x1="105" y1="600" x2="455" y2="600" stroke="#000" stroke-width="1.2"/>
+  <line x1="280" y1="600" x2="280" y2="620" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <rect x="160" y="620" width="240" height="20" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="634" class="flow-text">Lặp tiếp quy tắc kế tiếp hoặc hoàn thành</text>
+
+  <line x1="90" y1="640" x2="470" y2="640" stroke="#000" stroke-width="1.2"/>
+  <line x1="280" y1="640" x2="280" y2="652" stroke="#000" stroke-width="1.2" marker-end="url(#arrow4)"/>
+
+  <rect x="210" y="652" width="140" height="18" rx="9" ry="9" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="665" class="flow-text-title">KẾT THÚC LƯỢT</text>
+</svg>
+</div>
+
+<div class="caption">Hình 4. Lưu đồ thuật toán đánh giá quy tắc và thực thi hành động tự động hóa ngữ cảnh</div>
+
+<div class="explain-box">
+  <strong>Nguyên lý kích hoạt Edge-Trigger:</strong>
+  <ul>
+    <li>Quy tắc chỉ kích hoạt khi có sự chuyển sườn từ <em>Sai</em> sang <em>Đúng</em>.</li>
+    <li>Khoảng thời gian giãn cách giữa 2 lần kích hoạt liên tiếp (Cooldown) được đặt là 30 giây để chống dao động nhiễu.</li>
+    <li>Khi điều khiển thiết bị bằng tay ở trang chủ, quy tắc TĐH không tự bật lại đè lên thao tác tay cho đến khi có sự thay đổi điều kiện mới.</li>
+  </ul>
+</div>
+
+<div class="footer">Trang 4/4 — Lưu đồ thuật toán hệ thống</div>
+
+</body>
+</html>

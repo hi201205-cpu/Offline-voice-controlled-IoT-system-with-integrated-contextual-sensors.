@@ -46,7 +46,9 @@ __pycache__/
 debug.log
 
 # ── Tài liệu & Tài nguyên nội bộ ─────────────────────────────
-docs/
+!docs/
+!docs/**
+!docs/SmartHome-KWS.apk
 
 # ── Thông tin nhạy cảm (WiFi, Firebase Secret Keys) ──────────
 # File config.h thật chứa WiFi SSID/Password và Firebase Secret

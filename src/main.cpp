@@ -20,6 +20,9 @@
 #include "sensors.h"
 #include "automation.h"
 #include "door_manager.h"
+#include "ota_manager.h"
+#include "telegram_manager.h"
+#include "ble_provisioning.h"
 
 static uint32_t s_lastCmdMs = 0;
 static uint32_t s_lastHealthLogMs = 0;
@@ -251,6 +254,18 @@ void setup() {
     doorInit();
     automationInit();
     firebase_manager_start();
+    ota_init();
+    telegram_init();
+
+    // Gui thong bao khoi dong he thong toi Telegram
+    char bootMsg[256];
+    snprintf(bootMsg, sizeof(bootMsg),
+             "🟢 *HỆ THỐNG TRỰC TUYẾN:*\n"
+             "ESP32-S3 Smart Home đã khởi động thành công!\n"
+             "• Phiên bản Firmware: v%s\n"
+             "• Trạng thái khởi động: %s",
+             FIRMWARE_CURRENT_VERSION, reset_reason_name(rawReason));
+    telegram_send_alert(bootMsg);
 
     // Cấp phát buffer inference trên PSRAM (32 KB) để giải phóng RAM nội bộ cho WiFi
     if (psramFound()) {
@@ -306,6 +321,11 @@ void setup() {
 // ============================================================
 
 void loop() {
+    if (ota_is_running()) {
+        ota_update();
+        delay(10);
+        return;
+    }
 #if DEBUG_FIRMWARE_METRICS
     uint32_t loopStartedMs = millis();
 #endif
@@ -315,6 +335,42 @@ void loop() {
     doorUpdate();
     automationUpdate();
     sensorsPush();
+
+    // Lắng nghe lệnh cấu hình nhanh qua USB Serial (dành cho máy tính / kiểm thử không cần Bluetooth)
+    if (Serial.available()) {
+        String sCmd = Serial.readStringUntil('\n');
+        sCmd.trim();
+        if (sCmd.startsWith("SET_WIFI:")) {
+            // Cú pháp: SET_WIFI:ssid|pass|owner|uid
+            String payload = sCmd.substring(9);
+            int p1 = payload.indexOf('|');
+            int p2 = (p1 >= 0) ? payload.indexOf('|', p1 + 1) : -1;
+            int p3 = (p2 >= 0) ? payload.indexOf('|', p2 + 1) : -1;
+            if (p1 >= 0) {
+                String ssid = payload.substring(0, p1);
+                String pass = (p2 >= 0) ? payload.substring(p1 + 1, p2) : payload.substring(p1 + 1);
+                String owner = (p2 >= 0 && p3 >= 0) ? payload.substring(p2 + 1, p3) : (p2 >= 0 ? payload.substring(p2 + 1) : "");
+                String uid = (p3 >= 0) ? payload.substring(p3 + 1) : "";
+                ble_save_wifi(ssid, pass, "HOME-2026-ESP32", owner, uid);
+                Serial.printf("\n[SERIAL] Da luu Wi-Fi: '%s' | Master: '%s' (%s)\n", ssid.c_str(), owner.c_str(), uid.c_str());
+                Serial.println("[SERIAL] Dang khoi dong lai ESP32 de ket noi...");
+                delay(500);
+                ESP.restart();
+            }
+        } else if (sCmd == "FACTORY_RESET") {
+            Serial.println("\n[SERIAL] Nhan lenh Factory Reset toan bo NVS!");
+            ble_factory_reset();
+            delay(500);
+            ESP.restart();
+        } else if (sCmd == "STATUS") {
+            String s, p, h, o, u;
+            if (ble_get_saved_wifi(s, p, h, &o, &u)) {
+                Serial.printf("\n[STATUS] SSID='%s', Owner='%s', UID='%s', IP=%s, WiFi=%d\n", s.c_str(), o.c_str(), u.c_str(), WiFi.localIP().toString().c_str(), (int)WiFi.status());
+            } else {
+                Serial.printf("\n[STATUS] Chua cau hinh Wi-Fi (Trang thai xuat xuong). IP=%s, WiFi=%d\n", WiFi.localIP().toString().c_str(), (int)WiFi.status());
+            }
+        }
+    }
 
     bool voiceActive = firebase_voice_enabled();
 

@@ -38,6 +38,12 @@ class AuthViewModel(
     )
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    val currentUid: String?
+        get() = authRepository.currentUid
+
+    val currentUserEmail: String?
+        get() = authRepository.currentUserEmail
+
     init {
         if (authRepository.isLoggedIn) {
             observeProfile()
@@ -216,6 +222,51 @@ class AuthViewModel(
                     showPairingDialog = if (success) false else _uiState.value.showPairingDialog,
                     toastMessage = msg ?: (if (success) "Thành công" else "Thất bại")
                 )
+            }
+        }
+    }
+
+    fun pairDeviceAsMaster(homeId: String = "HOME-2026-ESP32", onResult: ((Boolean, String?) -> Unit)? = null) {
+        _uiState.value = _uiState.value.copy(isLoading = true)
+        authRepository.pairDeviceAsMaster(homeId) { success, msg ->
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    toastMessage = msg
+                )
+                if (success) {
+                    observeProfile()
+                }
+                onResult?.invoke(success, msg)
+            }
+        }
+    }
+
+    fun remoteRebootEsp32(onResult: ((Boolean, String?) -> Unit)? = null) {
+        authRepository.remoteRebootEsp32 { success, msg ->
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(toastMessage = msg)
+                onResult?.invoke(success, msg)
+            }
+        }
+    }
+
+    fun remoteFactoryResetEsp32(onResult: ((Boolean, String?) -> Unit)? = null) {
+        authRepository.remoteFactoryResetEsp32 { success, msg ->
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(toastMessage = msg)
+                observeProfile()
+                onResult?.invoke(success, msg)
+            }
+        }
+    }
+
+    fun transferOwnership(newMasterUid: String, newMasterEmail: String, onResult: ((Boolean, String?) -> Unit)? = null) {
+        authRepository.transferOwnership(newMasterUid, newMasterEmail) { success, msg ->
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(toastMessage = msg)
+                observeProfile()
+                onResult?.invoke(success, msg)
             }
         }
     }

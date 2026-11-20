@@ -8,6 +8,8 @@
 #include "config.h"
 #include "firebase_manager.h"
 #include "led_relay.h"
+#include "ble_provisioning.h"
+#include "telegram_manager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
@@ -62,18 +64,11 @@ bool s_doorPositionKnown = false;
 uint32_t s_doorMotionEndsAtMs = 0;
 bool s_doorMotionMeasuresLatency = false;
 uint32_t s_doorMotionDesiredReceivedMs = 0;
+} // namespace
 
-enum BuzzerMode {
-    BUZZER_MODE_IDLE,
-    BUZZER_MODE_KEY,
-    BUZZER_MODE_SUCCESS,
-    BUZZER_MODE_ERROR,
-    BUZZER_MODE_ALARM
-};
-
-BuzzerMode s_buzzerMode = BUZZER_MODE_IDLE;
-uint32_t s_buzzerStepTimerMs = 0;
-uint8_t s_buzzerStep = 0;
+static BuzzerMode s_buzzerMode = BUZZER_MODE_IDLE;
+static uint32_t s_buzzerStepTimerMs = 0;
+static uint8_t s_buzzerStep = 0;
 
 void buzzer_trigger(BuzzerMode mode) {
     if (s_buzzerMode == BUZZER_MODE_ALARM && mode != BUZZER_MODE_IDLE) {
@@ -139,6 +134,8 @@ void buzzer_update() {
             break;
     }
 }
+
+namespace {
 
 
 bool lock_nvs() {
@@ -329,6 +326,19 @@ void log_door_event(const char* action, const char* source,
 void open_door(const char* source, const char* who) {
     set_door_state(true);
     log_door_event("open", source, who, true, "");
+    char msg[256];
+    if (who && strlen(who) > 0) {
+        snprintf(msg, sizeof(msg),
+                 "🚪 *THÔNG BÁO CỬA CHÍNH:*\n"
+                 "Cửa vừa được MỞ bởi: *%s* (Nguồn: %s)\n"
+                 "Cửa sẽ tự động đóng sau 5 giây.", who, source);
+    } else {
+        snprintf(msg, sizeof(msg),
+                 "🚪 *THÔNG BÁO CỬA CHÍNH:*\n"
+                 "Cửa vừa được MỞ qua nguồn: *%s*\n"
+                 "Cửa sẽ tự động đóng sau 5 giây.", source);
+    }
+    telegram_send_alert(msg);
 }
 
 void process_key(char key) {
@@ -377,6 +387,10 @@ void process_key(char key) {
                 log_door_event("locked", "keypad", "", false,
                                "Nhập sai mật khẩu 4 lần liên tiếp; bàn phím đã bị khóa cứng");
                 firebase_set_keypad_locked(true);
+                telegram_send_alert("🚨 *CẢNH BÁO AN NINH Smart Home!*\n"
+                                    "⚠️ Phát hiện nhập sai mật khẩu cửa liên tiếp 4 lần!\n"
+                                    "🔒 Bàn phím đã bị KHÓA CỨNG và còi báo động được kích hoạt.\n"
+                                    "Vui lòng kiểm tra ứng dụng để mở khóa.");
             } else {
                 buzzer_trigger(BUZZER_MODE_ERROR);
                 char reason[128];
@@ -614,27 +628,52 @@ void doorUpdate() {
     }
 
     bool isPressed = (digitalRead(PIN_DOOR_BUTTON) == DOOR_BUTTON_ACTIVE_LEVEL);
+
+    // Kiểm tra thao tác nút bấm GPIO 47:
+    // - Nhấn nhả (< 3s, kích hoạt khi nhả): Mở cửa
+    // - Nhấn giữ 5s: RESET MẠNG (Xóa cấu hình Wi-Fi NVS, còi báo động, phát sóng BLE 180s chờ cài đặt)
+    static uint32_t s_buttonHoldStartMs = 0;
+    static bool s_buttonHoldHandled = false;
+
     if (now < 2500) {
-        // Khóa an toàn 2.5 giây đầu sau boot: liên tục đồng bộ trạng thái, không kích hoạt mở cửa
+        // Khóa an toàn 2.5 giây đầu sau boot: không xử lý nút bấm
         s_buttonRaw = isPressed;
         s_buttonStable = isPressed;
         s_buttonChangedMs = now;
+        s_buttonHoldStartMs = 0;
+        s_buttonHoldHandled = false;
     } else {
-        if (isPressed != s_buttonRaw) {
-            s_buttonRaw = isPressed;
-            s_buttonChangedMs = now;
-        } else if (isPressed != s_buttonStable &&
-                   now - s_buttonChangedMs >= kButtonDebounceMs) {
-            s_buttonStable = isPressed;
-            if (s_buttonStable) {
-                if (s_keypadLocked) {
-                    buzzer_trigger(BUZZER_MODE_ERROR);
-                    LOG("[DOOR] Physical button ignored: Keypad is LOCKED\n");
-                } else {
-                    open_door("button", "");
+        if (isPressed) {
+            if (s_buttonHoldStartMs == 0) {
+                s_buttonHoldStartMs = now;
+            }
+            uint32_t holdDuration = now - s_buttonHoldStartMs;
+            if (holdDuration >= 5000 && !s_buttonHoldHandled) {
+                s_buttonHoldHandled = true;
+                LOG("[DOOR] Nhan giu nut 5s -> RESET MANG (Xoa Wi-Fi) & PHAT BLE SETUP 180s!\n");
+                buzzer_trigger(BUZZER_MODE_ALARM);
+                ble_clear_saved_wifi();
+                ble_provisioning_start();
+            }
+        } else {
+            // Khi người dùng nhả nút
+            if (s_buttonHoldStartMs > 0) {
+                uint32_t pressDuration = now - s_buttonHoldStartMs;
+                if (!s_buttonHoldHandled && pressDuration >= kButtonDebounceMs && pressDuration < 3000) {
+                    if (s_keypadLocked) {
+                        buzzer_trigger(BUZZER_MODE_ERROR);
+                        LOG("[DOOR] Physical button ignored: Keypad is LOCKED\n");
+                    } else {
+                        LOG("[DOOR] Nhan nha nut bam -> Mo cua\n");
+                        open_door("button", "");
+                    }
                 }
+                s_buttonHoldStartMs = 0;
+                s_buttonHoldHandled = false;
             }
         }
+        s_buttonRaw = isPressed;
+        s_buttonStable = isPressed;
     }
 }
 

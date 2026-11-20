@@ -1,7 +1,9 @@
 #include "firebase_manager.h"
+#include "ota_manager.h"
 #include "led_relay.h"
 #include "automation.h"
 #include "door_manager.h"
+#include "ble_provisioning.h"
 #include <FirebaseESP32.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
@@ -215,6 +217,23 @@ static TaskHandle_t   s_fbTaskHandle = nullptr;
 
 // Khai báo trước các hàm nội bộ
 static void firebase_task(void* pvParam);
+
+static bool fb_patch(const char* path, const char* body);
+
+void firebase_report_ota_progress(int progress, const char* status, const char* error) {
+    if (!Firebase.ready()) return;
+    char body[256];
+    if (error && strlen(error) > 0) {
+        snprintf(body, sizeof(body),
+            "{\"ota_progress\":%d,\"ota_status\":\"%s\",\"ota_error\":\"%s\"}",
+            progress, status, error);
+    } else {
+        snprintf(body, sizeof(body),
+            "{\"ota_progress\":%d,\"ota_status\":\"%s\"}",
+            progress, status);
+    }
+    fb_patch("/devices/" FIREBASE_DEVICE_ID, body);
+}
 static void commands_stream_callback(StreamData data);
 static void stream_timeout_callback(bool t);
 static void firebase_do_voice_log(const VoiceLogRecord& record);
@@ -309,7 +328,39 @@ static void firebase_do_reinit() {
         return;
     }
 
-    s_firebaseReady = true;
+        s_firebaseReady = true;
+    ota_set_progress_callback(firebase_report_ota_progress);
+    fb_patch("/devices/" FIREBASE_DEVICE_ID, "{\"firmware_version\":\"" FIRMWARE_CURRENT_VERSION "\",\"ota_status\":\"idle\",\"ota_progress\":0}");
+
+    // Đồng bộ thông tin Chủ nhà (Master) và Home ID lên Firebase nếu chưa có
+    {
+        String activeSsid, activePass, activeHome, activeOwner, activeUid;
+        if (ble_get_saved_wifi(activeSsid, activePass, activeHome, &activeOwner, &activeUid)) {
+            if (activeUid.length() > 0) {
+                bool hasMaster = false;
+                if (Firebase.getString(s_fbWrite, "/system/masterUid")) {
+                    String existingMaster = s_fbWrite.stringData();
+                    if (existingMaster.length() > 0 && existingMaster != "null") {
+                        hasMaster = true;
+                    }
+                }
+                if (!hasMaster) {
+                    Firebase.setString(s_fbWrite, "/system/masterUid", activeUid.c_str());
+                    if (activeOwner.length() > 0) {
+                        Firebase.setString(s_fbWrite, "/system/masterEmail", activeOwner.c_str());
+                    }
+                    LOG("[FB] Da thiet lap Master UID khoi tao tren Firebase: %s (%s)\n", activeUid.c_str(), activeOwner.c_str());
+                }
+            }
+            if (activeHome.length() > 0 || activeOwner.length() > 0 || activeUid.length() > 0) {
+                FirebaseJson devInfo;
+                if (activeHome.length() > 0) devInfo.set("homeId", activeHome);
+                if (activeOwner.length() > 0) devInfo.set("owner", activeOwner);
+                if (activeUid.length() > 0) devInfo.set("ownerUid", activeUid);
+                fb_patch("/devices/" FIREBASE_DEVICE_ID, devInfo.raw());
+            }
+        }
+    }
 
     if (!s_stateRestoreAttempted && !s_deviceStateDirty) {
         if (FB_TIMED("getBool devices/state/light",
@@ -1298,6 +1349,8 @@ static void firebase_do_extension_event(const FbUpdateMsg& msg) {
 
 // ── WiFi ─────────────────────────────────────────────────────
 bool wifi_init() {
+    ble_provisioning_init();
+
     WiFi.onEvent(wifi_event_callback);
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
@@ -1305,9 +1358,26 @@ bool wifi_init() {
     // Hạ công suất phát xuống 15dBm để giảm dòng đỉnh, bảo vệ nguồn không sụt áp gây reset ESP32
     WiFi.setTxPower(WIFI_POWER_15dBm);
 
-    LOG("[WIFI] Bat dau ket noi WiFi: %s ...\n", WIFI_SSID);
-    // Bắt đầu kết nối bằng thông tin config
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    String activeSsid = "";
+    String activePass = "";
+    String activeHome = "HOME-2026-ESP32";
+    String activeOwner = "";
+    String activeUid = "";
+    if (ble_get_saved_wifi(activeSsid, activePass, activeHome, &activeOwner, &activeUid) && activeSsid.length() > 0) {
+        LOG("[WIFI] Su dung cau hinh WiFi tu NVS Preferences: %s (Home: %s, Owner: %s, UID: %s)\n",
+            activeSsid.c_str(), activeHome.c_str(), activeOwner.c_str(), activeUid.c_str());
+    } else {
+        LOG("[WIFI] Thiet bi chua duoc cau hinh WiFi trong NVS (Trang thai xuat xuong / Factory Reset).\n");
+        LOG("[WIFI] Tu dong bat BLE Provisioning (SmartHome-ESP32-Setup, 180s) cho nguoi dung quet...\n");
+        ble_provisioning_start();
+        s_lastReconnectMs = millis();
+        s_wifiAttemptCount = 0;
+        return false;
+    }
+
+    LOG("[WIFI] Bat dau ket noi WiFi: %s ...\n", activeSsid.c_str());
+    // Bắt đầu kết nối bằng thông tin cấu hình từ NVS
+    WiFi.begin(activeSsid.c_str(), activePass.c_str());
 
     s_lastReconnectMs = millis();
     s_wifiAttemptCount = 0;
@@ -1316,6 +1386,17 @@ bool wifi_init() {
 
 // Hàm này không block lâu, nên có thể được gọi trong firebase_task.
 void wifi_loop() {
+    // Nếu đang ở chế độ BLE Provisioning thì ưu tiên xử lý cấu hình BLE
+    if (ble_provisioning_is_active()) {
+        ble_provisioning_update();
+        return;
+    }
+
+    // Nếu thiết bị chưa có Wi-Fi trong NVS thì dừng, chờ người dùng nạp Wi-Fi qua BLE
+    if (!ble_has_saved_wifi()) {
+        return;
+    }
+
     wl_status_t status = WiFi.status();
     bool connected = (status == WL_CONNECTED);
 
@@ -1343,6 +1424,14 @@ void wifi_loop() {
     }
 
     if (connected) return;
+
+    // Nếu thử kết nối thất bại liên tiếp 6 lần (khoảng 25-30 giây) -> tự động bật BLE Setup
+    if (!connected && s_wifiAttemptCount >= 6 && !ble_provisioning_is_active()) {
+        LOG("[WIFI] Khong the ket noi WiFi sau %lu lan thu! Tu dong bat che do BLE Provisioning...\n",
+            static_cast<unsigned long>(s_wifiAttemptCount));
+        ble_provisioning_start();
+        return;
+    }
 
     uint32_t now = millis();
     uint32_t retryDelayMs = WIFI_RETRY_MIN_MS;
@@ -1437,8 +1526,73 @@ static void commands_stream_callback(StreamData data) {
     }
     if (path == "commands") path = "";
 
+    // Lenh khoi dong lai ESP32 tu xa (Remote Reboot)
+    if (path == "reboot") {
+        LOG("[CMD] Nhan lenh REBOOT tu xa qua Firebase!\n");
+        if (s_firebaseReady) {
+            Firebase.deleteNode(s_fbWrite, "/commands/reboot");
+        }
+        buzzer_trigger(BUZZER_MODE_SUCCESS);
+        delay(500);
+        ESP.restart();
+        return;
+    }
+
+    // Lenh khoi phuc cai dat goc & huy lien ket tu xa (Remote Factory Reset)
+    if (path == "factory_reset") {
+        LOG("[CMD] Nhan lenh FACTORY RESET tu xa qua Firebase!\n");
+        if (s_firebaseReady) {
+            Firebase.deleteNode(s_fbWrite, "/commands/factory_reset");
+            Firebase.deleteNode(s_fbWrite, "/system/masterUid");
+            Firebase.deleteNode(s_fbWrite, "/system/masterEmail");
+        }
+        buzzer_trigger(BUZZER_MODE_ALARM);
+        ble_factory_reset();
+        delay(1000);
+        ESP.restart();
+        return;
+    }
+
+    if (path == "ota" || path == "firmware") {
+        String url = "";
+        String ver = "";
+        if (data.dataType() == "string") {
+            url = data.stringData();
+        } else if (data.dataType() == "json") {
+            FirebaseJson json = data.to<FirebaseJson>();
+            FirebaseJsonData val;
+            if (json.get(val, "url") && val.success) url = val.stringValue;
+            if (json.get(val, "version") && val.success) ver = val.stringValue;
+        }
+        if (url.length() > 0) {
+            LOG("[OTA] Nhan lenh OTA tu /commands/%s: %s (v%s)\n", path.c_str(), url.c_str(), ver.c_str());
+            ota_start(url, ver);
+        }
+        return;
+    }
     if (path.length() == 0 && data.dataType() == "json") {
         FirebaseJson commands = data.to<FirebaseJson>();
+
+        FirebaseJsonData cmdCheck;
+        if (commands.get(cmdCheck, "reboot") && cmdCheck.success && (cmdCheck.type == "bool" ? cmdCheck.boolValue : true)) {
+            LOG("[CMD] Nhan lenh REBOOT tu xa (root commands json)!\n");
+            Firebase.deleteNode(s_fbWrite, "/commands/reboot");
+            buzzer_trigger(BUZZER_MODE_SUCCESS);
+            delay(500);
+            ESP.restart();
+            return;
+        }
+        if (commands.get(cmdCheck, "factory_reset") && cmdCheck.success && (cmdCheck.type == "bool" ? cmdCheck.boolValue : true)) {
+            LOG("[CMD] Nhan lenh FACTORY RESET tu xa (root commands json)!\n");
+            Firebase.deleteNode(s_fbWrite, "/commands/factory_reset");
+            Firebase.deleteNode(s_fbWrite, "/system/masterUid");
+            Firebase.deleteNode(s_fbWrite, "/system/masterEmail");
+            buzzer_trigger(BUZZER_MODE_ALARM);
+            ble_factory_reset();
+            delay(1000);
+            ESP.restart();
+            return;
+        }
         enqueue_json_device_command(commands, "light", 0);
         enqueue_json_device_command(commands, "fan", 1);
         enqueue_json_device_command(commands, "curtain", 2);

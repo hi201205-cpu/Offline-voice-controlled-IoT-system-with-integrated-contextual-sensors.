@@ -28,9 +28,30 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.doan2.R
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiInfo
+import android.net.wifi.WifiManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.example.doan2.data.BleProvisioningManager
+import com.example.doan2.data.BleStatus
+import com.example.doan2.data.DiscoveredBleDevice
 import com.example.doan2.data.model.PasscodeItem
 import com.example.doan2.data.model.UserProfile
 import com.example.doan2.ui.components.GlassCard
+import com.example.doan2.data.AppUpdateInfo
+import com.example.doan2.data.AppUpdateManager
+import com.example.doan2.data.FirmwareInfo
+import com.example.doan2.data.FirmwareUpdateManager
+import com.example.doan2.ui.components.FirmwareUpdateDialog
+import com.example.doan2.ui.components.AppUpdateDialog
+import kotlinx.coroutines.launch
 import com.example.doan2.ui.theme.*
 import com.example.doan2.viewmodel.AuthViewModel
 import com.example.doan2.viewmodel.DoorViewModel
@@ -74,12 +95,78 @@ fun SettingsScreen(
     var showSelfUnlinkDialog by remember { mutableStateOf(false) }
     var isHomeLinkExpanded by remember { mutableStateOf(false) }
     var expandedMemberUids by remember { mutableStateOf(setOf<String>()) }
+    var memberToTransfer by remember { mutableStateOf<UserProfile?>(null) }
+    var showRebootConfirmDialog by remember { mutableStateOf(false) }
+    var showFactoryResetConfirmDialog by remember { mutableStateOf(false) }
 
     var isThemeExpanded by remember { mutableStateOf(false) }
     var isKeypadExpanded by remember { mutableStateOf(false) }
     var isMembersExpanded by remember { mutableStateOf(false) }
     var isChangePassExpanded by remember { mutableStateOf(false) }
-    var isProfileExpanded by remember { mutableStateOf(false) }
+        var isProfileExpanded by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+    val appUpdateManager = remember { AppUpdateManager(context) }
+    var availableUpdate by remember { mutableStateOf<AppUpdateInfo?>(null) }
+    var downloadProgress by remember { mutableStateOf<Int?>(null) }
+        var isCheckingUpdate by remember { mutableStateOf(false) }
+
+    val firmwareUpdateManager = remember { FirmwareUpdateManager() }
+    val currentFirmwareVersion by firmwareUpdateManager.currentFirmwareVersion.collectAsState()
+    val otaProgress by firmwareUpdateManager.otaProgress.collectAsState()
+    val otaStatus by firmwareUpdateManager.otaStatus.collectAsState()
+    val otaError by firmwareUpdateManager.otaError.collectAsState()
+    var availableFirmwareUpdate by remember { mutableStateOf<FirmwareInfo?>(null) }
+    var isCheckingFirmware by remember { mutableStateOf(false) }
+
+    // BLE Provisioning State
+    val bleManager = remember { BleProvisioningManager(context) }
+    val bleStatus by bleManager.status.collectAsState()
+    val bleStatusMsg by bleManager.statusMessage.collectAsState()
+    val discoveredBleDevices by bleManager.discoveredDevices.collectAsState()
+
+    var isBleExpanded by remember { mutableStateOf(false) }
+    var selectedBleDevice by remember { mutableStateOf<DiscoveredBleDevice?>(null) }
+    var bleWifiSsid by remember { mutableStateOf("") }
+    var bleWifiPass by remember { mutableStateOf("") }
+    var bleHomeId by remember { mutableStateOf("HOME-2026-ESP32") }
+    var showBleConfigDialog by remember { mutableStateOf(false) }
+
+    val blePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            permissions[Manifest.permission.BLUETOOTH_SCAN] == true &&
+            permissions[Manifest.permission.BLUETOOTH_CONNECT] == true
+        } else {
+            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        }
+        if (granted) {
+            bleManager.startScan()
+        } else {
+            Toast.makeText(context, "Cần cấp quyền Bluetooth để quét thiết bị", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val checkAndStartBleScan = {
+        val needsPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (needsPermissions) {
+            val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
+            } else {
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+            blePermissionLauncher.launch(perms)
+        } else {
+            bleManager.startScan()
+        }
+    }
 
     var profileName by remember { mutableStateOf("") }
     var profilePhone by remember { mutableStateOf("") }
@@ -780,6 +867,21 @@ fun SettingsScreen(
                                                 Spacer(modifier = Modifier.height(12.dp))
 
                                                 OutlinedButton(
+                                                    onClick = { memberToTransfer = member },
+                                                    border = androidx.compose.foundation.BorderStroke(1.dp, AuroraAccentStart),
+                                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AuroraAccentStart),
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                                    modifier = Modifier.fillMaxWidth().height(36.dp)
+                                                ) {
+                                                    Icon(imageVector = Icons.Default.SupervisorAccount, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Chuyển quyền Chủ nhà cho thành viên này", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                }
+
+                                                Spacer(modifier = Modifier.height(8.dp))
+
+                                                OutlinedButton(
                                                     onClick = { memberToUnpair = member },
                                                     border = androidx.compose.foundation.BorderStroke(1.dp, StateError),
                                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = StateError),
@@ -915,6 +1017,196 @@ fun SettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Hủy liên kết với ngôi nhà", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section: Cài đặt thiết bị qua Bluetooth (BLE Provisioning kiểu Xiaomi)
+        item {
+            GlassCard(
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isBleExpanded = !isBleExpanded },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = AuroraAccentEnd.copy(alpha = 0.2f),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Bluetooth,
+                                        contentDescription = null,
+                                        tint = AuroraAccentEnd,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = "Cài đặt thiết bị qua Bluetooth",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Text(
+                                    text = "Quét & nạp Wi-Fi cho ESP32 ở gần (chuẩn Xiaomi)",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = { isBleExpanded = !isBleExpanded },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isBleExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isBleExpanded) "Thu gọn" else "Mở rộng",
+                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+
+                    if (isBleExpanded) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        HorizontalDivider(color = dividerColor)
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = bleStatusMsg,
+                            fontSize = 12.sp,
+                            color = when (bleStatus) {
+                                BleStatus.SUCCESS -> StateOk
+                                BleStatus.FAILED, BleStatus.ERROR -> StateError
+                                BleStatus.SCANNING, BleStatus.CONNECTING_GATT, BleStatus.ESP_CONNECTING_WIFI -> AuroraAccentStart
+                                else -> MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                            },
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = { checkAndStartBleScan() },
+                                enabled = bleStatus != BleStatus.SCANNING,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
+                                modifier = Modifier.weight(1f).height(42.dp)
+                            ) {
+                                if (bleStatus == BleStatus.SCANNING) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Đang quét...", fontSize = 13.sp)
+                                } else {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Quét thiết bị", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            if (bleStatus == BleStatus.SCANNING) {
+                                OutlinedButton(
+                                    onClick = { bleManager.stopScan() },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.height(42.dp)
+                                ) {
+                                    Text("Dừng", fontSize = 13.sp)
+                                }
+                            }
+                        }
+
+                        if (discoveredBleDevices.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = "Thiết bị tìm thấy (${discoveredBleDevices.size}):",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            discoveredBleDevices.forEach { dev ->
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = subCardBg,
+                                    border = BorderStroke(1.dp, subCardBorder),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                        .clickable {
+                                            selectedBleDevice = dev
+                                            val autoSsid = getConnectedWifiSsid(context)
+                                            if (autoSsid.isNotBlank()) {
+                                                bleWifiSsid = autoSsid
+                                            }
+                                            showBleConfigDialog = true
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = dev.name.ifEmpty { "Thiết bị không tên" },
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onBackground
+                                            )
+                                            Text(
+                                                text = dev.address,
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                        Button(
+                                            onClick = {
+                                                selectedBleDevice = dev
+                                                val autoSsid = getConnectedWifiSsid(context)
+                                                if (autoSsid.isNotBlank()) {
+                                                    bleWifiSsid = autoSsid
+                                                }
+                                                showBleConfigDialog = true
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentEnd),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Text("Cài Wi-Fi", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1477,9 +1769,323 @@ fun SettingsScreen(
                 }
             }
         }
+
+                // Section: Firmware thiết bị ESP32 (Chuẩn Mi Home)
+        item {
+            GlassCard(
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = AuroraAccentEnd.copy(alpha = 0.2f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.DeveloperBoard,
+                                    contentDescription = null,
+                                    tint = AuroraAccentEnd,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Firmware thiết bị (ESP32)",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "Bản hiện tại: v$currentFirmwareVersion • OTA Wi-Fi",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    if (otaStatus == "downloading" || otaStatus == "flashing") {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Đang nạp Firmware qua Wi-Fi...", fontSize = 12.sp, color = AuroraAccentEnd)
+                                Text("$otaProgress%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AuroraAccentEnd)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            LinearProgressIndicator(
+                                progress = { otaProgress / 100f },
+                                modifier = Modifier.fillMaxWidth().height(6.dp),
+                                color = AuroraAccentEnd
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                isCheckingFirmware = true
+                                firmwareUpdateManager.checkForFirmwareUpdate { info, hasUpdate, _ ->
+                                    isCheckingFirmware = false
+                                    if (hasUpdate && info != null) {
+                                        availableFirmwareUpdate = info
+                                    } else {
+                                        Toast.makeText(context, "Thiết bị ESP32 đang chạy Firmware mới nhất (v$currentFirmwareVersion)!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            enabled = !isCheckingFirmware,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentEnd),
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                        ) {
+                            if (isCheckingFirmware) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Đang kiểm tra Firmware...", fontSize = 13.sp)
+                            } else {
+                                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Kiểm tra Firmware mới cho ESP32", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    if (isMaster) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        HorizontalDivider(color = dividerColor)
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = "Thao tác phần cứng từ xa",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showRebootConfirmDialog = true },
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AuroraAccentStart),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AuroraAccentStart),
+                                modifier = Modifier.weight(1f).height(44.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Khởi động lại", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = { showFactoryResetConfirmDialog = true },
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, StateError),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = StateError),
+                                modifier = Modifier.weight(1f).height(44.dp)
+                            ) {
+                                Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Khôi phục gốc", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section: Cập nhật ứng dụng & Hệ thống
+        item {
+            GlassCard(
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = AuroraAccentStart.copy(alpha = 0.2f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.SystemUpdate,
+                                    contentDescription = null,
+                                    tint = AuroraAccentStart,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Cập nhật ứng dụng",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "Phiên bản v${appUpdateManager.getCurrentVersionName()} • Tự động",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = {
+                            isCheckingUpdate = true
+                            appUpdateManager.checkForUpdate { info, hasUpdate, _ ->
+                                isCheckingUpdate = false
+                                if (hasUpdate && info != null) {
+                                    availableUpdate = info
+                                } else {
+                                    Toast.makeText(context, "Ứng dụng của bạn đang ở phiên bản mới nhất (v${appUpdateManager.getCurrentVersionName()})!", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        enabled = !isCheckingUpdate,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
+                        modifier = Modifier.fillMaxWidth().height(44.dp)
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Đang kiểm tra...", fontSize = 13.sp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Kiểm tra bản cập nhật mới", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Confirmation Dialog: Unpair / Remove Member
+    if (showBleConfigDialog && selectedBleDevice != null) {
+        AlertDialog(
+            onDismissRequest = { showBleConfigDialog = false },
+            title = {
+                Text(
+                    text = "Cài đặt Wi-Fi cho ESP32",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Thiết bị: ${selectedBleDevice?.name} (${selectedBleDevice?.address})",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+
+                    if (bleWifiSsid.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(StateOk.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = StateOk,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Đã tự động lấy Wi-Fi từ điện thoại của bạn",
+                                fontSize = 11.5.sp,
+                                color = StateOk,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = bleWifiSsid,
+                        onValueChange = { bleWifiSsid = it },
+                        label = { Text("Tên mạng Wi-Fi (SSID)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = bleWifiPass,
+                        onValueChange = { bleWifiPass = it },
+                        label = { Text("Mật khẩu Wi-Fi") },
+                        placeholder = { Text("Nhập mật khẩu Wi-Fi") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = bleHomeId,
+                        onValueChange = { bleHomeId = it },
+                        label = { Text("Mã ngôi nhà (Home ID)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (bleWifiSsid.isNotBlank()) {
+                            showBleConfigDialog = false
+                            val currentEmail = uiState.userEmail ?: uiState.userProfile?.email ?: ""
+                            selectedBleDevice?.device?.let { dev ->
+                                bleManager.connectAndSendWifi(dev, bleWifiSsid.trim(), bleWifiPass.trim(), bleHomeId.trim(), currentEmail)
+                            }
+                        } else {
+                            Toast.makeText(context, "Vui lòng nhập tên Wi-Fi", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart)
+                ) {
+                    Text("Gửi cấu hình")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBleConfigDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
     if (memberToUnpair != null) {
         val mem = memberToUnpair!!
         AlertDialog(
@@ -1507,6 +2113,101 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { memberToUnpair = null }) {
                     Text("Quay lại")
+                }
+            }
+        )
+    }
+
+    // Dialog: Khởi động lại ESP32 từ xa
+    if (showRebootConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showRebootConfirmDialog = false },
+            title = {
+                Text("Khởi động lại ESP32", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text("Lệnh khởi động lại sẽ được gửi qua Firebase tới vi điều khiển ESP32. Thiết bị sẽ tự động nạp lại hệ thống và kết nối lại sau vài giây.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showRebootConfirmDialog = false
+                        authViewModel.remoteRebootEsp32 { success, msg ->
+                            Toast.makeText(context, msg ?: "Đã gửi lệnh khởi động lại ESP32", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart)
+                ) {
+                    Text("Khởi động lại")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRebootConfirmDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
+    // Dialog: Khôi phục cài đặt gốc ESP32
+    if (showFactoryResetConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showFactoryResetConfirmDialog = false },
+            title = {
+                Text("CẢNH BÁO: Khôi phục cài đặt gốc", fontWeight = FontWeight.Bold, color = StateError)
+            },
+            text = {
+                Text("Toàn bộ thông tin Wi-Fi, mật khẩu cửa trên bộ nhớ Flash ESP32 sẽ bị xóa sạch hoàn toàn. Quyền Chủ nhà cũng sẽ được giải phóng để người dùng mới có thể quét Bluetooth cài đặt lại từ đầu.\n\nBạn có chắc chắn muốn thực hiện thao tác này?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showFactoryResetConfirmDialog = false
+                        authViewModel.remoteFactoryResetEsp32 { success, msg ->
+                            Toast.makeText(context, msg ?: "Đã khôi phục cài đặt gốc thành công", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StateError)
+                ) {
+                    Text("Xác nhận Khôi phục")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFactoryResetConfirmDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
+    // Dialog: Chuyển quyền Chủ nhà
+    memberToTransfer?.let { targetMember ->
+        AlertDialog(
+            onDismissRequest = { memberToTransfer = null },
+            title = {
+                Text("Chuyển quyền Chủ nhà", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text("Bạn có chắc chắn muốn chuyển giao toàn bộ quyền Chủ nhà (Master) cho thành viên '${targetMember.name.ifEmpty { targetMember.email }}' không?\n\nSau khi chuyển, tài khoản của bạn sẽ trở thành Thành viên bình thường.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val uidToTransfer = targetMember.uid
+                        val emailToTransfer = targetMember.email
+                        memberToTransfer = null
+                        authViewModel.transferOwnership(uidToTransfer, emailToTransfer) { success, msg ->
+                            Toast.makeText(context, msg ?: "Đã chuyển quyền thành công", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart)
+                ) {
+                    Text("Chuyển quyền")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { memberToTransfer = null }) {
+                    Text("Hủy")
                 }
             }
         )
@@ -1627,6 +2328,28 @@ fun SettingsScreen(
             }
         )
     }
+
+    availableUpdate?.let { updateInfo ->
+        AppUpdateDialog(
+            updateInfo = updateInfo,
+            currentVersionName = appUpdateManager.getCurrentVersionName(),
+            downloadProgress = downloadProgress,
+            onStartDownload = {
+                downloadProgress = 0
+                coroutineScope.launch {
+                    appUpdateManager.downloadAndInstall(
+                        downloadUrl = updateInfo.downloadUrl,
+                        onProgress = { p -> downloadProgress = p },
+                        onError = { err ->
+                            downloadProgress = null
+                            Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+            },
+            onDismiss = { availableUpdate = null }
+        )
+    }
 }
 
 @Composable
@@ -1660,4 +2383,31 @@ private fun MemberPermCheckbox(
             color = labelColor
         )
     }
+}
+
+@Suppress("DEPRECATION")
+fun getConnectedWifiSsid(context: Context): String {
+    try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val connManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            val network = connManager?.activeNetwork
+            val caps = connManager?.getNetworkCapabilities(network)
+            if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+                val wifiInfo = caps.transportInfo as? WifiInfo
+                val ssid = wifiInfo?.ssid?.removeSurrounding("\"")
+                if (!ssid.isNullOrBlank() && ssid != "<unknown ssid>" && ssid != "0x") {
+                    return ssid.trim()
+                }
+            }
+        }
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        val info = wifiManager?.connectionInfo
+        if (info != null && info.networkId != -1) {
+            val ssid = info.ssid?.removeSurrounding("\"")
+            if (!ssid.isNullOrBlank() && ssid != "<unknown ssid>" && ssid != "0x") {
+                return ssid.trim()
+            }
+        }
+    } catch (_: Exception) {}
+    return ""
 }

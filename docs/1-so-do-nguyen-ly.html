@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sơ đồ nguyên lý hệ thống — ESP32-S3 Smart Home</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    background: #fff;
+    line-height: 1.4;
+    padding: 10px 15px;
+  }
+  .doc-title {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .doc-subtitle {
+    text-align: center;
+    font-size: 11pt;
+    font-style: italic;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 12pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 14px 0 6px 0;
+    border-bottom: 1px solid #000;
+    padding-bottom: 3px;
+  }
+  .caption {
+    text-align: center;
+    font-size: 10.5pt;
+    font-weight: bold;
+    margin-top: 6px;
+    margin-bottom: 12px;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  .chart-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 4px 0;
+  }
+  svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 12px 0;
+    font-size: 10pt;
+  }
+  th {
+    border: 1px solid #000;
+    background: #f0f0f0;
+    color: #000;
+    padding: 5px 6px;
+    text-align: left;
+    font-weight: bold;
+  }
+  td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    vertical-align: middle;
+  }
+  .explain-box {
+    border: 1px solid #000;
+    padding: 6px 10px;
+    font-size: 9.5pt;
+    margin-top: 6px;
+    background: #fff;
+  }
+  .explain-box ul {
+    margin-left: 20px;
+  }
+  .footer {
+    text-align: right;
+    font-size: 9pt;
+    font-style: italic;
+    margin-top: 15px;
+    border-top: 0.5px solid #666;
+    padding-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- TRANG 1: SƠ ĐỒ KHỐI TỔNG QUAN -->
+<div class="doc-title">SƠ ĐỒ NGUYÊN LÝ HỆ THỐNG</div>
+<div class="doc-subtitle">Hệ thống nhà thông minh điều khiển giọng nói tiếng Việt — ESP32-S3</div>
+
+<div class="section-title">1. Sơ đồ khối chức năng tổng quan hệ thống</div>
+
+<div class="chart-container">
+<svg viewBox="0 0 560 520" width="560" height="520" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/>
+    </marker>
+    <marker id="arr-rev" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#000"/>
+    </marker>
+  </defs>
+
+  <!-- ESP32-S3 CENTRAL MCU -->
+  <rect x="180" y="160" width="200" height="190" fill="#fff" stroke="#000" stroke-width="1.8"/>
+  <text x="290" y="185" font-size="11pt" font-weight="bold" text-anchor="middle" fill="#000">VI ĐIỀU KHIỂN</text>
+  <text x="290" y="202" font-size="10pt" font-weight="bold" text-anchor="middle" fill="#000">ESP32-S3-N16R8</text>
+  <line x1="190" y1="210" x2="370" y2="210" stroke="#000" stroke-width="0.8"/>
+  <text x="200" y="226" font-size="8pt" fill="#000">• Dual-Core Xtensa LX7 @ 240MHz</text>
+  <text x="200" y="240" font-size="8pt" fill="#000">• 16MB Flash + 8MB PSRAM</text>
+  <text x="200" y="254" font-size="8pt" fill="#000">• Core 1: TinyML KWS &amp; Control</text>
+  <text x="200" y="268" font-size="8pt" fill="#000">• Core 0: WiFi STA, RTDB Stream</text>
+  <line x1="190" y1="276" x2="370" y2="276" stroke="#000" stroke-width="0.8"/>
+  <text x="200" y="292" font-size="8pt" fill="#000">• FreeRTOS Task &amp; Queues</text>
+  <text x="200" y="306" font-size="8pt" fill="#000">• NVS Flash Storage (Passcodes)</text>
+  <text x="200" y="320" font-size="8pt" fill="#000">• 25 Chân GPIO Điều Khiển</text>
+  <text x="200" y="336" font-size="8pt" fill="#000">• Hardware LEDC PWM 5kHz/50Hz</text>
+
+  <!-- KHỐI AUDIO MIC (Bên trái) -->
+  <rect x="15" y="70" width="130" height="48" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="80" y="88" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">Microphone I2S</text>
+  <text x="80" y="103" font-size="8pt" text-anchor="middle" fill="#000">INMP441 (16kHz)</text>
+  <line x1="145" y1="94" x2="210" y2="94" stroke="#000" stroke-width="1.2"/>
+  <line x1="210" y1="94" x2="210" y2="160" stroke="#000" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="175" y="88" font-size="7.5pt" text-anchor="middle" fill="#000">I2S Bus (SCK,WS,DIN)</text>
+
+  <!-- KHỐI LED RGB (Bên trái) -->
+  <rect x="15" y="170" width="130" height="48" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="80" y="188" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">LED RGB Chỉ Thị</text>
+  <text x="80" y="203" font-size="8pt" text-anchor="middle" fill="#000">PWM 5kHz (18% duty)</text>
+  <line x1="180" y1="194" x2="145" y2="194" stroke="#000" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="162" y="188" font-size="7.5pt" text-anchor="middle" fill="#000">GPIO 17,18,8</text>
+
+  <!-- KHỐI CẢM BIẾN (Bên trái) -->
+  <rect x="15" y="270" width="130" height="60" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="80" y="287" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">Khối Cảm Biến</text>
+  <text x="80" y="301" font-size="8pt" text-anchor="middle" fill="#000">• DHT22 (GPIO 16)</text>
+  <text x="80" y="315" font-size="8pt" text-anchor="middle" fill="#000">• Quang trở LDR (GPIO 1)</text>
+  <line x1="145" y1="300" x2="180" y2="300" stroke="#000" stroke-width="1.2" marker-end="url(#arr)"/>
+
+  <!-- KHỐI RADAR MMWAVE (Bên trái dưới) -->
+  <rect x="15" y="380" width="130" height="48" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="80" y="398" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">Radar mmWave</text>
+  <text x="80" y="413" font-size="8pt" text-anchor="middle" fill="#000">LD2410S (UART 115200)</text>
+  <line x1="145" y1="404" x2="220" y2="404" stroke="#000" stroke-width="1.2"/>
+  <line x1="220" y1="404" x2="220" y2="350" stroke="#000" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="180" y="398" font-size="7.5pt" text-anchor="middle" fill="#000">RX:10, TX:11</text>
+
+  <!-- KHỐI RELAY CÔNG SUẤT (Bên phải) -->
+  <rect x="415" y="70" width="130" height="65" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="480" y="87" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">Module 3 Relay (5V)</text>
+  <text x="480" y="100" font-size="8pt" text-anchor="middle" fill="#000">1: Đèn phòng (GPIO 41)</text>
+  <text x="480" y="113" font-size="8pt" text-anchor="middle" fill="#000">2: Quạt (GPIO 42)</text>
+  <text x="480" y="126" font-size="8pt" text-anchor="middle" fill="#000">3: Đèn sân (GPIO 40)</text>
+  <line x1="350" y1="160" x2="350" y2="102" stroke="#000" stroke-width="1.2"/>
+  <line x1="350" y1="102" x2="415" y2="102" stroke="#000" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="382" y="96" font-size="7.5pt" text-anchor="middle" fill="#000">GPIO Output</text>
+
+  <!-- KHỐI SERVO (Bên phải) -->
+  <rect x="415" y="180" width="130" height="52" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="480" y="198" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">Động cơ Servo (5V)</text>
+  <text x="480" y="212" font-size="8pt" text-anchor="middle" fill="#000">• Servo Cửa (GPIO 39)</text>
+  <text x="480" y="224" font-size="8pt" text-anchor="middle" fill="#000">• Servo Rèm (GPIO 9)</text>
+  <line x1="380" y1="206" x2="415" y2="206" stroke="#000" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="398" y="200" font-size="7.5pt" text-anchor="middle" fill="#000">PWM 50Hz</text>
+
+  <!-- KHỐI BÀN PHÍM VÀ CẢNH BÁO (Bên phải) -->
+  <rect x="415" y="275" width="130" height="75" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="480" y="292" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">Bàn Phím &amp; Khóa</text>
+  <text x="480" y="306" font-size="8pt" text-anchor="middle" fill="#000">• Ma trận 4×3 (7 chân)</text>
+  <text x="480" y="319" font-size="8pt" text-anchor="middle" fill="#000">• Còi Buzzer (GPIO 48)</text>
+  <text x="480" y="332" font-size="8pt" text-anchor="middle" fill="#000">• Nút nhấn cửa (GPIO 47)</text>
+  <text x="480" y="344" font-size="8pt" text-anchor="middle" fill="#000">• Limit switch (GPIO 38,3)</text>
+  <line x1="380" y1="312" x2="415" y2="312" stroke="#000" stroke-width="1.2" marker-end="url(#arr)"/>
+
+  <!-- KHỐI CLOUD FIREBASE (Phía trên) -->
+  <rect x="205" y="15" width="150" height="45" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="33" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">Firebase Cloud</text>
+  <text x="280" y="48" font-size="8pt" text-anchor="middle" fill="#000">Realtime Database (SSL)</text>
+  <line x1="280" y1="60" x2="280" y2="160" stroke="#000" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+  <line x1="280" y1="160" x2="280" y2="60" stroke="#000" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arr-rev)"/>
+  <text x="288" y="110" font-size="8pt" fill="#000">WiFi 2.4GHz</text>
+
+  <!-- WEB DASHBOARD (Phía dưới) -->
+  <rect x="205" y="440" width="150" height="42" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="280" y="457" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">Web App Dashboard</text>
+  <text x="280" y="471" font-size="8pt" text-anchor="middle" fill="#000">Điều khiển &amp; Giám sát SPA</text>
+  <line x1="355" y1="461" x2="520" y2="461" stroke="#000" stroke-width="1.2" stroke-dasharray="3,3"/>
+  <line x1="520" y1="461" x2="520" y2="37" stroke="#000" stroke-width="1.2" stroke-dasharray="3,3"/>
+  <line x1="520" y1="37" x2="355" y2="37" stroke="#000" stroke-width="1.2" stroke-dasharray="3,3" marker-end="url(#arr)"/>
+  <text x="525" y="240" font-size="7.5pt" fill="#000" transform="rotate(90 525 240)">HTTPS Sync</text>
+</svg>
+</div>
+
+<div class="caption">Hình 1. Sơ đồ khối nguyên lý kết nối các thành phần ngoại vi với vi điều khiển ESP32-S3</div>
+
+<div class="explain-box">
+  <strong>Phân bổ nhiệm vụ Dual-Core của ESP32-S3:</strong>
+  <ul>
+    <li><strong>Core 1 (Application Core):</strong> Thực thi vòng lặp chính <code>loop()</code>, thu âm I2S qua DMA, phát hiện giọng nói VAD, chạy mô hình học máy TinyML KWS (Edge Impulse), quét ma trận phím bảo mật, xử lý luật tự động hóa và điều khiển Relay/Servo.</li>
+    <li><strong>Core 0 (Network Core):</strong> Chạy FreeRTOS task <code>firebase_task</code> phụ trách duy trì kết nối WiFi STA, lắng nghe luồng sự kiện realtime SSL Stream (<code>/commands</code>), nhận diện đồng bộ dữ liệu cảm biến và trạng thái thiết bị lên Firebase RTDB.</li>
+  </ul>
+</div>
+
+<div class="footer">Trang 1/2 — Sơ đồ nguyên lý hệ thống</div>
+
+<!-- TRANG 2: NGUYÊN LÝ NGUỒN CẤP VÀ BẢNG THÔNG SỐ -->
+<div class="page-break"></div>
+
+<div class="doc-title">SƠ ĐỒ NGUYÊN LÝ HỆ THỐNG</div>
+<div class="doc-subtitle">Hệ thống nhà thông minh điều khiển giọng nói tiếng Việt — ESP32-S3</div>
+
+<div class="section-title">2. Sơ đồ mạch phân phối nguồn và giải pháp ổn định điện áp</div>
+
+<div class="chart-container">
+<svg viewBox="0 0 560 210" width="560" height="210" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/>
+    </marker>
+  </defs>
+
+  <!-- NGUỒN DC 5V -->
+  <rect x="15" y="70" width="100" height="50" fill="#fff" stroke="#000" stroke-width="1.5"/>
+  <text x="65" y="92" font-size="9pt" font-weight="bold" text-anchor="middle" fill="#000">Nguồn Adapter</text>
+  <text x="65" y="107" font-size="8pt" text-anchor="middle" fill="#000">DC 5V - 2.5A</text>
+
+  <!-- NHÁNH 5V RIÊNG CHO CÔNG SUẤT -->
+  <line x1="115" y1="85" x2="220" y2="85" stroke="#000" stroke-width="1.5" marker-end="url(#arr2)"/>
+  <text x="160" y="78" font-size="8pt" text-anchor="middle" fill="#000">Rail 5V Công suất</text>
+
+  <!-- TỤ LỌC LỚN -->
+  <rect x="220" y="65" width="100" height="40" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="270" y="82" font-size="8.5pt" font-weight="bold" text-anchor="middle" fill="#000">Tụ Hóa Lọc Dòng</text>
+  <text x="270" y="96" font-size="8pt" text-anchor="middle" fill="#000">≥ 1000µF / 16V</text>
+
+  <!-- CẤP CHO RELAY VÀ SERVO -->
+  <line x1="320" y1="85" x2="380" y2="85" stroke="#000" stroke-width="1.5" marker-end="url(#arr2)"/>
+  <rect x="380" y="60" width="165" height="50" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="462" y="78" font-size="8.5pt" font-weight="bold" text-anchor="middle" fill="#000">Tải Động Cơ &amp; Cuộn Hút</text>
+  <text x="462" y="92" font-size="8pt" text-anchor="middle" fill="#000">• 3× Rơ le Relay (210mA)</text>
+  <text x="462" y="104" font-size="8pt" text-anchor="middle" fill="#000">• 2× Servo Cửa, Rèm (đỉnh 1.5A)</text>
+
+  <!-- NHÁNH CẤP CHO ESP32 -->
+  <line x1="65" y1="120" x2="65" y2="165" stroke="#000" stroke-width="1.2"/>
+  <line x1="65" y1="165" x2="160" y2="165" stroke="#000" stroke-width="1.2" marker-end="url(#arr2)"/>
+  <text x="110" y="160" font-size="8pt" text-anchor="middle" fill="#000">5V Logic</text>
+
+  <!-- HẠ ÁP 3.3V TRÊN ESP32 -->
+  <rect x="160" y="145" width="120" height="40" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="220" y="162" font-size="8.5pt" font-weight="bold" text-anchor="middle" fill="#000">IC AMS1117-3.3</text>
+  <text x="220" y="175" font-size="7.5pt" text-anchor="middle" fill="#000">Tụ gốm 100nF + 10µF</text>
+
+  <!-- CẤP VI ĐIỀU KHIỂN VÀ SENSOR -->
+  <line x1="280" y1="165" x2="380" y2="165" stroke="#000" stroke-width="1.2" marker-end="url(#arr2)"/>
+  <rect x="380" y="145" width="165" height="40" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="462" y="162" font-size="8.5pt" font-weight="bold" text-anchor="middle" fill="#000">MCU &amp; Cảm Biến (3.3V)</text>
+  <text x="462" y="175" font-size="8pt" text-anchor="middle" fill="#000">ESP32-S3, Mic INMP441, DHT22</text>
+
+  <!-- NỐI MASS CHUNG -->
+  <line x1="462" y1="110" x2="462" y2="145" stroke="#000" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="467" y="130" font-size="7.5pt" fill="#000">Nối Mass Chung (GND)</text>
+</svg>
+</div>
+
+<div class="caption">Hình 2. Sơ đồ mạch phân phối nguồn chống sụt áp và bảo vệ vi điều khiển</div>
+
+<div class="section-title">3. Bảng chỉ tiêu kỹ thuật phần cứng</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 28%;">Thông số kỹ thuật</th>
+      <th style="width: 32%;">Giá trị thiết kế</th>
+      <th style="width: 40%;">Ghi chú kỹ thuật</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Điện áp hoạt động Logic</td>
+      <td>3.3V DC (±5%)</td>
+      <td>Cấp cho ESP32-S3, Mic I2S INMP441, DHT22</td>
+    </tr>
+    <tr>
+      <td>Điện áp cấp cơ cấu chấp hành</td>
+      <td>5.0V DC (≥ 2.5A)</td>
+      <td>Cấp riêng cho Module 3 Relay, 2 Động cơ Servo</td>
+    </tr>
+    <tr>
+      <td>Dòng tiêu thụ cực đại</td>
+      <td>~1.8A (khi 2 servo quay, 3 relay đóng, WiFi phát)</td>
+      <td>Cần tụ bù ≥ 1000µF chống sụt áp dưới 2.8V</td>
+    </tr>
+    <tr>
+      <td>Tần số lấy mẫu âm thanh</td>
+      <td>16.000 Hz (16kHz), 16-bit PCM</td>
+      <td>Đạt chuẩn đầu vào của mô hình Edge Impulse KWS</td>
+    </tr>
+    <tr>
+      <td>Kích thước khung phân tích</td>
+      <td>Cửa sổ 1000ms, bước nhảy 200ms</td>
+      <td>Độ trễ suy luận nhận dạng lệnh: ~120ms</td>
+    </tr>
+    <tr>
+      <td>Tần số điều chế xung LED</td>
+      <td>PWM 5.000 Hz (5kHz), 8-bit, duty 18%</td>
+      <td>Giảm >80% dòng tiêu thụ so với bật trực tiếp GPIO</td>
+    </tr>
+    <tr>
+      <td>Thời gian tự động đóng cửa</td>
+      <td>5.000 ms (5 giây)</td>
+      <td>Đếm lùi bằng phần mềm sau khi chạm cữ mở</td>
+    </tr>
+    <tr>
+      <td>Bảo mật mật khẩu bàn phím</td>
+      <td>SHA-256 kèm chuỗi Salt 16 byte</td>
+      <td>Khóa cứng an ninh khi nhập sai 4 lần liên tiếp</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="footer">Trang 2/2 — Sơ đồ nguyên lý hệ thống</div>
+
+</body>
+</html>

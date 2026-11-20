@@ -8,6 +8,15 @@ struct DoorPasscodeMetadata {
     char name[81];
 };
 
+enum BuzzerMode {
+    BUZZER_MODE_IDLE,
+    BUZZER_MODE_KEY,
+    BUZZER_MODE_SUCCESS,
+    BUZZER_MODE_ERROR,
+    BUZZER_MODE_ALARM
+};
+
+void buzzer_trigger(BuzzerMode mode);
 void doorInit();
 void doorUpdate();
 size_t doorPasscodeCount();

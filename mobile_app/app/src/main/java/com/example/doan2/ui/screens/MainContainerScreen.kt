@@ -30,6 +30,10 @@ import com.example.doan2.R
 import com.example.doan2.ui.components.AuroraBackground
 import com.example.doan2.ui.components.GlassCard
 import com.example.doan2.ui.components.UnpairedLockOverlay
+import com.example.doan2.data.AppUpdateInfo
+import com.example.doan2.data.AppUpdateManager
+import com.example.doan2.ui.components.AppUpdateDialog
+import kotlinx.coroutines.launch
 import com.example.doan2.ui.theme.*
 import com.example.doan2.viewmodel.*
 import java.util.Calendar
@@ -64,6 +68,19 @@ fun MainContainerScreen(
         authState.toastMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
             authViewModel.clearToastMessage()
+        }
+    }
+
+    val coroutineScope = rememberCoroutineScope()
+    val appUpdateManager = remember { AppUpdateManager(context) }
+    var availableUpdate by remember { mutableStateOf<AppUpdateInfo?>(null) }
+    var downloadProgress by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(Unit) {
+        appUpdateManager.checkForUpdate { info, hasUpdate, _ ->
+            if (hasUpdate && info != null) {
+                availableUpdate = info
+            }
         }
     }
 
@@ -237,7 +254,12 @@ fun MainContainerScreen(
                             onOpenDialog = { authViewModel.openPairingDialog() },
                             onCloseDialog = { authViewModel.closePairingDialog() },
                             onCodeChange = { authViewModel.onPairingCodeChanged(it) },
-                            onSubmitCode = { authViewModel.submitPairingCode() }
+                            onSubmitCode = { authViewModel.submitPairingCode() },
+                            currentUserEmail = authState.currentUserEmail ?: authState.userProfile?.email ?: "",
+                            currentUid = authViewModel.currentUid ?: "",
+                            onProvisionSuccess = { homeId ->
+                                authViewModel.pairDeviceAsMaster(homeId)
+                            }
                         )
                     } else {
                         when (selectedTab) {
@@ -271,5 +293,32 @@ fun MainContainerScreen(
                 }
             }
         }
+    }
+
+    // Tự động hiển thị Dialog cập nhật ứng dụng khi phát hiện phiên bản mới lúc khởi động
+    availableUpdate?.let { updateInfo ->
+        AppUpdateDialog(
+            updateInfo = updateInfo,
+            currentVersionName = appUpdateManager.getCurrentVersionName(),
+            downloadProgress = downloadProgress,
+            onStartDownload = {
+                downloadProgress = 0
+                coroutineScope.launch {
+                    appUpdateManager.downloadAndInstall(
+                        downloadUrl = updateInfo.downloadUrl,
+                        onProgress = { p -> downloadProgress = p },
+                        onError = { err ->
+                            downloadProgress = null
+                            Toast.makeText(context, "Lỗi tải cập nhật: " + err, Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+            },
+            onDismiss = {
+                if (downloadProgress == null) {
+                    availableUpdate = null
+                }
+            }
+        )
     }
 }

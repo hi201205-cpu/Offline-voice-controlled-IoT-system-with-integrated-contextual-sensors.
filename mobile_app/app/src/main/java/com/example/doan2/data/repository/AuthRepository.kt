@@ -295,7 +295,9 @@ class AuthRepository(
 
                 val email = snapshot.child("email").value?.toString() ?: currentUserEmail ?: ""
 
-                val isMaster = email.equals(masterEmail, ignoreCase = true)
+                val rawRole = snapshot.child("role").value?.toString()
+
+                val isMaster = email.equals(masterEmail, ignoreCase = true) || rawRole == "master"
 
                 val defaultName = if (isMaster) "Chủ nhà" else email.substringBefore("@")
 
@@ -307,7 +309,7 @@ class AuthRepository(
 
 
 
-                val role = snapshot.child("role").value?.toString() ?: if (isMaster) "master" else "member"
+                val role = if (isMaster) "master" else (rawRole ?: "member")
 
                 val pairedHome = snapshot.child("pairedHome").value?.toString()
 
@@ -477,6 +479,111 @@ class AuthRepository(
                 onResult(false, error.message)
             }
         })
+    }
+
+    fun pairDeviceAsMaster(homeId: String = DEFAULT_HOME_CODE, onResult: (Boolean, String?) -> Unit) {
+        val uid = currentUid ?: run {
+            onResult(false, "Vui lòng đăng nhập lại")
+            return
+        }
+        val email = currentUserEmail ?: ""
+        val userUpdates = mapOf<String, Any>(
+            "is_paired" to true,
+            "pairedHome" to homeId,
+            "role" to "master",
+            "pairedAt" to System.currentTimeMillis(),
+            "permissions" to mapOf(
+                "light" to true,
+                "fan" to true,
+                "curtain" to true,
+                "door" to true,
+                "yard" to true,
+                "passcodes" to true,
+                "passcodeAdd" to true,
+                "passcodeDel" to true,
+                "auto" to true,
+                "members" to true,
+                "devices" to true,
+                "voice" to true
+            )
+        )
+        database.getReference("users/$uid").updateChildren(userUpdates)
+            .addOnSuccessListener {
+                val sysUpdates = mapOf<String, Any>(
+                    "masterUid" to uid,
+                    "masterEmail" to email
+                )
+                database.getReference("system").updateChildren(sysUpdates)
+                onResult(true, "Thiết lập thành công! Bạn là Quản trị viên (Chủ nhà).")
+            }
+            .addOnFailureListener { exc ->
+                onResult(false, exc.localizedMessage ?: "Cập nhật liên kết thất bại")
+            }
+    }
+
+    fun remoteRebootEsp32(onResult: (Boolean, String?) -> Unit) {
+        database.getReference("commands/reboot").setValue(true)
+            .addOnSuccessListener {
+                onResult(true, "Đã gửi lệnh khởi động lại ESP32!")
+            }
+            .addOnFailureListener { exc ->
+                onResult(false, exc.localizedMessage ?: "Gửi lệnh khởi động thất bại")
+            }
+    }
+
+    fun remoteFactoryResetEsp32(onResult: (Boolean, String?) -> Unit) {
+        database.getReference("commands/factory_reset").setValue(true)
+            .addOnSuccessListener {
+                database.getReference("system/masterUid").removeValue()
+                database.getReference("system/masterEmail").removeValue()
+                val uid = currentUid
+                if (uid != null) {
+                    val userUpdates = mapOf<String, Any?>(
+                        "is_paired" to false,
+                        "pairedHome" to null,
+                        "role" to "member"
+                    )
+                    database.getReference("users/$uid").updateChildren(userUpdates)
+                }
+                onResult(true, "Đã gửi lệnh khôi phục cài đặt gốc và hủy liên kết thiết bị!")
+            }
+            .addOnFailureListener { exc ->
+                onResult(false, exc.localizedMessage ?: "Gửi lệnh khôi phục thiết bị thất bại")
+            }
+    }
+
+    fun transferOwnership(newMasterUid: String, newMasterEmail: String, onResult: (Boolean, String?) -> Unit) {
+        val currentUidVal = currentUid ?: run {
+            onResult(false, "Vui lòng đăng nhập lại")
+            return
+        }
+        val sysUpdates = mapOf<String, Any>(
+            "masterUid" to newMasterUid,
+            "masterEmail" to newMasterEmail
+        )
+        database.getReference("system").updateChildren(sysUpdates)
+            .addOnSuccessListener {
+                val newMasterUpdates = mapOf<String, Any>(
+                    "role" to "master",
+                    "is_paired" to true,
+                    "pairedHome" to DEFAULT_HOME_CODE
+                )
+                database.getReference("users/$newMasterUid").updateChildren(newMasterUpdates)
+
+                val oldMasterUpdates = mapOf<String, Any>(
+                    "role" to "member"
+                )
+                database.getReference("users/$currentUidVal").updateChildren(oldMasterUpdates)
+                    .addOnSuccessListener {
+                        onResult(true, "Đã chuyển quyền Chủ nhà thành công cho $newMasterEmail!")
+                    }
+                    .addOnFailureListener {
+                        onResult(true, "Đã chuyển quyền Chủ nhà sang $newMasterEmail.")
+                    }
+            }
+            .addOnFailureListener { exc ->
+                onResult(false, exc.localizedMessage ?: "Chuyển quyền Chủ nhà thất bại")
+            }
     }
 
     fun sendPasswordResetEmail(email: String, onResult: (Boolean, String?) -> Unit) {

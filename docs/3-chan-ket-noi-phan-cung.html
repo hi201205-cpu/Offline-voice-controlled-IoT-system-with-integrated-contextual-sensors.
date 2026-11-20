@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bảng chân kết nối phần cứng — ESP32-S3 Smart Home</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    background: #fff;
+    line-height: 1.35;
+    padding: 10px 15px;
+  }
+  .doc-title {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .doc-subtitle {
+    text-align: center;
+    font-size: 11pt;
+    font-style: italic;
+    margin-bottom: 14px;
+  }
+  .section-title {
+    font-size: 12pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 12px 0 6px 0;
+    border-bottom: 1px solid #000;
+    padding-bottom: 3px;
+  }
+  .caption {
+    text-align: center;
+    font-size: 10pt;
+    font-weight: bold;
+    margin-top: 6px;
+    margin-bottom: 10px;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0 10px 0;
+    font-size: 9.5pt;
+  }
+  th {
+    border: 1px solid #000;
+    background: #f0f0f0;
+    color: #000;
+    padding: 5px 6px;
+    text-align: left;
+    font-weight: bold;
+  }
+  td {
+    border: 1px solid #000;
+    padding: 3.5px 6px;
+    vertical-align: middle;
+  }
+  tr:nth-child(even) {
+    background: #fafafa;
+  }
+  .pin-col {
+    font-family: Consolas, monospace;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .code-col {
+    font-family: Consolas, monospace;
+    font-size: 8.5pt;
+  }
+  .chart-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 6px 0;
+  }
+  svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .explain-box {
+    border: 1px solid #000;
+    padding: 6px 10px;
+    font-size: 9pt;
+    margin-top: 6px;
+    background: #fff;
+  }
+  .explain-box ul {
+    margin-left: 20px;
+  }
+  .footer {
+    text-align: right;
+    font-size: 9pt;
+    font-style: italic;
+    margin-top: 15px;
+    border-top: 0.5px solid #666;
+    padding-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- TRANG 1: BẢNG KẾT NỐI CHI TIẾT 25 CHÂN GPIO -->
+<div class="doc-title">BẢNG TRA CỨU KẾT NỐI PHẦN CỨNG</div>
+<div class="doc-subtitle">Phân bổ 25 chân GPIO trên vi điều khiển ESP32-S3-N16R8</div>
+
+<div class="section-title">1. Bảng cấu hình chi tiết các chân GPIO</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 12%;">Chân ESP32</th>
+      <th style="width: 18%;">Tên Macro Code</th>
+      <th style="width: 20%;">Thiết bị ngoại vi</th>
+      <th style="width: 18%;">Chế độ I/O</th>
+      <th style="width: 32%;">Mô tả chức năng &amp; Mức logic</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- Khối I2S -->
+    <tr>
+      <td class="pin-col">GPIO 6</td>
+      <td class="code-col">PIN_I2S_SCK</td>
+      <td>Mic INMP441 (SCK)</td>
+      <td>I2S Master BCLK</td>
+      <td>Xung nhịp lấy mẫu âm thanh (16 kHz)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 5</td>
+      <td class="code-col">PIN_I2S_WS</td>
+      <td>Mic INMP441 (WS)</td>
+      <td>I2S Word Select</td>
+      <td>Đồng bộ khung từ kênh trái/phải</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 4</td>
+      <td class="code-col">PIN_I2S_DIN</td>
+      <td>Mic INMP441 (SD)</td>
+      <td>I2S Data In</td>
+      <td>Dữ liệu âm thanh số 32-bit (dịch 11 bit)</td>
+    </tr>
+
+    <!-- Khối LED RGB -->
+    <tr>
+      <td class="pin-col">GPIO 17</td>
+      <td class="code-col">PIN_LED_R</td>
+      <td>LED RGB (Chân Đỏ)</td>
+      <td>LEDC Channel 0</td>
+      <td>Báo lỗi hệ thống (Chớp đỏ), PWM 5kHz 18%</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 18</td>
+      <td class="code-col">PIN_LED_G</td>
+      <td>LED RGB (Chân Xanh lá)</td>
+      <td>LEDC Channel 1</td>
+      <td>VAD ON / Đang lắng nghe giọng nói</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 8</td>
+      <td class="code-col">PIN_LED_B</td>
+      <td>LED RGB (Chân Xanh dương)</td>
+      <td>LEDC Channel 2</td>
+      <td>Thực thi lệnh thành công (Sáng 500ms)</td>
+    </tr>
+
+    <!-- Khối Relay -->
+    <tr>
+      <td class="pin-col">GPIO 41</td>
+      <td class="code-col">PIN_RELAY_1</td>
+      <td>Module Relay Kênh 1</td>
+      <td>OUTPUT (HIGH = ON)</td>
+      <td>Đèn phòng (Lệnh "bật đèn" / "tắt đèn")</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 42</td>
+      <td class="code-col">PIN_RELAY_2</td>
+      <td>Module Relay Kênh 2</td>
+      <td>OUTPUT (HIGH = ON)</td>
+      <td>Quạt phòng (Lệnh "bật quạt" / "tắt quạt")</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 40</td>
+      <td class="code-col">PIN_RELAY_3</td>
+      <td>Module Relay Kênh 3</td>
+      <td>OUTPUT (HIGH = ON)</td>
+      <td>Đèn sân (Tự bật khi tối, khóa tay 30p)</td>
+    </tr>
+
+    <!-- Khối Servo -->
+    <tr>
+      <td class="pin-col">GPIO 39</td>
+      <td class="code-col">PIN_DOOR_SERVO</td>
+      <td>Servo Cửa chính (360°)</td>
+      <td>LEDC Channel 6</td>
+      <td>Xung 50Hz (1500µs: dừng, 2000µs: mở, 1000µs: đóng)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 9</td>
+      <td class="code-col">PIN_CURTAIN_SERVO</td>
+      <td>Servo Rèm cửa</td>
+      <td>LEDC Channel 7</td>
+      <td>Xung 50Hz (1500µs: dừng, 1000µs: mở, 2000µs: đóng)</td>
+    </tr>
+
+    <!-- Cảm biến & Công tắc cửa -->
+    <tr>
+      <td class="pin-col">GPIO 38</td>
+      <td class="code-col">PIN_DOOR_LIMIT_OPEN</td>
+      <td>Công tắc hành trình mở</td>
+      <td>INPUT_PULLUP</td>
+      <td>Chạm cữ mở cửa hoàn toàn (Đọc HIGH)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 3</td>
+      <td class="code-col">PIN_DOOR_LIMIT_CLOSED</td>
+      <td>Công tắc hành trình đóng</td>
+      <td>INPUT_PULLUP</td>
+      <td>Chạm cữ đóng cửa kín (Đọc HIGH)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 47</td>
+      <td class="code-col">PIN_DOOR_BUTTON</td>
+      <td>Nút nhấn mở cửa vật lý</td>
+      <td>INPUT_PULLUP</td>
+      <td>Nút nhấn nối đất (GND) mở cửa từ trong nhà</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 48</td>
+      <td class="code-col">PIN_BUZZER</td>
+      <td>Còi chíp báo động 5V</td>
+      <td>OUTPUT (HIGH = kêu)</td>
+      <td>Bíp phím (50ms), Báo đúng (400ms), Hú còi báo động</td>
+    </tr>
+
+    <!-- Bàn phím ma trận 4x3 -->
+    <tr>
+      <td class="pin-col">GPIO 13</td>
+      <td class="code-col">PIN_KEYPAD_ROW_1</td>
+      <td>Bàn phím 4×3 (Hàng 1)</td>
+      <td>OUTPUT</td>
+      <td>Quét ma trận phím (Hàng 1: phím 1, 2, 3)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 14</td>
+      <td class="code-col">PIN_KEYPAD_ROW_2</td>
+      <td>Bàn phím 4×3 (Hàng 2)</td>
+      <td>OUTPUT</td>
+      <td>Quét ma trận phím (Hàng 2: phím 4, 5, 6)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 15</td>
+      <td class="code-col">PIN_KEYPAD_ROW_3</td>
+      <td>Bàn phím 4×3 (Hàng 3)</td>
+      <td>OUTPUT</td>
+      <td>Quét ma trận phím (Hàng 3: phím 7, 8, 9)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 21</td>
+      <td class="code-col">PIN_KEYPAD_ROW_4</td>
+      <td>Bàn phím 4×3 (Hàng 4)</td>
+      <td>OUTPUT</td>
+      <td>Quét ma trận phím (Hàng 4: phím *, 0, #)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 7</td>
+      <td class="code-col">PIN_KEYPAD_COL_1</td>
+      <td>Bàn phím 4×3 (Cột 1)</td>
+      <td>INPUT_PULLUP</td>
+      <td>Đọc tín hiệu phím Cột 1 (phím 1, 4, 7, *)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 12</td>
+      <td class="code-col">PIN_KEYPAD_COL_2</td>
+      <td>Bàn phím 4×3 (Cột 2)</td>
+      <td>INPUT_PULLUP</td>
+      <td>Đọc tín hiệu phím Cột 2 (phím 2, 5, 8, 0)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 2</td>
+      <td class="code-col">PIN_KEYPAD_COL_3</td>
+      <td>Bàn phím 4×3 (Cột 3)</td>
+      <td>INPUT_PULLUP</td>
+      <td>Đọc tín hiệu phím Cột 3 (phím 3, 6, 9, #)</td>
+    </tr>
+
+    <!-- Cảm biến môi trường & radar -->
+    <tr>
+      <td class="pin-col">GPIO 16</td>
+      <td class="code-col">PIN_DHT</td>
+      <td>Cảm biến DHT22</td>
+      <td>1-Wire Digital</td>
+      <td>Đọc nhiệt độ &amp; độ ẩm (trở kéo 4.7k-10k lên 3.3V)</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 10</td>
+      <td class="code-col">PIN_LD2410S_RX</td>
+      <td>Radar mmWave (TX)</td>
+      <td>UART RX (HardwareSerial 1)</td>
+      <td>Baud 115200, nhận gói tin trạng thái chuyển động</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 11</td>
+      <td class="code-col">PIN_LD2410S_TX</td>
+      <td>Radar mmWave (RX)</td>
+      <td>UART TX (HardwareSerial 1)</td>
+      <td>Gửi cấu hình cự ly và độ nhạy radar</td>
+    </tr>
+    <tr>
+      <td class="pin-col">GPIO 1</td>
+      <td class="code-col">PIN_GARDEN_LIGHT</td>
+      <td>Quang trở LDR</td>
+      <td>ADC1_CH0 Analog</td>
+      <td>Đo mức độ sáng môi trường để tự bật đèn sân</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="footer">Trang 1/2 — Bảng tra cứu chân kết nối phần cứng</div>
+
+<!-- TRANG 2: SƠ ĐỒ PINOUT VÀ GHI CHÚ AN TOÀN -->
+<div class="page-break"></div>
+
+<div class="doc-title">BẢNG TRA CỨU KẾT NỐI PHẦN CỨNG</div>
+<div class="doc-subtitle">Phân bổ 25 chân GPIO trên vi điều khiển ESP32-S3-N16R8</div>
+
+<div class="section-title">2. Sơ đồ bố trí Pinout hai hàng chân ESP32-S3-DevKitC-1</div>
+
+<div class="chart-container">
+<svg viewBox="0 0 560 480" width="560" height="480" xmlns="http://www.w3.org/2000/svg">
+  <!-- THÂN BOARD ESP32-S3 -->
+  <rect x="180" y="30" width="200" height="420" fill="#fff" stroke="#000" stroke-width="1.8"/>
+  <rect x="210" y="50" width="140" height="110" fill="#f5f5f5" stroke="#000" stroke-width="1"/>
+  <text x="280" y="95" font-size="10pt" font-weight="bold" text-anchor="middle" fill="#000">ESP32-S3</text>
+  <text x="280" y="112" font-size="9pt" text-anchor="middle" fill="#000">WROOM-1 Module</text>
+  <text x="280" y="128" font-size="7.5pt" text-anchor="middle" fill="#000">16MB Flash · 8MB PSRAM</text>
+
+  <!-- HÀNG CHÂN BÊN TRÁI -->
+  <!-- 3V3, EN, G4, G5, G6, G7, G15, G16, G17, G18, G8, G3, G9, G10, G11, G12, GND -->
+  <g font-size="7.5pt">
+    <!-- 3V3 -->
+    <rect x="165" y="55" width="15" height="9" fill="#000"/>
+    <text x="155" y="63" text-anchor="end" font-weight="bold" fill="#000">3V3 (VCC Cảm biến, Mic)</text>
+
+    <!-- GPIO 4 -->
+    <rect x="165" y="80" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="88" text-anchor="end" fill="#000">GPIO 4 — I2S DIN (Mic SD)</text>
+
+    <!-- GPIO 5 -->
+    <rect x="165" y="105" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="113" text-anchor="end" fill="#000">GPIO 5 — I2S WS (Mic Word)</text>
+
+    <!-- GPIO 6 -->
+    <rect x="165" y="130" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="138" text-anchor="end" fill="#000">GPIO 6 — I2S SCK (Mic Clock)</text>
+
+    <!-- GPIO 7 -->
+    <rect x="165" y="155" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="163" text-anchor="end" fill="#000">GPIO 7 — Keypad Cột 1</text>
+
+    <!-- GPIO 15 -->
+    <rect x="165" y="180" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="188" text-anchor="end" fill="#000">GPIO 15 — Keypad Hàng 3</text>
+
+    <!-- GPIO 16 -->
+    <rect x="165" y="205" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="213" text-anchor="end" fill="#000">GPIO 16 — DHT22 Data</text>
+
+    <!-- GPIO 17 -->
+    <rect x="165" y="230" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="238" text-anchor="end" fill="#000">GPIO 17 — LED RGB (Đỏ)</text>
+
+    <!-- GPIO 18 -->
+    <rect x="165" y="255" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="263" text-anchor="end" fill="#000">GPIO 18 — LED RGB (Xanh lá)</text>
+
+    <!-- GPIO 8 -->
+    <rect x="165" y="280" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="288" text-anchor="end" fill="#000">GPIO 8 — LED RGB (Xanh dương)</text>
+
+    <!-- GPIO 3 -->
+    <rect x="165" y="305" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="313" text-anchor="end" fill="#000">GPIO 3 — Cửa Limit Đóng</text>
+
+    <!-- GPIO 9 -->
+    <rect x="165" y="330" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="338" text-anchor="end" fill="#000">GPIO 9 — Servo Rèm cửa</text>
+
+    <!-- GPIO 10 -->
+    <rect x="165" y="355" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="363" text-anchor="end" fill="#000">GPIO 10 — LD2410S RX</text>
+
+    <!-- GPIO 11 -->
+    <rect x="165" y="380" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="388" text-anchor="end" fill="#000">GPIO 11 — LD2410S TX</text>
+
+    <!-- GPIO 12 -->
+    <rect x="165" y="405" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="155" y="413" text-anchor="end" fill="#000">GPIO 12 — Keypad Cột 2</text>
+  </g>
+
+  <!-- HÀNG CHÂN BÊN PHẢI -->
+  <g font-size="7.5pt">
+    <!-- GPIO 1 -->
+    <rect x="380" y="55" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="63" text-anchor="start" fill="#000">GPIO 1 — LDR Quang trở (ADC)</text>
+
+    <!-- GPIO 2 -->
+    <rect x="380" y="80" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="88" text-anchor="start" fill="#000">GPIO 2 — Keypad Cột 3</text>
+
+    <!-- GPIO 13 -->
+    <rect x="380" y="105" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="113" text-anchor="start" fill="#000">GPIO 13 — Keypad Hàng 1</text>
+
+    <!-- GPIO 14 -->
+    <rect x="380" y="130" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="138" text-anchor="start" fill="#000">GPIO 14 — Keypad Hàng 2</text>
+
+    <!-- GPIO 21 -->
+    <rect x="380" y="155" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="163" text-anchor="start" fill="#000">GPIO 21 — Keypad Hàng 4</text>
+
+    <!-- GPIO 38 -->
+    <rect x="380" y="180" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="188" text-anchor="start" fill="#000">GPIO 38 — Cửa Limit Mở</text>
+
+    <!-- GPIO 39 -->
+    <rect x="380" y="205" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="213" text-anchor="start" fill="#000">GPIO 39 — Servo Cửa chính</text>
+
+    <!-- GPIO 40 -->
+    <rect x="380" y="230" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="238" text-anchor="start" fill="#000">GPIO 40 — Relay 3 (Đèn sân)</text>
+
+    <!-- GPIO 41 -->
+    <rect x="380" y="255" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="263" text-anchor="start" fill="#000">GPIO 41 — Relay 1 (Đèn phòng)</text>
+
+    <!-- GPIO 42 -->
+    <rect x="380" y="280" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="288" text-anchor="start" fill="#000">GPIO 42 — Relay 2 (Quạt)</text>
+
+    <!-- GPIO 47 -->
+    <rect x="380" y="305" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="313" text-anchor="start" fill="#000">GPIO 47 — Nút nhấn mở cửa</text>
+
+    <!-- GPIO 48 -->
+    <rect x="380" y="330" width="15" height="9" fill="#fff" stroke="#000"/>
+    <text x="405" y="338" text-anchor="start" fill="#000">GPIO 48 — Còi báo Buzzer</text>
+
+    <!-- GND -->
+    <rect x="380" y="355" width="15" height="9" fill="#000"/>
+    <text x="405" y="363" text-anchor="start" font-weight="bold" fill="#000">GND (Mass chung hệ thống)</text>
+
+    <!-- 5V -->
+    <rect x="380" y="380" width="15" height="9" fill="#000"/>
+    <text x="405" y="388" text-anchor="start" font-weight="bold" fill="#000">5V (VBUS / Nguồn Relay, Servo)</text>
+  </g>
+
+  <!-- CỔNG USB PHÍA DƯỚI -->
+  <rect x="220" y="420" width="45" height="20" fill="#f0f0f0" stroke="#000" stroke-width="1"/>
+  <text x="242" y="434" font-size="7pt" text-anchor="middle" fill="#000">USB-OTG</text>
+  <rect x="295" y="420" width="45" height="20" fill="#f0f0f0" stroke="#000" stroke-width="1"/>
+  <text x="317" y="434" font-size="7pt" text-anchor="middle" fill="#000">UART</text>
+</svg>
+</div>
+
+<div class="caption">Hình 2. Sơ đồ phân bổ chân thực tế trên board mạch ESP32-S3-DevKitC-1</div>
+
+<div class="section-title">3. Các khuyến nghị kỹ thuật thi công và chống nhiễu</div>
+
+<div class="explain-box">
+  <ul>
+    <li><strong>Chân GPIO 47 (Nút bấm mở cửa):</strong> Nằm trực tiếp cạnh chân GPIO 48 (Còi Buzzer). Để triệt tiêu hiện tượng mở cửa ngoài ý muốn do dòng kích còi gây cảm ứng sụt áp trên trở kéo nội, bắt buộc gắn <strong>1 điện trở kéo lên ngoài 10kΩ từ chân 47 lên nguồn 3.3V</strong>.</li>
+    <li><strong>Tách đường nguồn 5V:</strong> Module 3 Relay và 2 động cơ Servo phải dùng đường cấp nguồn 5V riêng biệt từ củ sạc ≥ 2.5A. Tất cả các chân Mass (GND) của nguồn ngoài và ESP32 bắt buộc phải nối chung với nhau.</li>
+    <li><strong>Tụ hóa bù dòng:</strong> Lắp song song tụ hóa <strong>≥ 1000µF / 16V</strong> tại thanh cấp nguồn 5V của Servo. Tránh dùng tụ 100µF vì dung lượng không đủ bù sụt áp khi động cơ khởi động, gây reset ESP32.</li>
+  </ul>
+</div>
+
+<div class="footer">Trang 2/2 — Bảng tra cứu chân kết nối phần cứng</div>
+
+</body>
+</html>

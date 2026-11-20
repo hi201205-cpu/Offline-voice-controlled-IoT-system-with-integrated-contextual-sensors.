@@ -7,6 +7,7 @@
 #include "firebase_manager.h"
 #include "config.h"
 #include "automation.h"
+#include "telegram_manager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -57,6 +58,7 @@ static uint16_t s_lightSamples[GARDEN_FILTER_SAMPLES] = {};
 static uint32_t s_lightSum = 0;
 static uint8_t s_lightIndex = 0;
 static uint8_t s_lightCount = 0;
+static uint32_t s_lastFireAlertMs = 0;
 static uint8_t s_lightLevel = 0;
 static bool s_lightDataValid = false;
 static uint32_t s_lastLightReadMs = 0;
@@ -218,6 +220,17 @@ static void sensor_task(void *parameter) {
             s_humidity = humidity;
             s_hasValidReading = true;
             sensor_unlock();
+        }
+
+        // Canh bao chay neu nhiet do vuot 45 do C (cooldown 5 phut tranh spam)
+        if (temperature >= 45.0f && (millis() - s_lastFireAlertMs > 300000UL || s_lastFireAlertMs == 0)) {
+            s_lastFireAlertMs = millis();
+            char fireMsg[192];
+            snprintf(fireMsg, sizeof(fireMsg),
+                     "🔥 *CẢNH BÁO NGUY HIỂM CHÁY NỔ!*\n"
+                     "Nhiệt độ phòng tăng cao bất thường: *%.1f°C*!\n"
+                     "Hãy kiểm tra khu vực nhà bạn ngay lập tức!", temperature);
+            telegram_send_alert(fireMsg);
         }
 
         LOG("Temp: %.0f C, Hum: %.0f %%\n", temperature, humidity);
