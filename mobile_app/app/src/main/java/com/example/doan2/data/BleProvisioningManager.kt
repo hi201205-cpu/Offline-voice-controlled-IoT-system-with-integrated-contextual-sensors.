@@ -86,6 +86,7 @@ class BleProvisioningManager(private val context: Context) {
     private var retryCount: Int = 0
     private var isDescriptorPending: Boolean = false
     private var mtuHandled: Boolean = false
+    private var targetedScanCallback: ScanCallback? = null
 
     fun isBluetoothSupported(): Boolean = bluetoothAdapter != null
 
@@ -240,30 +241,112 @@ class BleProvisioningManager(private val context: Context) {
         mtuHandled = false
 
         _status.value = BleStatus.CONNECTING_GATT
-        _statusMessage.value = "Đang kết nối Bluetooth tới thiết bị..."
+        _statusMessage.value = "Đang bắt tay với thiết bị qua Bluetooth..."
 
         cleanupGatt()
 
-        // Chờ 400ms để Bluetooth stack giải phóng scan trước khi tạo GATT connection
+        // Sử dụng Targeted Scan đồng bộ khung truyền sóng trước khi kết nối (tránh triệt để Lỗi 8 Timeout)
         mainHandler.postDelayed({
-            performGattConnect(device)
-        }, 400)
+            startTargetedScanAndConnect(device.address)
+        }, 300)
     }
 
-    private fun performGattConnect(device: BluetoothDevice) {
-        val appContext = context.applicationContext
-        val remoteDevice = bluetoothAdapter?.getRemoteDevice(device.address) ?: device
+    private fun startTargetedScanAndConnect(targetAddress: String) {
+        if (!isBluetoothEnabled()) {
+            _status.value = BleStatus.ERROR
+            _statusMessage.value = "Bluetooth chưa được bật"
+            return
+        }
+
+        val scanner = bleScanner ?: bluetoothAdapter?.bluetoothLeScanner
+        if (scanner == null) {
+            performDirectConnect(targetAddress)
+            return
+        }
+
+        var connected = false
+        val timeoutRunnable = Runnable {
+            if (!connected) {
+                connected = true
+                try {
+                    targetedScanCallback?.let { scanner.stopScan(it) }
+                } catch (_: Exception) {}
+                targetedScanCallback = null
+                // Thử kết nối trực tiếp nếu hết 4 giây chưa bắt được gói tin quảng bá
+                performDirectConnect(targetAddress)
+            }
+        }
+        mainHandler.postDelayed(timeoutRunnable, 4000)
+
+        targetedScanCallback = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: BleScanResult?) {
+                val dev = result?.device ?: return
+                val devName = dev.name ?: result.scanRecord?.deviceName ?: ""
+                val matchesAddress = dev.address.equals(targetAddress, ignoreCase = true)
+                val matchesName = devName.contains("SmartHome", ignoreCase = true) || devName.contains("ESP32", ignoreCase = true)
+
+                if ((matchesAddress || matchesName) && !connected) {
+                    connected = true
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    try {
+                        scanner.stopScan(this)
+                    } catch (_: Exception) {}
+                    targetedScanCallback = null
+
+                    mainHandler.post {
+                        _statusMessage.value = "Đã khóa sóng thiết bị! Đang kết nối..."
+                    }
+                    mainHandler.postDelayed({
+                        doConnectGatt(dev)
+                    }, 100)
+                }
+            }
+
+            override fun onScanFailed(errorCode: Int) {
+                if (!connected) {
+                    connected = true
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    targetedScanCallback = null
+                    performDirectConnect(targetAddress)
+                }
+            }
+        }
+
+        // Dùng filter rỗng để đón mọi gói tin, lọc bằng phần mềm nhằm tránh lỗi phần cứng trên MediaTek/ColorOS
+        val scanFilter = ScanFilter.Builder().build()
+        val scanSettings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .build()
 
         try {
+            scanner.startScan(listOf(scanFilter), scanSettings, targetedScanCallback)
+        } catch (_: Exception) {
+            mainHandler.removeCallbacks(timeoutRunnable)
+            performDirectConnect(targetAddress)
+        }
+    }
+
+    private fun performDirectConnect(address: String) {
+        val dev = bluetoothAdapter?.getRemoteDevice(address)
+        if (dev != null) {
+            doConnectGatt(dev)
+        } else {
+            _status.value = BleStatus.FAILED
+            _statusMessage.value = "Không tìm thấy thiết bị Bluetooth"
+        }
+    }
+
+    private fun doConnectGatt(device: BluetoothDevice) {
+        try {
             bluetoothGatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                remoteDevice.connectGatt(
-                    appContext,
+                device.connectGatt(
+                    context,
                     false,
                     gattCallback,
                     BluetoothDevice.TRANSPORT_LE
                 )
             } else {
-                remoteDevice.connectGatt(appContext, false, gattCallback)
+                device.connectGatt(context, false, gattCallback)
             }
         } catch (e: Exception) {
             _status.value = BleStatus.ERROR
@@ -275,15 +358,15 @@ class BleProvisioningManager(private val context: Context) {
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
             // 1. Kiểm tra lỗi trạng thái GATT (e.g. status 133, 19, 8...)
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                // Tự động thử lại 1 lần nếu gặp lỗi 133 phổ biến trên Android
-                if (status == 133 && retryCount < 1) {
+                // Tự động thử lại 1 lần nếu gặp lỗi 133 hoặc 8
+                if ((status == 133 || status == 8) && retryCount < 1) {
                     retryCount++
                     mainHandler.post {
-                        _statusMessage.value = "Tái kết nối lần $retryCount..."
+                        _statusMessage.value = "Tự động kết nối lại lần $retryCount..."
                     }
                     cleanupGatt()
                     mainHandler.postDelayed({
-                        gatt?.device?.let { performGattConnect(it) }
+                        gatt?.device?.address?.let { startTargetedScanAndConnect(it) }
                     }, 600)
                     return
                 }
@@ -293,7 +376,7 @@ class BleProvisioningManager(private val context: Context) {
                     _statusMessage.value = when (status) {
                         133 -> "Thiết bị bận hoặc chưa sẵn sàng (Lỗi 133). Bấm 'Gửi cấu hình' để thử lại."
                         19 -> "Thiết bị đóng kết nối (Lỗi 19). Vui lòng nhấn giữ nút 5s để khởi động lại Bluetooth."
-                        8 -> "Hết thời gian kết nối (Lỗi 8). Thiết bị đã tự tắt Bluetooth sau 3 phút. Hãy bấm nút RESET trên mạch rồi thử lại ngay!"
+                        8 -> "Hết thời gian kết nối (Lỗi 8). Thiết bị chưa phát sóng Bluetooth. Hãy bấm nút RESET trên mạch rồi thử lại ngay!"
                         else -> "Lỗi kết nối Bluetooth (Mã: $status). Vui lòng bấm thử lại."
                     }
                 }
@@ -530,6 +613,14 @@ class BleProvisioningManager(private val context: Context) {
     }
 
     private fun cleanupGatt() {
+        try {
+            targetedScanCallback?.let {
+                val scanner = bleScanner ?: bluetoothAdapter?.bluetoothLeScanner
+                scanner?.stopScan(it)
+            }
+        } catch (_: Exception) {}
+        targetedScanCallback = null
+
         try {
             bluetoothGatt?.disconnect()
         } catch (_: Exception) {}

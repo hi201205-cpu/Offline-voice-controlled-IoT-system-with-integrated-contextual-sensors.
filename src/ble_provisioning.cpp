@@ -201,8 +201,10 @@ void ble_provisioning_start() {
     BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(BLE_PROV_SERVICE_UUID);
     pAdvertising->setScanResponse(true);
-    pAdvertising->setMinPreferred(0x06); // functions that help with iPhone connections
-    pAdvertising->setMinPreferred(0x12);
+    pAdvertising->setMinInterval(0x20); // 20 ms - phát sóng siêu nhạy
+    pAdvertising->setMaxInterval(0x40); // 40 ms
+    pAdvertising->setMinPreferred(0x06); // 7.5 ms
+    pAdvertising->setMaxPreferred(0x12); // 22.5 ms
     BLEDevice::startAdvertising();
 
     Serial.println("[BLE_PROV] Dang phat song BLE beacon... Hay mo App de ket noi.");
@@ -255,9 +257,9 @@ void ble_provisioning_update() {
         WiFi.begin(s_incomingSsid.c_str(), s_incomingPass.c_str());
         s_connectStartMs = millis();
 
-        // Chờ kết nối tối đa 12 giây
+        // Chờ kết nối tối đa 25 giây (đủ thời gian cho router Wi-Fi cấp DHCP)
         bool connected = false;
-        while (millis() - s_connectStartMs < 12000) {
+        while (millis() - s_connectStartMs < 25000) {
             if (WiFi.status() == WL_CONNECTED) {
                 connected = true;
                 break;
@@ -292,6 +294,8 @@ void ble_provisioning_update() {
                 s_pStatusChar->setValue(&st, 1);
                 s_pStatusChar->notify();
             }
+            // Khởi động lại phát sóng BLE để người dùng có thể gửi lại cấu hình ngay lập tức
+            BLEDevice::startAdvertising();
         }
     }
 }
