@@ -76,7 +76,16 @@ class BleProvisioningManager(private val context: Context) {
     val isScanningWifi: StateFlow<Boolean> = _isScanningWifi.asStateFlow()
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var pendingPayload: String = ""
+
+    private var pendingSsid: String = ""
+    private var pendingPass: String = ""
+    private var pendingHome: String = "HOME-2026-ESP32"
+    private var pendingOwner: String = ""
+    private var pendingUid: String = ""
+    private var currentMtu: Int = 23
+    private var retryCount: Int = 0
+    private var isDescriptorPending: Boolean = false
+    private var mtuHandled: Boolean = false
 
     fun isBluetoothSupported(): Boolean = bluetoothAdapter != null
 
@@ -167,7 +176,6 @@ class BleProvisioningManager(private val context: Context) {
             return
         }
 
-        // Tự động dừng quét sau timeout
         mainHandler.postDelayed({
             stopScan()
             if (_discoveredDevices.value.isEmpty() && _status.value == BleStatus.SCANNING) {
@@ -220,110 +228,262 @@ class BleProvisioningManager(private val context: Context) {
         ownerUid: String = ""
     ) {
         stopScan()
-        val json = org.json.JSONObject().apply {
-            put("ssid", ssid)
-            put("pass", pass)
-            put("home", homeId)
-            if (ownerEmail.isNotBlank()) put("owner", ownerEmail)
-            if (ownerUid.isNotBlank()) put("uid", ownerUid)
-        }
-        pendingPayload = json.toString()
+
+        pendingSsid = ssid.trim()
+        pendingPass = pass.trim()
+        pendingHome = homeId.trim().ifEmpty { "HOME-2026-ESP32" }
+        pendingOwner = ownerEmail.trim()
+        pendingUid = ownerUid.trim()
+        currentMtu = 23
+        retryCount = 0
+        isDescriptorPending = false
+        mtuHandled = false
 
         _status.value = BleStatus.CONNECTING_GATT
         _statusMessage.value = "Đang kết nối Bluetooth tới thiết bị..."
 
+        cleanupGatt()
+
+        // Chờ 400ms để Bluetooth stack giải phóng scan trước khi tạo GATT connection
+        mainHandler.postDelayed({
+            performGattConnect(device)
+        }, 400)
+    }
+
+    private fun performGattConnect(device: BluetoothDevice) {
+        val appContext = context.applicationContext
+        val remoteDevice = bluetoothAdapter?.getRemoteDevice(device.address) ?: device
+
         try {
-            disconnect()
-            mainHandler.postDelayed({
-                try {
-                    bluetoothGatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
-                    } else {
-                        device.connectGatt(context, false, gattCallback)
-                    }
-                } catch (e: Exception) {
-                    _status.value = BleStatus.ERROR
-                    _statusMessage.value = "Lỗi kết nối Bluetooth: ${e.localizedMessage}"
-                }
-            }, 200)
+            bluetoothGatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                remoteDevice.connectGatt(
+                    appContext,
+                    false,
+                    gattCallback,
+                    BluetoothDevice.TRANSPORT_LE,
+                    BluetoothDevice.PHY_LE_1M_MASK
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                remoteDevice.connectGatt(
+                    appContext,
+                    false,
+                    gattCallback,
+                    BluetoothDevice.TRANSPORT_LE
+                )
+            } else {
+                remoteDevice.connectGatt(appContext, false, gattCallback)
+            }
         } catch (e: Exception) {
             _status.value = BleStatus.ERROR
-            _statusMessage.value = "Lỗi kết nối GATT: ${e.localizedMessage}"
+            _statusMessage.value = "Lỗi kết nối Bluetooth: ${e.localizedMessage}"
         }
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED) {
-                _status.value = BleStatus.CONNECTED_GATT
-                _statusMessage.value = "Đã kết nối! Đang tối ưu gói tin..."
-                // Yêu cầu MTU lớn (512 bytes) để gửi toàn bộ JSON cấu hình trong 1 lần
-                val requested = gatt?.requestMtu(512) ?: false
-                if (!requested) {
-                    gatt?.discoverServices()
+            // 1. Kiểm tra lỗi trạng thái GATT (e.g. status 133, 19, 8...)
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                // Tự động thử lại 1 lần nếu gặp lỗi 133 phổ biến trên Android
+                if (status == 133 && retryCount < 1) {
+                    retryCount++
+                    mainHandler.post {
+                        _statusMessage.value = "Tái kết nối lần $retryCount..."
+                    }
+                    cleanupGatt()
+                    mainHandler.postDelayed({
+                        gatt?.device?.let { performGattConnect(it) }
+                    }, 600)
+                    return
                 }
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                if (_status.value != BleStatus.SUCCESS) {
+
+                mainHandler.post {
                     _status.value = BleStatus.FAILED
-                    _statusMessage.value = "Mất kết nối Bluetooth. Vui lòng thử lại hoặc bấm giữ nút trên thiết bị 5s."
+                    _statusMessage.value = when (status) {
+                        133 -> "Thiết bị bận hoặc chưa sẵn sàng (Lỗi 133). Bấm 'Gửi cấu hình' để thử lại."
+                        19 -> "Thiết bị đóng kết nối (Lỗi 19). Vui lòng nhấn giữ nút 5s để khởi động lại Bluetooth."
+                        8 -> "Hết thời gian kết nối Bluetooth (Lỗi 8). Vui lòng để điện thoại gần thiết bị hơn."
+                        else -> "Lỗi kết nối Bluetooth (Mã: $status). Vui lòng bấm thử lại."
+                    }
                 }
-            } else if (status != BluetoothGatt.GATT_SUCCESS) {
-                _status.value = BleStatus.FAILED
-                _statusMessage.value = "Lỗi kết nối Bluetooth (Mã: $status). Hãy thử lại."
+                cleanupGatt()
+                return
+            }
+
+            // 2. Kết nối GATT thành công
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                mainHandler.post {
+                    _status.value = BleStatus.CONNECTED_GATT
+                    _statusMessage.value = "Đã kết nối! Đang đọc thông tin thiết bị..."
+                }
+
+                // Chờ 300ms rồi mới khám phá dịch vụ (tiêu chuẩn vàng Android BLE)
+                mainHandler.postDelayed({
+                    try {
+                        gatt?.discoverServices()
+                    } catch (e: Exception) {
+                        mainHandler.post {
+                            _status.value = BleStatus.ERROR
+                            _statusMessage.value = "Lỗi đọc dịch vụ: ${e.localizedMessage}"
+                        }
+                    }
+                }, 300)
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                mainHandler.post {
+                    if (_status.value != BleStatus.SUCCESS && _status.value != BleStatus.ESP_CONNECTING_WIFI) {
+                        _status.value = BleStatus.FAILED
+                        _statusMessage.value = "Mất kết nối Bluetooth. Vui lòng bấm giữ nút trên thiết bị 5s."
+                    }
+                }
+                cleanupGatt()
             }
         }
 
         override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {
-            // MTU đã được thương lượng thành công, bắt đầu khám phá dịch vụ
-            gatt?.discoverServices()
+            mtuHandled = true
+            currentMtu = if (status == BluetoothGatt.GATT_SUCCESS) mtu else 23
+            val service = gatt?.getService(SERVICE_UUID) ?: return
+            setupNotificationsAndSend(gatt, service)
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS && gatt != null) {
-                val service = gatt.getService(SERVICE_UUID)
-                if (service != null) {
-                    // Đăng ký nhận notify từ Status characteristic
-                    val statusChar = service.getCharacteristic(CHAR_STATUS_UUID)
-                    if (statusChar != null) {
-                        gatt.setCharacteristicNotification(statusChar, true)
-                        val descriptor = statusChar.getDescriptor(CLIENT_CONFIG_DESCRIPTOR)
-                        if (descriptor != null) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-                            } else {
-                                @Suppress("DEPRECATION")
-                                descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                                @Suppress("DEPRECATION")
-                                gatt.writeDescriptor(descriptor)
-                            }
-                            return // Chờ onDescriptorWrite rồi mới gửi dữ liệu
-                        }
-                    }
+            if (status != BluetoothGatt.GATT_SUCCESS || gatt == null) {
+                mainHandler.post {
+                    _status.value = BleStatus.FAILED
+                    _statusMessage.value = "Không thể đọc dịch vụ thiết bị (Mã: $status)"
+                }
+                return
+            }
 
-                    // Nếu không có descriptor, gửi cấu hình ngay
-                    sendPendingConfig(gatt)
-                } else {
+            val service = gatt.getService(SERVICE_UUID)
+            if (service == null) {
+                mainHandler.post {
                     _status.value = BleStatus.ERROR
                     _statusMessage.value = "Không tìm thấy Service SmartHome trên thiết bị"
                 }
+                return
+            }
+
+            // Thử yêu cầu MTU 256 để gửi JSON nhanh
+            // Nếu thiết bị không phản hồi MTU trong 500ms, tự động gửi dạng compact (MTU 23)
+            val mtuTimeoutRunnable = Runnable {
+                if (!mtuHandled) {
+                    mtuHandled = true
+                    setupNotificationsAndSend(gatt, service)
+                }
+            }
+            mainHandler.postDelayed(mtuTimeoutRunnable, 500)
+
+            try {
+                val requested = gatt.requestMtu(256)
+                if (!requested) {
+                    mainHandler.removeCallbacks(mtuTimeoutRunnable)
+                    mtuHandled = true
+                    setupNotificationsAndSend(gatt, service)
+                }
+            } catch (_: Exception) {
+                mainHandler.removeCallbacks(mtuTimeoutRunnable)
+                mtuHandled = true
+                setupNotificationsAndSend(gatt, service)
             }
         }
 
         override fun onDescriptorWrite(gatt: BluetoothGatt?, descriptor: BluetoothGattDescriptor?, status: Int) {
-            // Đã đăng ký notify thành công, giờ gửi cấu hình Wi-Fi
-            sendPendingConfig(gatt)
+            isDescriptorPending = false
+            val service = gatt?.getService(SERVICE_UUID) ?: return
+            mainHandler.postDelayed({ sendConfigPayload(gatt, service) }, 150)
         }
 
-        private fun sendPendingConfig(gatt: BluetoothGatt?) {
-            if (gatt == null || pendingPayload.isEmpty()) return
-            val service = gatt.getService(SERVICE_UUID) ?: return
-            val configChar = service.getCharacteristic(CHAR_CONFIG_UUID) ?: return
-
+        override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
             mainHandler.post {
-                _status.value = BleStatus.SENDING_CONFIG
-                _statusMessage.value = "Đang gửi thông tin Wi-Fi sang thiết bị..."
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    _status.value = BleStatus.ESP_CONNECTING_WIFI
+                    _statusMessage.value = "Đã gửi Wi-Fi! Đang chờ thiết bị xác thực kết nối..."
+                } else {
+                    _status.value = BleStatus.FAILED
+                    _statusMessage.value = "Thiết bị từ chối gói tin cấu hình Wi-Fi (Mã: $status)"
+                }
+            }
+        }
 
-                val bytes = pendingPayload.toByteArray(Charsets.UTF_8)
+        @Deprecated("Deprecated in Java")
+        override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?) {
+            if (characteristic?.uuid == CHAR_STATUS_UUID) {
+                handleStatusUpdate(characteristic.value)
+            }
+        }
+
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            if (characteristic.uuid == CHAR_STATUS_UUID) {
+                handleStatusUpdate(value)
+            }
+        }
+    }
+
+    private fun setupNotificationsAndSend(gatt: BluetoothGatt, service: BluetoothGattService) {
+        val statusChar = service.getCharacteristic(CHAR_STATUS_UUID)
+        if (statusChar != null && !isDescriptorPending) {
+            gatt.setCharacteristicNotification(statusChar, true)
+            val descriptor = statusChar.getDescriptor(CLIENT_CONFIG_DESCRIPTOR)
+            if (descriptor != null) {
+                isDescriptorPending = true
+                mainHandler.postDelayed({
+                    try {
+                        val descSuccess = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == BluetoothStatusCodes.SUCCESS
+                        } else {
+                            @Suppress("DEPRECATION")
+                            descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            @Suppress("DEPRECATION")
+                            gatt.writeDescriptor(descriptor)
+                        }
+                        if (!descSuccess) {
+                            sendConfigPayload(gatt, service)
+                        }
+                    } catch (_: Exception) {
+                        sendConfigPayload(gatt, service)
+                    }
+                }, 150)
+                return
+            }
+        }
+
+        mainHandler.postDelayed({ sendConfigPayload(gatt, service) }, 200)
+    }
+
+    private fun sendConfigPayload(gatt: BluetoothGatt, service: BluetoothGattService) {
+        val configChar = service.getCharacteristic(CHAR_CONFIG_UUID) ?: return
+
+        mainHandler.post {
+            _status.value = BleStatus.SENDING_CONFIG
+            _statusMessage.value = "Đang gửi thông tin Wi-Fi sang thiết bị..."
+        }
+
+        val usableBytes = currentMtu - 3
+
+        // Nếu MTU >= 120 bytes -> gửi JSON đầy đủ
+        // Nếu MTU là 23 (usable 20 bytes):
+        // Gửi định dạng pipe cực gọn: "SSID|PASS" (vừa khít 20 bytes của chuẩn BLE MTU 23)
+        val payloadString: String = if (usableBytes >= 120) {
+            val json = org.json.JSONObject().apply {
+                put("ssid", pendingSsid)
+                put("pass", pendingPass)
+                put("home", pendingHome)
+                if (pendingOwner.isNotBlank()) put("owner", pendingOwner)
+                if (pendingUid.isNotBlank()) put("uid", pendingUid)
+            }
+            json.toString()
+        } else {
+            if (pendingHome == "HOME-2026-ESP32" || pendingHome.isBlank()) {
+                "$pendingSsid|$pendingPass"
+            } else {
+                "$pendingSsid|$pendingPass|$pendingHome"
+            }
+        }
+
+        val bytes = payloadString.toByteArray(Charsets.UTF_8)
+
+        mainHandler.postDelayed({
+            try {
                 val success = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     gatt.writeCharacteristic(configChar, bytes, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == BluetoothStatusCodes.SUCCESS
                 } else {
@@ -336,54 +496,61 @@ class BleProvisioningManager(private val context: Context) {
                 }
 
                 if (!success) {
+                    mainHandler.post {
+                        _status.value = BleStatus.FAILED
+                        _statusMessage.value = "Lỗi khi ghi thông tin Wi-Fi sang thiết bị"
+                    }
+                }
+            } catch (e: Exception) {
+                mainHandler.post {
                     _status.value = BleStatus.FAILED
-                    _statusMessage.value = "Lỗi khi gửi gói tin sang thiết bị"
+                    _statusMessage.value = "Lỗi gửi cấu hình: ${e.localizedMessage}"
                 }
             }
-        }
+        }, 150)
+    }
 
-        override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                _status.value = BleStatus.ESP_CONNECTING_WIFI
-                _statusMessage.value = "Đã gửi Wi-Fi! Đang chờ thiết bị kiểm tra kết nối..."
-            } else {
-                _status.value = BleStatus.FAILED
-                _statusMessage.value = "Thiết bị từ chối gói tin cấu hình Wi-Fi"
-            }
-        }
-
-        @Deprecated("Deprecated in Java")
-        override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?) {
-            if (characteristic?.uuid == CHAR_STATUS_UUID) {
-                val value = characteristic.value
-                if (value != null && value.isNotEmpty()) {
-                    val code = value[0].toInt()
-                    when (code) {
-                        4 -> { // BLE_PROV_CONNECTING_WIFI
-                            _status.value = BleStatus.ESP_CONNECTING_WIFI
-                            _statusMessage.value = "Thiết bị đang kết nối vào Wi-Fi..."
-                        }
-                        5 -> { // BLE_PROV_SUCCESS
-                            _status.value = BleStatus.SUCCESS
-                            _statusMessage.value = "Cài đặt Wi-Fi thành công! Thiết bị đã trực tuyến."
-                            mainHandler.postDelayed({ disconnect() }, 2000)
-                        }
-                        6 -> { // BLE_PROV_FAILED
-                            _status.value = BleStatus.FAILED
-                            _statusMessage.value = "Kết nối Wi-Fi thất bại! Sai mật khẩu hoặc SSID không tồn tại."
-                        }
+    private fun handleStatusUpdate(value: ByteArray?) {
+        if (value != null && value.isNotEmpty()) {
+            val code = value[0].toInt()
+            mainHandler.post {
+                when (code) {
+                    3 -> { // BLE_PROV_CONFIG_RECEIVED
+                        _status.value = BleStatus.ESP_CONNECTING_WIFI
+                        _statusMessage.value = "Thiết bị đã nhận Wi-Fi, đang xác thực..."
+                    }
+                    4 -> { // BLE_PROV_CONNECTING_WIFI
+                        _status.value = BleStatus.ESP_CONNECTING_WIFI
+                        _statusMessage.value = "Thiết bị đang kết nối vào Wi-Fi..."
+                    }
+                    5 -> { // BLE_PROV_SUCCESS
+                        _status.value = BleStatus.SUCCESS
+                        _statusMessage.value = "Cài đặt Wi-Fi thành công! Thiết bị đã trực tuyến."
+                        mainHandler.postDelayed({ cleanupGatt() }, 2500)
+                    }
+                    6 -> { // BLE_PROV_FAILED
+                        _status.value = BleStatus.FAILED
+                        _statusMessage.value = "Kết nối Wi-Fi thất bại! Sai mật khẩu hoặc tín hiệu yếu."
                     }
                 }
             }
         }
     }
 
-    fun disconnect() {
+    private fun cleanupGatt() {
         try {
             bluetoothGatt?.disconnect()
-            bluetoothGatt?.close()
-            bluetoothGatt = null
         } catch (_: Exception) {}
+        try {
+            bluetoothGatt?.close()
+        } catch (_: Exception) {}
+        bluetoothGatt = null
+        isDescriptorPending = false
+        mtuHandled = false
+    }
+
+    fun disconnect() {
+        cleanupGatt()
     }
 }
 

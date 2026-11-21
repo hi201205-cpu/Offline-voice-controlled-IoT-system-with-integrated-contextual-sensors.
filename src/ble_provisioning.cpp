@@ -29,11 +29,7 @@ class BleProvServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) override {
         Serial.println("[BLE_PROV] Client da ket noi vao ESP32 qua Bluetooth!");
         s_currentStatus = BLE_PROV_CLIENT_CONNECTED;
-        if (s_pStatusChar) {
-            uint8_t st = (uint8_t)s_currentStatus;
-            s_pStatusChar->setValue(&st, 1);
-            s_pStatusChar->notify();
-        }
+        // Không gửi notify ngay tại onConnect để tránh xung đột kênh ATT trước khi Client discover dịch vụ
     }
 
     void onDisconnect(BLEServer* pServer) override {
@@ -46,13 +42,24 @@ class BleProvServerCallbacks : public BLEServerCallbacks {
     }
 };
 
+static String s_accumulatedPayload = "";
+
 // Callback khi App gửi thông tin Wi-Fi qua Characteristic
 class BleProvConfigCallbacks : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic* pCharacteristic) override {
         std::string rxVal = pCharacteristic->getValue();
         if (rxVal.length() == 0) return;
 
-        String payload = String(rxVal.c_str());
+        String chunk = String(rxVal.c_str());
+        s_accumulatedPayload += chunk;
+
+        // Nếu là JSON chưa hoàn thiện thì chờ nhận tiếp chunk
+        if (s_accumulatedPayload.startsWith("{") && !s_accumulatedPayload.endsWith("}") && s_accumulatedPayload.length() < 512) {
+            return;
+        }
+
+        String payload = s_accumulatedPayload;
+        s_accumulatedPayload = "";
         payload.trim();
         Serial.printf("[BLE_PROV] Nhan cau hinh Wi-Fi & Quyen: %s\n", payload.c_str());
 
