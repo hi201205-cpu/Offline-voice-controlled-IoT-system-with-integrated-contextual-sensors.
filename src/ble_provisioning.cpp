@@ -5,298 +5,282 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include <cJSON.h>
 #include <nvs_flash.h>
-#include "config.h"
+#include <atomic>
+#include <freertos/event_groups.h>
 
-static Preferences s_blePref;
-static bool s_bleActive = false;
-static BleProvStatus s_currentStatus = BLE_PROV_IDLE;
-static BLEServer* s_pServer = nullptr;
-static BLECharacteristic* s_pStatusChar = nullptr;
-static BLECharacteristic* s_pConfigChar = nullptr;
+namespace {
+constexpr char kName[] = "SmartHome-ESP32-Setup";
+constexpr size_t kMaxPayload = 512;
+constexpr uint32_t kWifiTimeoutMs = 25000;
+constexpr EventBits_t kAdvData = 1, kScanResponse = 2;
 
-static String s_incomingSsid = "";
-static String s_incomingPass = "";
-static String s_incomingHome = "";
-static String s_incomingOwner = "";
-static String s_incomingUid = "";
-static bool s_hasNewCredentials = false;
-static uint32_t s_connectStartMs = 0;
-static uint32_t s_advStartMs = 0;
+Preferences s_blePref;
+BLEServer* s_server = nullptr;
+BLECharacteristic* s_status = nullptr;
+BLE2902* s_cccd = nullptr;
+StaticEventGroup_t s_gapStorage;
+EventGroupHandle_t s_gapEvents = nullptr;
 
-// Callback khi Client BLE kết nối hoặc ngắt kết nối
-class BleProvServerCallbacks : public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) override {
-        Serial.println("[BLE_PROV] Client da ket noi vao ESP32 qua Bluetooth!");
-        s_currentStatus = BLE_PROV_CLIENT_CONNECTED;
-        // Không gửi notify ngay tại onConnect để tránh xung đột kênh ATT trước khi Client discover dịch vụ
+// The Wi-Fi task owns setup, advertising and the Wi-Fi transaction. Bluedroid
+// callbacks assemble one message; Ready transfers ownership to the Wi-Fi task.
+enum class Job { Empty, Ready, Processing };
+std::atomic<Job> s_job{Job::Empty};
+std::string s_message;
+std::string s_partial; // Bluedroid task only
+std::atomic<bool> s_active{false}, s_connected{false}, s_advertise{false};
+std::atomic<uint32_t> s_idleSince{0};
+bool s_started = false, s_dataConfigured = false;
+uint32_t s_retryAfter = 0;
+bool s_hadSavedWifi = false;
+
+void setStatus(BleProvStatus status) {
+    uint8_t value = static_cast<uint8_t>(status);
+    s_status->setValue(&value, 1);
+    if (s_connected.load()) s_status->notify();
+}
+
+class ServerCallbacks : public BLEServerCallbacks {
+    void onConnect(BLEServer* server, esp_ble_gatts_cb_param_t* param) override {
+        s_partial.clear();
+        s_cccd->setNotifications(false);
+        s_connected = true;
+        Serial.printf("[BLE_PROV] GATT connected t=%lu id=%u\n", millis(), param->connect.conn_id);
+        if (!s_active) server->disconnect(param->connect.conn_id);
     }
-
-    void onDisconnect(BLEServer* pServer) override {
-        Serial.println("[BLE_PROV] Client ngat ket noi Bluetooth.");
-        if (s_bleActive) {
-            s_currentStatus = BLE_PROV_ADVERTISING;
-            s_advStartMs = millis(); // Reset lại timer chờ nếu client ngắt kết nối giữa chừng
-            BLEDevice::startAdvertising();
-        }
+    void onDisconnect(BLEServer*, esp_ble_gatts_cb_param_t* param) override {
+        s_partial.clear();
+        s_connected = false;
+        s_idleSince = millis();
+        s_advertise = true;
+        Serial.printf("[BLE_PROV] GATT disconnected t=%lu id=%u reason=0x%02x\n",
+                      millis(), param->disconnect.conn_id, param->disconnect.reason);
+    }
+    void onMtuChanged(BLEServer*, esp_ble_gatts_cb_param_t* param) override {
+        Serial.printf("[BLE_PROV] MTU id=%u mtu=%u\n", param->mtu.conn_id, param->mtu.mtu);
     }
 };
 
-static String s_accumulatedPayload = "";
+// A chunk can end at an escaped quote, a literal '}' or inside UTF-8.
+// Look for the closing top-level brace outside strings. cJSON validates the
+// completed frame. The legacy pipe protocol is exactly one write per message.
+bool hasJsonEnd(const std::string& bytes) {
+    bool quoted = false, escaped = false;
+    int depth = 0;
+    for (char c : bytes) {
+        if (quoted) {
+            if (escaped) escaped = false;
+            else if (c == '\\') escaped = true;
+            else if (c == '"') quoted = false;
+        } else if (c == '"') {
+            quoted = true;
+        } else if (c == '{') {
+            ++depth;
+        } else if (c == '}' && --depth == 0) {
+            return true;
+        }
+    }
+    return false;
+}
 
-// Callback khi App gửi thông tin Wi-Fi qua Characteristic
-class BleProvConfigCallbacks : public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic* pCharacteristic) override {
-        std::string rxVal = pCharacteristic->getValue();
-        if (rxVal.length() == 0) return;
+class ConfigCallbacks : public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic* characteristic) override {
+        if (!s_active || !s_connected || s_job.load() != Job::Empty) return;
+        const std::string chunk = characteristic->getValue();
+        if (chunk.empty()) return;
+        if (chunk.size() > kMaxPayload - s_partial.size() || chunk.find('\0') != std::string::npos) {
+            s_partial.clear(); // Hand an invalid frame to the worker for a FAILED response.
+        } else {
+            s_partial += chunk;
+            if (s_partial.front() == '{' && !hasJsonEnd(s_partial)) {
+                if (s_partial.size() < kMaxPayload) return;
+                s_partial.clear();
+            }
+        }
+        s_message.swap(s_partial);
+        s_partial.clear();
+        s_job.store(Job::Ready);
+    }
+};
 
-        String chunk = String(rxVal.c_str());
-        s_accumulatedPayload += chunk;
+struct Credentials {
+    String ssid, pass, home = "HOME-2026-ESP32", owner, uid;
+};
 
-        // Nếu là JSON chưa hoàn thiện thì chờ nhận tiếp chunk
-        if (s_accumulatedPayload.startsWith("{") && !s_accumulatedPayload.endsWith("}") && s_accumulatedPayload.length() < 512) {
+bool parseCredentials(const std::string& payload, Credentials& out) {
+    if (payload.empty()) return false;
+    if (payload.front() == '{') {
+        cJSON* json = cJSON_ParseWithOpts(payload.c_str(), nullptr, true);
+        if (!json) return false;
+        auto field = [json](const char* key, String& dest) {
+            auto* item = cJSON_GetObjectItemCaseSensitive(json, key);
+            if (!item) return true;
+            if (!cJSON_IsString(item)) return false;
+            dest = item->valuestring;
+            return true;
+        };
+        bool valid = field("ssid", out.ssid) && field("pass", out.pass) &&
+                     field("home", out.home) && field("owner", out.owner) && field("uid", out.uid);
+        cJSON_Delete(json);
+        if (!valid) return false;
+    } else {
+        String* fields[] = {&out.ssid, &out.pass, &out.home, &out.owner, &out.uid};
+        size_t start = 0;
+        for (size_t i = 0; i < 5; ++i) {
+            const size_t end = i == 4 ? std::string::npos : payload.find('|', start);
+            *fields[i] = payload.substr(start, end - start).c_str();
+            if (end == std::string::npos) break;
+            start = end + 1;
+        }
+    }
+    return out.ssid.length() > 0 && out.ssid.length() <= 32 && out.pass.length() <= 64;
+}
+
+void onGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* param) {
+    if (event == ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT &&
+        param->adv_data_raw_cmpl.status == ESP_BT_STATUS_SUCCESS) {
+        xEventGroupSetBits(s_gapEvents, kAdvData);
+    } else if (event == ESP_GAP_BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE_EVT &&
+               param->scan_rsp_data_raw_cmpl.status == ESP_BT_STATUS_SUCCESS) {
+        xEventGroupSetBits(s_gapEvents, kScanResponse);
+    } else if (event == ESP_GAP_BLE_ADV_START_COMPLETE_EVT) {
+        Serial.printf("[BLE_PROV] ADV_IND t=%lu status=%u\n", millis(), param->adv_start_cmpl.status);
+        if (param->adv_start_cmpl.status != ESP_BT_STATUS_SUCCESS) s_advertise = true;
+    }
+}
+
+void createServer() {
+    s_gapEvents = xEventGroupCreateStatic(&s_gapStorage);
+    BLEDevice::init(kName);
+    BLEDevice::setCustomGapHandler(onGap);
+    BLEDevice::setMTU(512);
+    s_server = BLEDevice::createServer();
+    static ServerCallbacks serverCallbacks;
+    s_server->setCallbacks(&serverCallbacks);
+    auto* service = s_server->createService(BLE_PROV_SERVICE_UUID);
+    auto* config = service->createCharacteristic(BLE_PROV_CHAR_CONFIG_UUID,
+        BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
+    static ConfigCallbacks configCallbacks;
+    config->setCallbacks(&configCallbacks);
+    s_status = service->createCharacteristic(BLE_PROV_CHAR_STATUS_UUID,
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+    s_cccd = new BLE2902();
+    s_status->addDescriptor(s_cccd);
+    service->start();
+}
+
+void advertise() {
+    auto* adv = BLEDevice::getAdvertising();
+    if (!s_dataConfigured) {
+        BLEAdvertisementData primary, scanResponse;
+        primary.setFlags(ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT);
+        primary.setCompleteServices(BLEUUID(BLE_PROV_SERVICE_UUID));
+        scanResponse.setName(kName);
+        xEventGroupClearBits(s_gapEvents, kAdvData | kScanResponse);
+        adv->setAdvertisementData(primary);
+        adv->setScanResponseData(scanResponse);
+        const auto bits = xEventGroupWaitBits(s_gapEvents, kAdvData | kScanResponse,
+                                              pdFALSE, pdTRUE, pdMS_TO_TICKS(2000));
+        if ((bits & (kAdvData | kScanResponse)) != (kAdvData | kScanResponse)) {
+            Serial.println("[BLE_PROV] Advertising data setup timed out");
+            s_advertise = true;
             return;
         }
-
-        String payload = s_accumulatedPayload;
-        s_accumulatedPayload = "";
-        payload.trim();
-        Serial.printf("[BLE_PROV] Nhan cau hinh Wi-Fi & Quyen: %s\n", payload.c_str());
-
-        String ssid = "";
-        String pass = "";
-        String home = "HOME-2026-ESP32";
-        String owner = "";
-        String uid = "";
-
-        if (payload.startsWith("{") && payload.endsWith("}")) {
-            int ssidIdx = payload.indexOf("\"ssid\"");
-            if (ssidIdx >= 0) {
-                int start = payload.indexOf("\"", ssidIdx + 6) + 1;
-                int end = payload.indexOf("\"", start);
-                if (start > 0 && end > start) ssid = payload.substring(start, end);
-            }
-            int passIdx = payload.indexOf("\"pass\"");
-            if (passIdx >= 0) {
-                int start = payload.indexOf("\"", passIdx + 6) + 1;
-                int end = payload.indexOf("\"", start);
-                if (start > 0 && end > start) pass = payload.substring(start, end);
-            }
-            int homeIdx = payload.indexOf("\"home\"");
-            if (homeIdx >= 0) {
-                int start = payload.indexOf("\"", homeIdx + 6) + 1;
-                int end = payload.indexOf("\"", start);
-                if (start > 0 && end > start) home = payload.substring(start, end);
-            }
-            int ownerIdx = payload.indexOf("\"owner\"");
-            if (ownerIdx >= 0) {
-                int start = payload.indexOf("\"", ownerIdx + 7) + 1;
-                int end = payload.indexOf("\"", start);
-                if (start > 0 && end > start) owner = payload.substring(start, end);
-            }
-            int uidIdx = payload.indexOf("\"uid\"");
-            if (uidIdx >= 0) {
-                int start = payload.indexOf("\"", uidIdx + 5) + 1;
-                int end = payload.indexOf("\"", start);
-                if (start > 0 && end > start) uid = payload.substring(start, end);
-            }
-        } else {
-            // Pipe-delimited: SSID|PASSWORD|HOME_ID|OWNER|UID
-            int p1 = payload.indexOf('|');
-            int p2 = (p1 >= 0) ? payload.indexOf('|', p1 + 1) : -1;
-            int p3 = (p2 >= 0) ? payload.indexOf('|', p2 + 1) : -1;
-            int p4 = (p3 >= 0) ? payload.indexOf('|', p3 + 1) : -1;
-
-            if (p1 >= 0) {
-                ssid = payload.substring(0, p1);
-                if (p2 >= 0) {
-                    pass = payload.substring(p1 + 1, p2);
-                    if (p3 >= 0) {
-                        home = payload.substring(p2 + 1, p3);
-                        if (p4 >= 0) {
-                            owner = payload.substring(p3 + 1, p4);
-                            uid = payload.substring(p4 + 1);
-                        } else {
-                            owner = payload.substring(p3 + 1);
-                        }
-                    } else {
-                        home = payload.substring(p2 + 1);
-                    }
-                } else {
-                    pass = payload.substring(p1 + 1);
-                }
-            } else {
-                ssid = payload;
-            }
-        }
-
-        if (ssid.length() > 0) {
-            s_incomingSsid = ssid;
-            s_incomingPass = pass;
-            s_incomingHome = home;
-            s_incomingOwner = owner;
-            s_incomingUid = uid;
-            s_hasNewCredentials = true;
-            s_currentStatus = BLE_PROV_CONFIG_RECEIVED;
-
-            if (s_pStatusChar) {
-                uint8_t st = (uint8_t)s_currentStatus;
-                s_pStatusChar->setValue(&st, 1);
-                s_pStatusChar->notify();
-            }
-        }
+        s_dataConfigured = true;
     }
-};
+    uint8_t value = BLE_PROV_ADVERTISING;
+    s_status->setValue(&value, 1);
+    esp_ble_adv_params_t params{};
+    params.adv_int_min = 0x20; // 20–40 ms, in 0.625 ms units
+    params.adv_int_max = 0x40;
+    params.adv_type = ADV_TYPE_IND;
+    params.own_addr_type = BLE_ADDR_TYPE_PUBLIC;
+    params.channel_map = ADV_CHNL_ALL;
+    params.adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY;
+    const esp_err_t err = esp_ble_gap_start_advertising(&params);
+    if (err != ESP_OK) {
+        Serial.printf("[BLE_PROV] Advertising request rejected: %d\n", err);
+        s_advertise = true;
+    }
+}
+
+void processMessage() {
+    s_job = Job::Processing;
+    Credentials wifi;
+    bool valid = parseCredentials(s_message, wifi);
+    s_message.clear();
+    if (valid) {
+        setStatus(BLE_PROV_CONFIG_RECEIVED);
+        setStatus(BLE_PROV_CONNECTING_WIFI);
+        WiFi.begin(wifi.ssid.c_str(), wifi.pass.c_str());
+        const uint32_t started = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - started < kWifiTimeoutMs) delay(100);
+        if (WiFi.status() == WL_CONNECTED) {
+            ble_save_wifi(wifi.ssid, wifi.pass, wifi.home, wifi.owner, wifi.uid);
+            String ssid, pass, home, owner, uid;
+            if (ble_get_saved_wifi(ssid, pass, home, &owner, &uid) &&
+                ssid == wifi.ssid && pass == wifi.pass && home == wifi.home &&
+                (!wifi.owner.length() || owner == wifi.owner) && (!wifi.uid.length() || uid == wifi.uid)) {
+                setStatus(BLE_PROV_SUCCESS);
+                const uint32_t notified = millis();
+                while (s_connected && millis() - notified < 1500) delay(20);
+                ESP.restart();
+                return;
+            }
+            Serial.println("[BLE_PROV] Failed to verify saved Wi-Fi settings");
+        }
+        WiFi.disconnect(true);
+    }
+    setStatus(BLE_PROV_FAILED);
+    s_job = Job::Empty;
+}
+} // namespace
 
 void ble_provisioning_init() {
     s_blePref.begin("wificfg", false);
 }
 
 bool ble_provisioning_is_active() {
-    return s_bleActive;
+    return s_active;
 }
 
 void ble_provisioning_start() {
-    if (s_bleActive) return;
-
-    Serial.println("\n=======================================================");
-    Serial.println("  [BLE_PROV] KICH HOAT CHE DO CAI DAT WI-FI QUA BLUETOOTH");
-    Serial.println("  Tên thiết bị BLE: SmartHome-ESP32-Setup");
-    Serial.println("  Thời gian chờ: 3 phút (180 giây)");
-    Serial.println("=======================================================\n");
-
-    s_bleActive = true;
-    s_currentStatus = BLE_PROV_ADVERTISING;
-    s_hasNewCredentials = false;
-    s_advStartMs = millis();
-
-    // Ngắt Wi-Fi tạm thời để tập trung radio cho BLE
-    WiFi.disconnect(true);
-
-    BLEDevice::init("SmartHome-ESP32-Setup");
-    BLEDevice::setMTU(512);
-    s_pServer = BLEDevice::createServer();
-    s_pServer->setCallbacks(new BleProvServerCallbacks());
-
-    BLEService* pService = s_pServer->createService(BLE_PROV_SERVICE_UUID);
-
-    // Characteristic ghi cấu hình (Write + Write Without Response)
-    s_pConfigChar = pService->createCharacteristic(
-        BLE_PROV_CHAR_CONFIG_UUID,
-        BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
-    );
-    s_pConfigChar->setCallbacks(new BleProvConfigCallbacks());
-
-    // Characteristic thông báo trạng thái (Read & Notify)
-    s_pStatusChar = pService->createCharacteristic(
-        BLE_PROV_CHAR_STATUS_UUID,
-        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-    );
-    s_pStatusChar->addDescriptor(new BLE2902());
-    uint8_t initialStatus = (uint8_t)BLE_PROV_ADVERTISING;
-    s_pStatusChar->setValue(&initialStatus, 1);
-
-    pService->start();
-
-    BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(BLE_PROV_SERVICE_UUID);
-    pAdvertising->setScanResponse(true);
-    pAdvertising->setMinInterval(0x20); // 20 ms - phát sóng siêu nhạy
-    pAdvertising->setMaxInterval(0x40); // 40 ms
-    pAdvertising->setMinPreferred(0x06); // 7.5 ms
-    pAdvertising->setMaxPreferred(0x12); // 22.5 ms
-    BLEDevice::startAdvertising();
-
-    Serial.println("[BLE_PROV] Dang phat song BLE beacon... Hay mo App de ket noi.");
+    // Called from both the button task and the Wi-Fi task.
+    s_active = true;
 }
 
 void ble_provisioning_stop() {
-    if (!s_bleActive) return;
-
-    Serial.println("[BLE_PROV] Dung che do BLE Provisioning va giai phong RAM...");
-    s_bleActive = false;
-    s_currentStatus = BLE_PROV_IDLE;
-
-    if (s_pServer) {
+    s_active = false;
+    if (s_server) {
         BLEDevice::getAdvertising()->stop();
-        BLEDevice::deinit(true);
-        s_pServer = nullptr;
-        s_pStatusChar = nullptr;
-        s_pConfigChar = nullptr;
+        if (s_connected) s_server->disconnect(s_server->getConnId());
     }
-
-    // Tắt hoàn toàn radio Bluetooth
-    btStop();
-    Serial.println("[BLE_PROV] Da tat Bluetooth, giai phong 100% RAM cho TinyML & Wi-Fi!");
+    // Keep the same server for another setup window. On this Arduino core
+    // deinit(true) releases controller memory until the next reboot.
+    s_started = false;
 }
 
 void ble_provisioning_update() {
-    if (!s_bleActive) return;
-
-    // Chỉ timeout tắt BLE nếu thiết bị ĐÃ CÓ Wi-Fi lưu sẵn (nút bấm kích hoạt tạm thời).
-    // Nếu thiết bị chưa từng có Wi-Fi (xuất xưởng / Factory Reset) -> DUY TRÌ BLE LIÊN TỤC để người dùng kết nối.
-    if (ble_has_saved_wifi() && s_currentStatus == BLE_PROV_ADVERTISING && (millis() - s_advStartMs > BLE_PROV_TIMEOUT_MS)) {
-        Serial.println("[BLE_PROV] Timeout khong co thiet bi nao ket noi. Tu dong tat BLE de tiep tuc Wi-Fi da luu!");
+    if (!s_active) return;
+    if (!s_started) {
+        WiFi.disconnect(true);
+        if (!s_server) createServer();
+        s_hadSavedWifi = ble_has_saved_wifi();
+        s_idleSince = millis();
+        s_advertise = true;
+        s_retryAfter = millis();
+        s_started = true;
+    }
+    if (s_job == Job::Ready) processMessage();
+    if (s_connected || s_job != Job::Empty) return;
+    if (s_hadSavedWifi && millis() - s_idleSince.load() > BLE_PROV_TIMEOUT_MS && ble_has_saved_wifi()) {
         ble_provisioning_stop();
         return;
     }
-
-    if (s_hasNewCredentials) {
-        s_hasNewCredentials = false;
-        Serial.printf("[BLE_PROV] Thu nghiem ket noi WiFi moi: '%s' ...\n", s_incomingSsid.c_str());
-
-        s_currentStatus = BLE_PROV_CONNECTING_WIFI;
-        if (s_pStatusChar) {
-            uint8_t st = (uint8_t)s_currentStatus;
-            s_pStatusChar->setValue(&st, 1);
-            s_pStatusChar->notify();
-        }
-
-        WiFi.disconnect(true);
-        delay(100);
-        WiFi.begin(s_incomingSsid.c_str(), s_incomingPass.c_str());
-        s_connectStartMs = millis();
-
-        // Chờ kết nối tối đa 25 giây (đủ thời gian cho router Wi-Fi cấp DHCP)
-        bool connected = false;
-        while (millis() - s_connectStartMs < 25000) {
-            if (WiFi.status() == WL_CONNECTED) {
-                connected = true;
-                break;
-            }
-            delay(200);
-        }
-
-        if (connected) {
-            Serial.printf("[BLE_PROV] Ket noi thanh cong! IP: %s\n", WiFi.localIP().toString().c_str());
-            ble_save_wifi(s_incomingSsid, s_incomingPass, s_incomingHome, s_incomingOwner, s_incomingUid);
-
-            s_currentStatus = BLE_PROV_SUCCESS;
-            if (s_pStatusChar) {
-                uint8_t st = (uint8_t)s_currentStatus;
-                s_pStatusChar->setValue(&st, 1);
-                s_pStatusChar->notify();
-            }
-
-            // Chờ 1.5 giây để Client nhận được gói tin notify trước khi tắt BLE
-            delay(1500);
-            ble_provisioning_stop();
-
-            // Khởi động lại vi điều khiển để nạp cấu hình mới mượt mà
-            Serial.println("[BLE_PROV] Khoi dong lai ESP32 de vao che do hoat dong chinh...");
-            delay(500);
-            ESP.restart();
-        } else {
-            Serial.println("[BLE_PROV] Ket noi that bai! Sai SSID hoac Mat khau.");
-            s_currentStatus = BLE_PROV_FAILED;
-            if (s_pStatusChar) {
-                uint8_t st = (uint8_t)s_currentStatus;
-                s_pStatusChar->setValue(&st, 1);
-                s_pStatusChar->notify();
-            }
-            // Khởi động lại phát sóng BLE để người dùng có thể gửi lại cấu hình ngay lập tức
-            BLEDevice::startAdvertising();
-        }
+    if (static_cast<int32_t>(millis() - s_retryAfter) >= 0 && s_advertise.exchange(false)) {
+        s_retryAfter = millis() + 500;
+        advertise();
     }
 }
 

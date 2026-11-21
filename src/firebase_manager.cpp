@@ -1368,7 +1368,7 @@ bool wifi_init() {
             activeSsid.c_str(), activeHome.c_str(), activeOwner.c_str(), activeUid.c_str());
     } else {
         LOG("[WIFI] Thiet bi chua duoc cau hinh WiFi trong NVS (Trang thai xuat xuong / Factory Reset).\n");
-        LOG("[WIFI] Tu dong bat BLE Provisioning (SmartHome-ESP32-Setup, 180s) cho nguoi dung quet...\n");
+        LOG("[WIFI] Tu dong bat BLE Provisioning (SmartHome-ESP32-Setup) cho nguoi dung quet...\n");
         ble_provisioning_start();
         s_lastReconnectMs = millis();
         s_wifiAttemptCount = 0;
@@ -1389,6 +1389,15 @@ void wifi_loop() {
     // Nếu đang ở chế độ BLE Provisioning thì ưu tiên xử lý cấu hình BLE
     if (ble_provisioning_is_active()) {
         ble_provisioning_update();
+        if (!ble_provisioning_is_active()) {
+            // An idle setup window ended with the station radio switched off.
+            String ssid, pass, home;
+            if (ble_get_saved_wifi(ssid, pass, home)) {
+                s_wifiAttemptCount = 0;
+                s_lastReconnectMs = millis();
+                WiFi.begin(ssid.c_str(), pass.c_str());
+            }
+        }
         return;
     }
 

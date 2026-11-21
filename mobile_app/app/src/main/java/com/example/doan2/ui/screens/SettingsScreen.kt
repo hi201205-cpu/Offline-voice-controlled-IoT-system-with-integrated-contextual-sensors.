@@ -40,6 +40,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.example.doan2.data.BleProvisioningManager
+import com.example.doan2.data.isProvisioning
 import com.example.doan2.data.BleStatus
 import com.example.doan2.data.DiscoveredBleDevice
 import com.example.doan2.data.model.PasscodeItem
@@ -121,6 +122,12 @@ fun SettingsScreen(
 
     // BLE Provisioning State
     val bleManager = remember { BleProvisioningManager(context) }
+    DisposableEffect(bleManager) {
+        onDispose {
+            bleManager.stopScan()
+            bleManager.disconnect()
+        }
+    }
     val bleStatus by bleManager.status.collectAsState()
     val bleStatusMsg by bleManager.statusMessage.collectAsState()
     val discoveredBleDevices by bleManager.discoveredDevices.collectAsState()
@@ -158,7 +165,8 @@ fun SettingsScreen(
 
         if (needsPermissions) {
             val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
+                arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT,
+                    Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
             } else {
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
             }
@@ -1112,7 +1120,7 @@ fun SettingsScreen(
                         ) {
                             Button(
                                 onClick = { checkAndStartBleScan() },
-                                enabled = bleStatus != BleStatus.SCANNING,
+                                enabled = bleStatus != BleStatus.SCANNING && !bleStatus.isProvisioning,
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart),
                                 modifier = Modifier.weight(1f).height(42.dp)
@@ -1161,8 +1169,9 @@ fun SettingsScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp)
-                                        .clickable {
+                                        .clickable(enabled = !bleStatus.isProvisioning) {
                                             selectedBleDevice = dev
+                                            bleManager.stopScan()
                                             val autoSsid = getConnectedWifiSsid(context)
                                             if (autoSsid.isNotBlank()) {
                                                 bleWifiSsid = autoSsid
@@ -1193,12 +1202,14 @@ fun SettingsScreen(
                                         Button(
                                             onClick = {
                                                 selectedBleDevice = dev
+                                                bleManager.stopScan()
                                                 val autoSsid = getConnectedWifiSsid(context)
                                                 if (autoSsid.isNotBlank()) {
                                                     bleWifiSsid = autoSsid
                                                 }
                                                 showBleConfigDialog = true
                                             },
+                                            enabled = !bleStatus.isProvisioning,
                                             shape = RoundedCornerShape(10.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentEnd),
                                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
@@ -2067,7 +2078,7 @@ fun SettingsScreen(
                             showBleConfigDialog = false
                             val currentEmail = uiState.userEmail ?: uiState.userProfile?.email ?: ""
                             selectedBleDevice?.device?.let { dev ->
-                                bleManager.connectAndSendWifi(dev, bleWifiSsid.trim(), bleWifiPass.trim(), bleHomeId.trim(), currentEmail)
+                                bleManager.connectAndSendWifi(dev, bleWifiSsid, bleWifiPass, bleHomeId.trim(), currentEmail)
                             }
                         } else {
                             Toast.makeText(context, "Vui lòng nhập tên Wi-Fi", Toast.LENGTH_SHORT).show()
@@ -2412,7 +2423,7 @@ fun getConnectedWifiSsid(context: Context): String {
                 val wifiInfo = caps.transportInfo as? WifiInfo
                 val ssid = wifiInfo?.ssid?.removeSurrounding("\"")
                 if (!ssid.isNullOrBlank() && ssid != "<unknown ssid>" && ssid != "0x") {
-                    return ssid.trim()
+                    return ssid
                 }
             }
         }
@@ -2421,7 +2432,7 @@ fun getConnectedWifiSsid(context: Context): String {
         if (info != null && info.networkId != -1) {
             val ssid = info.ssid?.removeSurrounding("\"")
             if (!ssid.isNullOrBlank() && ssid != "<unknown ssid>" && ssid != "0x") {
-                return ssid.trim()
+                return ssid
             }
         }
     } catch (_: Exception) {}

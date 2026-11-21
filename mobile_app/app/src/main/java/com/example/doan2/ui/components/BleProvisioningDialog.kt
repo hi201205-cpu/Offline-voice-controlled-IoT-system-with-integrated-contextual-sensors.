@@ -37,6 +37,7 @@ import com.example.doan2.data.BleProvisioningManager
 import com.example.doan2.data.BleStatus
 import com.example.doan2.data.DiscoveredBleDevice
 import com.example.doan2.data.getConnectedWifiSsid
+import com.example.doan2.data.isProvisioning
 import com.example.doan2.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -50,6 +51,7 @@ fun BleProvisioningDialog(
     val context = LocalContext.current
     val bleManager = remember { BleProvisioningManager(context) }
     val bleStatus by bleManager.status.collectAsState()
+    val isBusy = bleStatus.isProvisioning || bleStatus == BleStatus.SUCCESS
     val bleStatusMsg by bleManager.statusMessage.collectAsState()
     val discoveredBleDevices by bleManager.discoveredDevices.collectAsState()
 
@@ -64,6 +66,7 @@ fun BleProvisioningDialog(
 
     LaunchedEffect(selectedDevice) {
         if (selectedDevice != null) {
+            bleManager.stopScan()
             bleManager.scanWifiNetworks()
             val autoSsid = getConnectedWifiSsid(context)
             if (autoSsid.isNotBlank() && wifiSsid.isBlank()) {
@@ -103,7 +106,8 @@ fun BleProvisioningDialog(
 
         if (needsPermissions) {
             val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
+                arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT,
+                    Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
             } else {
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
             }
@@ -459,6 +463,7 @@ fun BleProvisioningDialog(
                                 }
                                 TextButton(
                                     onClick = { selectedDevice = null },
+                                    enabled = !isBusy,
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
                                     Text("Đổi", fontSize = 11.5.sp)
@@ -480,7 +485,7 @@ fun BleProvisioningDialog(
                             )
                             TextButton(
                                 onClick = { bleManager.scanWifiNetworks() },
-                                enabled = !isScanningWifi,
+                                enabled = !isBusy && !isScanningWifi,
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 if (isScanningWifi) {
@@ -509,7 +514,7 @@ fun BleProvisioningDialog(
                                         border = BorderStroke(1.dp, if (isSelected) AuroraAccentStart else subCardBorder),
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { wifiSsid = wifiItem.ssid }
+                                            .clickable(enabled = !isBusy) { wifiSsid = wifiItem.ssid }
                                     ) {
                                         Row(
                                             modifier = Modifier
@@ -576,6 +581,7 @@ fun BleProvisioningDialog(
 
                         OutlinedTextField(
                             value = wifiSsid,
+                            enabled = !isBusy,
                             onValueChange = { wifiSsid = it },
                             label = { Text("Tên mạng Wi-Fi (SSID)") },
                             leadingIcon = {
@@ -587,6 +593,7 @@ fun BleProvisioningDialog(
 
                         OutlinedTextField(
                             value = wifiPass,
+                            enabled = !isBusy,
                             onValueChange = { wifiPass = it },
                             label = { Text("Mật khẩu Wi-Fi") },
                             leadingIcon = {
@@ -609,6 +616,7 @@ fun BleProvisioningDialog(
 
                         OutlinedTextField(
                             value = homeId,
+                            enabled = !isBusy,
                             onValueChange = { homeId = it },
                             label = { Text("Mã ngôi nhà (Home ID)") },
                             leadingIcon = {
@@ -619,10 +627,6 @@ fun BleProvisioningDialog(
                         )
 
                         Spacer(modifier = Modifier.height(6.dp))
-
-                        val isBusy = bleStatus == BleStatus.CONNECTING_GATT ||
-                                     bleStatus == BleStatus.SENDING_CONFIG ||
-                                     bleStatus == BleStatus.ESP_CONNECTING_WIFI
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -645,8 +649,8 @@ fun BleProvisioningDialog(
                                         selectedDevice?.device?.let { dev ->
                                             bleManager.connectAndSendWifi(
                                                 device = dev,
-                                                ssid = wifiSsid.trim(),
-                                                pass = wifiPass.trim(),
+                                                ssid = wifiSsid,
+                                                pass = wifiPass,
                                                 homeId = homeId.trim().ifEmpty { "HOME-2026-ESP32" },
                                                 ownerEmail = currentUserEmail,
                                                 ownerUid = currentUid

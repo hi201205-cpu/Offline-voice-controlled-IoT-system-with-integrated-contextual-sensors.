@@ -27,10 +27,10 @@ void ble_provisioning_init();
 // Kiểm tra xem BLE setup mode có đang chạy không
 bool ble_provisioning_is_active();
 
-// Bật chế độ BLE Setup (Phát sóng Bluetooth SmartHome-ESP32-Setup trong 3 phút)
+// Bật BLE Setup. Khi chưa lưu Wi-Fi, mạch tiếp tục chờ cấu hình.
 void ble_provisioning_start();
 
-// Tắt hoàn toàn BLE để giải phóng RAM cho TinyML & Wi-Fi
+// Dừng quảng bá và ngắt client. Giữ server để có thể mở lại trong cùng lần khởi động.
 void ble_provisioning_stop();
 
 // Vòng lặp kiểm tra và xử lý trạng thái kết nối Wi-Fi trong khi ở chế độ Provisioning
