@@ -71,7 +71,9 @@ class AppUpdateManager(private val context: Context) {
                     ?: (snapshot.child("versionCode").value as? Number)?.toLong()
                     ?: 0L
                 val remoteVersionName = snapshot.child("versionName").value?.toString() ?: ""
-                val downloadUrl = snapshot.child("downloadUrl").value?.toString() ?: ""
+                val downloadUrl = snapshot.child("downloadUrl").value?.toString()
+                    ?: snapshot.child("url").value?.toString()
+                    ?: ""
                 val releaseNotes = snapshot.child("releaseNotes").value?.toString() ?: ""
                 val force = snapshot.child("force").value as? Boolean ?: false
                 val githubToken = snapshot.child("githubToken").value?.toString() ?: ""
