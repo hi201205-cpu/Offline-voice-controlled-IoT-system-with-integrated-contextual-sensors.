@@ -255,15 +255,7 @@ class BleProvisioningManager(private val context: Context) {
         val remoteDevice = bluetoothAdapter?.getRemoteDevice(device.address) ?: device
 
         try {
-            bluetoothGatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                remoteDevice.connectGatt(
-                    appContext,
-                    false,
-                    gattCallback,
-                    BluetoothDevice.TRANSPORT_LE,
-                    BluetoothDevice.PHY_LE_1M_MASK
-                )
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            bluetoothGatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 remoteDevice.connectGatt(
                     appContext,
                     false,
@@ -301,7 +293,7 @@ class BleProvisioningManager(private val context: Context) {
                     _statusMessage.value = when (status) {
                         133 -> "Thiết bị bận hoặc chưa sẵn sàng (Lỗi 133). Bấm 'Gửi cấu hình' để thử lại."
                         19 -> "Thiết bị đóng kết nối (Lỗi 19). Vui lòng nhấn giữ nút 5s để khởi động lại Bluetooth."
-                        8 -> "Hết thời gian kết nối Bluetooth (Lỗi 8). Vui lòng để điện thoại gần thiết bị hơn."
+                        8 -> "Hết thời gian kết nối (Lỗi 8). Thiết bị đã tự tắt Bluetooth sau 3 phút. Hãy bấm nút RESET trên mạch rồi thử lại ngay!"
                         else -> "Lỗi kết nối Bluetooth (Mã: $status). Vui lòng bấm thử lại."
                     }
                 }
