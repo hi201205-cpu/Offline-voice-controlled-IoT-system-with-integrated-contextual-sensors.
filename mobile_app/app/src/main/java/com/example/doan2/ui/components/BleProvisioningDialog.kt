@@ -59,6 +59,19 @@ fun BleProvisioningDialog(
     var wifiPassVisible by remember { mutableStateOf(false) }
     var homeId by remember { mutableStateOf("HOME-2026-ESP32") }
 
+    val scannedWifiNetworks by bleManager.scannedWifiNetworks.collectAsState()
+    val isScanningWifi by bleManager.isScanningWifi.collectAsState()
+
+    LaunchedEffect(selectedDevice) {
+        if (selectedDevice != null) {
+            bleManager.scanWifiNetworks()
+            val autoSsid = getConnectedWifiSsid(context)
+            if (autoSsid.isNotBlank() && wifiSsid.isBlank()) {
+                wifiSsid = autoSsid
+            }
+        }
+    }
+
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val cardBg = if (isDark) Color(0xFF1E293B) else Color.White
     val subCardBg = if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFF1F5F9)
@@ -453,27 +466,111 @@ fun BleProvisioningDialog(
                             }
                         }
 
-                        if (wifiSsid.isNotBlank()) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
+                        // Danh sách Wi-Fi xung quanh
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Chọn mạng Wi-Fi (${scannedWifiNetworks.size})",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            TextButton(
+                                onClick = { bleManager.scanWifiNetworks() },
+                                enabled = !isScanningWifi,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                if (isScanningWifi) {
+                                    CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp, color = AuroraAccentStart)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                } else {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Text("Quét lại", fontSize = 11.5.sp)
+                            }
+                        }
+
+                        if (scannedWifiNetworks.isNotEmpty()) {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(StateOk.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    .heightIn(max = 135.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = StateOk,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Đã lấy tên Wi-Fi từ điện thoại của bạn",
-                                    fontSize = 11.5.sp,
-                                    color = StateOk,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                items(scannedWifiNetworks) { wifiItem ->
+                                    val isSelected = wifiSsid == wifiItem.ssid
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) AuroraAccentStart.copy(alpha = 0.15f) else subCardBg,
+                                        border = BorderStroke(1.dp, if (isSelected) AuroraAccentStart else subCardBorder),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { wifiSsid = wifiItem.ssid }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Wifi,
+                                                    contentDescription = null,
+                                                    tint = if (isSelected) AuroraAccentStart else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = wifiItem.ssid,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onBackground
+                                                )
+                                            }
+
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (wifiItem.isConnected) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = StateOk.copy(alpha = 0.18f),
+                                                        modifier = Modifier.padding(end = 6.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "Đang kết nối",
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = StateOk,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                                if (wifiItem.is24GHz) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = AuroraAccentStart.copy(alpha = 0.15f)
+                                                    ) {
+                                                        Text(
+                                                            text = "2.4G",
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = AuroraAccentStart,
+                                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
 

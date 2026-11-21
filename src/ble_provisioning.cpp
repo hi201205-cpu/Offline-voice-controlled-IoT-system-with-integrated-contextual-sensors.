@@ -167,15 +167,16 @@ void ble_provisioning_start() {
     WiFi.disconnect(true);
 
     BLEDevice::init("SmartHome-ESP32-Setup");
+    BLEDevice::setMTU(512);
     s_pServer = BLEDevice::createServer();
     s_pServer->setCallbacks(new BleProvServerCallbacks());
 
     BLEService* pService = s_pServer->createService(BLE_PROV_SERVICE_UUID);
 
-    // Characteristic ghi cấu hình (Write)
+    // Characteristic ghi cấu hình (Write + Write Without Response)
     s_pConfigChar = pService->createCharacteristic(
         BLE_PROV_CHAR_CONFIG_UUID,
-        BLECharacteristic::PROPERTY_WRITE
+        BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
     );
     s_pConfigChar->setCallbacks(new BleProvConfigCallbacks());
 
@@ -223,9 +224,10 @@ void ble_provisioning_stop() {
 void ble_provisioning_update() {
     if (!s_bleActive) return;
 
-    // Tự động tắt phát sóng BLE sau 3 phút nếu không có thiết bị kết nối
-    if (s_currentStatus == BLE_PROV_ADVERTISING && (millis() - s_advStartMs > BLE_PROV_TIMEOUT_MS)) {
-        Serial.println("[BLE_PROV] Timeout 3 phut (180s) khong co thiet bi nao ket noi. Tu dong tat BLE!");
+    // Chỉ timeout tắt BLE nếu thiết bị ĐÃ CÓ Wi-Fi lưu sẵn (nút bấm kích hoạt tạm thời).
+    // Nếu thiết bị chưa từng có Wi-Fi (xuất xưởng / Factory Reset) -> DUY TRÌ BLE LIÊN TỤC để người dùng kết nối.
+    if (ble_has_saved_wifi() && s_currentStatus == BLE_PROV_ADVERTISING && (millis() - s_advStartMs > BLE_PROV_TIMEOUT_MS)) {
+        Serial.println("[BLE_PROV] Timeout khong co thiet bi nao ket noi. Tu dong tat BLE de tiep tuc Wi-Fi da luu!");
         ble_provisioning_stop();
         return;
     }
