@@ -187,10 +187,52 @@ fun SettingsScreen(
         uiState.userProfile?.let { prof ->
             profileName = prof.name
             profilePhone = prof.phone
-            profileDob = prof.dob
+            val rawDob = prof.dob
+            profileDob = if (rawDob.contains("-") && rawDob.split("-").size == 3) {
+                val parts = rawDob.split("-")
+                "${parts[2]}/${parts[1]}/${parts[0]}"
+            } else {
+                rawDob
+            }
             profileGender = prof.gender
             profileAddress = prof.address
         }
+    }
+
+    val showDatePicker = {
+        val cal = java.util.Calendar.getInstance()
+        try {
+            if (profileDob.contains("/")) {
+                val parts = profileDob.split("/")
+                if (parts.size == 3) {
+                    val d = parts[0].trim().toIntOrNull() ?: 1
+                    val m = (parts[1].trim().toIntOrNull() ?: 1) - 1
+                    val y = parts[2].trim().toIntOrNull() ?: 2000
+                    cal.set(y, m, d)
+                }
+            } else if (profileDob.contains("-")) {
+                val parts = profileDob.split("-")
+                if (parts.size == 3) {
+                    val y = parts[0].trim().toIntOrNull() ?: 2000
+                    val m = (parts[1].trim().toIntOrNull() ?: 1) - 1
+                    val d = parts[2].trim().toIntOrNull() ?: 1
+                    cal.set(y, m, d)
+                }
+            }
+        } catch (_: Exception) {}
+
+        val dpd = android.app.DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                val formatted = String.format(java.util.Locale.getDefault(), "%02d/%02d/%04d", dayOfMonth, month + 1, year)
+                profileDob = formatted
+            },
+            cal.get(java.util.Calendar.YEAR),
+            cal.get(java.util.Calendar.MONTH),
+            cal.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+        dpd.datePicker.maxDate = System.currentTimeMillis()
+        dpd.show()
     }
 
     LaunchedEffect(uiState.toastMessage) {
@@ -1626,22 +1668,42 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Ngày sinh (dd/MM/yyyy)
-                    OutlinedTextField(
-                        value = profileDob,
-                        onValueChange = {
-                            profileDob = it
-                            if (profileDobError != null) profileDobError = null
-                        },
-                        label = { Text("Ngày sinh (ngày/tháng/năm)") },
-                        placeholder = { Text("Ví dụ: 15/08/2000") },
-                        isError = profileDobError != null,
-                        supportingText = profileDobError?.let { { Text(it, color = StateError, fontSize = 11.5.sp) } },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // Ngày sinh (dd/MM/yyyy) - Chọn qua hộp thoại Lịch (DatePicker)
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = profileDob,
+                            onValueChange = {
+                                profileDob = it
+                                if (profileDobError != null) profileDobError = null
+                            },
+                            readOnly = true,
+                            label = { Text("Ngày sinh (chọn từ lịch)") },
+                            placeholder = { Text("Chạm để chọn ngày sinh") },
+                            trailingIcon = {
+                                IconButton(onClick = { showDatePicker() }) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarMonth,
+                                        contentDescription = "Chọn ngày sinh",
+                                        tint = AuroraAccentStart
+                                    )
+                                }
+                            },
+                            isError = profileDobError != null,
+                            supportingText = profileDobError?.let { { Text(it, color = StateError, fontSize = 11.5.sp) } },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable(
+                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { showDatePicker() }
+                                )
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -1723,7 +1785,7 @@ fun SettingsScreen(
                                 profilePhoneError = null
                             }
 
-                            if (tDob.isNotBlank() && !Regex("""^\d{1,2}/\d{1,2}/\d{4}$""").matches(tDob)) {
+                            if (tDob.isNotBlank() && !Regex("""^\d{1,2}/\d{1,2}/\d{4}$""").matches(tDob) && !Regex("""^\d{4}-\d{2}-\d{2}$""").matches(tDob)) {
                                 profileDobError = "Định dạng ngày sinh phải là ngày/tháng/năm (ví dụ: 15/08/2000)"
                                 hasError = true
                             } else {

@@ -28,13 +28,13 @@
           ".write": "auth.uid === $uid || (root.child('system').child('masterUid').val() === auth.uid)"
         },
         "role": {
-          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (!root.child('system').child('masterUid').exists() && newData.val() === 'master')"
+          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (!root.child('system').child('masterUid').exists() && newData.val() === 'master') || (auth.uid === $uid && newData.val() === 'member')"
         },
         "permissions": {
-          ".write": "root.child('system').child('masterUid').val() === auth.uid"
+          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (auth.uid === $uid && !data.exists())"
         },
         "pairedHome": {
-          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (!root.child('system').child('masterUid').exists() && newData.val() === 'HOME-2026-ESP32') || (auth.uid === $uid && !newData.exists()) || (auth.uid === $uid && newData.val() === 'HOME-2026-ESP32' && root.child('invites').child(newData.parent().child('inviteCode').val()).child('status').val() === 'active' && newData.parent().parent().parent().child('invites').child(newData.parent().child('inviteCode').val()).child('status').val() === 'used' && newData.parent().parent().parent().child('invites').child(newData.parent().child('inviteCode').val()).child('usedBy').val() === auth.uid)"
+          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (!root.child('system').child('masterUid').exists() && newData.val() === 'HOME-2026-ESP32') || (auth.uid === $uid && !newData.exists()) || (auth.uid === $uid && (newData.val() === 'HOME-2026-ESP32' || newData.val() === true) && (root.child('invites').child(newData.parent().child('inviteCode').val()).child('status').val() === 'active' || root.child('invites').child(newData.parent().child('inviteCode').val()).child('usedBy').val() === auth.uid || newData.parent().parent().parent().child('invites').child(newData.parent().child('inviteCode').val()).child('status').val() === 'used'))"
         }
       }
     },

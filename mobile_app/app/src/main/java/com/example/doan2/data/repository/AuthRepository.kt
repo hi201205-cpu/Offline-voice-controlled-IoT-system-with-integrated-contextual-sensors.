@@ -436,29 +436,19 @@ class AuthRepository(
 
                         val validHome = snapshot.child("homeId").value as? String ?: DEFAULT_HOME_CODE
 
-                        // Cập nhật trạng thái 'used' ngay lập tức cho invite
-                        val inviteUpdates = mapOf<String, Any>(
-                            "status" to "used",
-                            "usedBy" to uid,
-                            "usedByEmail" to (userEmail ?: "Thành viên gia đình"),
-                            "usedAt" to System.currentTimeMillis()
+                        val now = System.currentTimeMillis()
+                        // Cập nhật nguyên tử (Atomic Multi-path Update) đồng bộ chính xác với Web và Database Rules
+                        val multiUpdates = mutableMapOf<String, Any>(
+                            "invites/$formattedCode/status" to "used",
+                            "invites/$formattedCode/usedBy" to uid,
+                            "invites/$formattedCode/usedByEmail" to (userEmail ?: "Thành viên gia đình"),
+                            "invites/$formattedCode/usedAt" to now,
+                            "users/$uid/pairedHome" to validHome,
+                            "users/$uid/inviteCode" to formattedCode,
+                            "users/$uid/is_paired" to true,
+                            "users/$uid/pairedAt" to now
                         )
-                        inviteRef.updateChildren(inviteUpdates)
-
-                        val userUpdates = mapOf<String, Any>(
-                            "is_paired" to true,
-                            "pairedHome" to validHome,
-                            "role" to "member",
-                            "pairedAt" to System.currentTimeMillis(),
-                            "permissions" to mapOf(
-                                "light" to true,
-                                "fan" to true,
-                                "curtain" to true,
-                                "door" to true,
-                                "yard" to true
-                            )
-                        )
-                        database.getReference("users/$uid").updateChildren(userUpdates)
+                        database.reference.updateChildren(multiUpdates)
                             .addOnSuccessListener {
                                 onResult(true, "Liên kết thiết bị thành công!")
                             }
