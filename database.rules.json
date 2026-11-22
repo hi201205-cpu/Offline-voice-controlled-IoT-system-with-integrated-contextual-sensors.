@@ -12,6 +12,21 @@
         "name": {
           ".write": "auth.uid === $uid"
         },
+        "phone": {
+          ".write": "auth.uid === $uid"
+        },
+        "dob": {
+          ".write": "auth.uid === $uid"
+        },
+        "gender": {
+          ".write": "auth.uid === $uid"
+        },
+        "address": {
+          ".write": "auth.uid === $uid"
+        },
+        "updatedAt": {
+          ".write": "auth.uid === $uid"
+        },
         "profile": {
           ".write": "auth.uid === $uid"
         },

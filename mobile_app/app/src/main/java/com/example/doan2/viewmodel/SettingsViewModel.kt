@@ -381,9 +381,7 @@ class SettingsViewModel(
         onResult: (Boolean, String?) -> Unit
     ) {
         authRepository.updateUserProfile(name, phone, dob, gender, address) { success, msg ->
-            if (success) {
-                _uiState.value = _uiState.value.copy(toastMessage = msg)
-            }
+            _uiState.value = _uiState.value.copy(toastMessage = msg)
             onResult(success, msg)
         }
     }
