@@ -690,9 +690,21 @@ fun SettingsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column {
-                                        Text("Mã mời vừa tạo:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Mã mời vừa tạo (Dùng 1 lần):", fontSize = 11.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
                                         Text(code, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AuroraAccentEnd)
+                                    }
+                                    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+                                    val context = androidx.compose.ui.platform.LocalContext.current
+                                    Button(
+                                        onClick = {
+                                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(code))
+                                            android.widget.Toast.makeText(context, "Đã sao chép mã mời: $code", android.widget.Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentEnd),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Sao chép", fontSize = 12.sp, color = Color.White)
                                     }
                                 }
                             }

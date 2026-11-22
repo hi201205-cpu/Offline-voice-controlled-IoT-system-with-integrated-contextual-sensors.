@@ -23,6 +23,7 @@
 #include "ota_manager.h"
 #include "telegram_manager.h"
 #include "ble_provisioning.h"
+#include <esp_task_wdt.h>
 
 static uint32_t s_lastCmdMs = 0;
 static uint32_t s_lastHealthLogMs = 0;
@@ -197,6 +198,11 @@ static void on_window_ready(const int16_t *window, uint32_t window_index) {
 // ============================================================
 
 void setup() {
+    esp_task_wdt_init(30, false); // Nới lỏng TWDT lên 30 giây, panic=false
+    TaskHandle_t idle0 = xTaskGetIdleTaskHandleForCPU(0);
+    if (idle0 != nullptr) {
+        esp_task_wdt_delete(idle0); // Hủy giám sát IDLE0 để Core 0 gánh mic I2S, TinyML và SSL không bị reset nhầm
+    }
     Serial.begin(115200);
 
     // Đảm bảo NVS được khởi tạo thành công cho WiFi & Preferences

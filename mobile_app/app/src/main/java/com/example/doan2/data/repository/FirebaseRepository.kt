@@ -474,10 +474,10 @@ class FirebaseRepository(
         ref.setValue(log)
     }
 
-    // Master: Generate Single-Use Invite Code (HM-XXXX)
+    // Master: Generate Single-Use Invite Code (HM-XXXXXXXX - 11 chars matching Web)
     fun generateInviteCode(masterEmail: String, onResult: (Boolean, String?) -> Unit) {
-        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-        val randomStr = (1..4).map { chars.random() }.joinToString("")
+        val chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+        val randomStr = (1..8).map { chars.random() }.joinToString("")
         val code = "HM-$randomStr"
 
         val nowSec = System.currentTimeMillis() / 1000L

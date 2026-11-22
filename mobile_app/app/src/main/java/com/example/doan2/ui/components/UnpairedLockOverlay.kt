@@ -216,15 +216,15 @@ fun UnpairedLockOverlay(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "Nhập mã HM-XXXX do Chủ nhà cấp:",
+                        text = "Nhập mã mời 1 lần (HM-XXXXXXXX) do Chủ nhà cấp:",
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     OutlinedTextField(
                         value = codeInput,
-                        onValueChange = { if (it.length <= 10) onCodeChange(it) },
-                        label = { Text("Mã liên kết (HM-XXXX)") },
+                        onValueChange = { if (it.length <= 20) onCodeChange(it.uppercase()) },
+                        label = { Text("Mã liên kết (Ví dụ: HM-DFBYGHWL)") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
                             capitalization = KeyboardCapitalization.Characters,

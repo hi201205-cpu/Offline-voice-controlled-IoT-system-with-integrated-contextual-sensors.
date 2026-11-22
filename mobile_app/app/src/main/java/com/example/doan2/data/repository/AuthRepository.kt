@@ -376,7 +376,10 @@ class AuthRepository(
 
 
     fun redeemInviteCode(codeStr: String, onResult: (Boolean, String?) -> Unit) {
-        val formattedCode = codeStr.trim().uppercase()
+        var formattedCode = codeStr.trim().uppercase()
+        if (!formattedCode.startsWith("HM-") && (formattedCode.length == 8 || formattedCode.length == 4)) {
+            formattedCode = "HM-$formattedCode"
+        }
         val uid = currentUid
         val userEmail = auth.currentUser?.email
         if (uid == null) {

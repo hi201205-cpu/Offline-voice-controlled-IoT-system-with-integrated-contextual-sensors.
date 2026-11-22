@@ -7,6 +7,7 @@
 #include <FirebaseESP32.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <esp_task_wdt.h>
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
@@ -287,8 +288,8 @@ static void firebase_do_reinit() {
     if (!s_fbInitialized) {
         s_fbConfig.database_url               = FIREBASE_HOST;
         s_fbConfig.signer.tokens.legacy_token = FIREBASE_AUTH;
-        s_fbConfig.timeout.serverResponse     = 5000;
-        s_fbConfig.timeout.socketConnection   = 5000;
+        s_fbConfig.timeout.serverResponse     = 3000;
+        s_fbConfig.timeout.socketConnection   = 3000;
 
         Firebase.begin(&s_fbConfig, &s_fbAuth);
         Firebase.reconnectWiFi(true);
@@ -313,6 +314,8 @@ static void firebase_do_reinit() {
         static_cast<unsigned long>(millis() - readyWaitStartedMs));
 #endif
 
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_task_wdt_reset();
     Firebase.endStream(s_fbCommandsStream);
     bool commandsStreamStarted = FB_TIMED(
         "beginStream commands",
@@ -367,10 +370,12 @@ static void firebase_do_reinit() {
                      Firebase.getBool(s_fbWrite, "/devices/state/light"))) {
             relay_control(1, s_fbWrite.boolData(), RELAY_SOURCE_SYNC);
         }
+        vTaskDelay(pdMS_TO_TICKS(50));
         if (FB_TIMED("getBool devices/state/fan",
                      Firebase.getBool(s_fbWrite, "/devices/state/fan"))) {
             relay_control(2, s_fbWrite.boolData(), RELAY_SOURCE_SYNC);
         }
+        vTaskDelay(pdMS_TO_TICKS(50));
         if (FB_TIMED("getString devices/state/curtain",
                      Firebase.getString(s_fbWrite, "/devices/state/curtain"))) {
             String storedCurtain = s_fbWrite.stringData();
@@ -380,16 +385,19 @@ static void firebase_do_reinit() {
                 curtain_servo_restore(storedCurtain == "open");
             }
         }
+        vTaskDelay(pdMS_TO_TICKS(50));
         if (FB_TIMED("getBool devices/state/garden",
                      Firebase.getBool(s_fbWrite, "/devices/state/garden"))) {
             relay_control(3, s_fbWrite.boolData(), RELAY_SOURCE_SYNC);
         }
+        vTaskDelay(pdMS_TO_TICKS(50));
         if (FB_TIMED("getBool devices/state/voice",
                      Firebase.getBool(s_fbWrite, "/devices/state/voice"))) {
             s_voiceEnabled = s_fbWrite.boolData();
         }
         // Luon dam bao khoi dong he thong thi Voice Control bat mac dinh
         s_voiceEnabled = true;
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
     s_stateRestoreAttempted = true;
     s_lightState = get_relay_state(1);
@@ -1073,6 +1081,7 @@ static void firebase_sync_passcode_metadata() {
     if (!remoteExists) {
         LOG("[DOOR] Read passcode metadata failed: %s\n",
             s_fbWrite.errorReason().c_str());
+        s_passcodeMetadataNeedsSync = false;
         return;
     }
     if (s_fbWrite.dataType() != "null") {
@@ -1368,7 +1377,7 @@ bool wifi_init() {
             activeSsid.c_str(), activeHome.c_str(), activeOwner.c_str(), activeUid.c_str());
     } else {
         LOG("[WIFI] Thiet bi chua duoc cau hinh WiFi trong NVS (Trang thai xuat xuong / Factory Reset).\n");
-        LOG("[WIFI] Tu dong bat BLE Provisioning (SmartHome-ESP32-Setup) cho nguoi dung quet...\n");
+        LOG("[WIFI] Tu dong bat BLE Provisioning (SmartHome-ESP32-Setup, 180s) cho nguoi dung quet...\n");
         ble_provisioning_start();
         s_lastReconnectMs = millis();
         s_wifiAttemptCount = 0;
@@ -1389,15 +1398,6 @@ void wifi_loop() {
     // Nếu đang ở chế độ BLE Provisioning thì ưu tiên xử lý cấu hình BLE
     if (ble_provisioning_is_active()) {
         ble_provisioning_update();
-        if (!ble_provisioning_is_active()) {
-            // An idle setup window ended with the station radio switched off.
-            String ssid, pass, home;
-            if (ble_get_saved_wifi(ssid, pass, home)) {
-                s_wifiAttemptCount = 0;
-                s_lastReconnectMs = millis();
-                WiFi.begin(ssid.c_str(), pass.c_str());
-            }
-        }
         return;
     }
 
@@ -1539,10 +1539,13 @@ static void commands_stream_callback(StreamData data) {
     if (path == "reboot") {
         LOG("[CMD] Nhan lenh REBOOT tu xa qua Firebase!\n");
         if (s_firebaseReady) {
-            Firebase.deleteNode(s_fbWrite, "/commands/reboot");
+            for (int i = 0; i < 3; i++) {
+                if (Firebase.deleteNode(s_fbWrite, "/commands/reboot")) break;
+                delay(100);
+            }
         }
         buzzer_trigger(BUZZER_MODE_SUCCESS);
-        delay(500);
+        delay(1000);
         ESP.restart();
         return;
     }
@@ -1585,9 +1588,12 @@ static void commands_stream_callback(StreamData data) {
         FirebaseJsonData cmdCheck;
         if (commands.get(cmdCheck, "reboot") && cmdCheck.success && (cmdCheck.type == "bool" ? cmdCheck.boolValue : true)) {
             LOG("[CMD] Nhan lenh REBOOT tu xa (root commands json)!\n");
-            Firebase.deleteNode(s_fbWrite, "/commands/reboot");
+            for (int i = 0; i < 3; i++) {
+                if (Firebase.deleteNode(s_fbWrite, "/commands/reboot")) break;
+                delay(100);
+            }
             buzzer_trigger(BUZZER_MODE_SUCCESS);
-            delay(500);
+            delay(1000);
             ESP.restart();
             return;
         }
@@ -1777,18 +1783,18 @@ static void firebase_task(void* pvParam) {
             if (now - s_lastConfigReadMs >= AUTO_CONFIG_REFRESH_MS) {
                 s_lastConfigReadMs = now;
                 firebase_load_automation_config();
-                vTaskDelay(pdMS_TO_TICKS(50));
-            } else if (now - s_lastAutoPendingReadMs >= 5000UL) {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            } else if (now - s_lastAutoPendingReadMs >= 60000UL) {
                 s_lastAutoPendingReadMs = now;
                 firebase_poll_automation_pending();
-                vTaskDelay(pdMS_TO_TICKS(50));
-            } else if (now - s_lastPendingReadMs >= 5000UL) {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            } else if (now - s_lastPendingReadMs >= 60000UL) {
                 s_lastPendingReadMs = now;
                 firebase_poll_door_pending();
-                vTaskDelay(pdMS_TO_TICKS(50));
+                vTaskDelay(pdMS_TO_TICKS(100));
             } else if (s_passcodeMetadataNeedsSync) {
                 firebase_sync_passcode_metadata();
-                vTaskDelay(pdMS_TO_TICKS(50));
+                vTaskDelay(pdMS_TO_TICKS(100));
             }
         }
 
@@ -1802,6 +1808,7 @@ static void firebase_task(void* pvParam) {
                 FbUpdateMsg hb = {};
                 hb.isHeartbeat = true;
                 firebase_do_update(hb);
+                vTaskDelay(pdMS_TO_TICKS(50));
             }
         }
 
@@ -1810,9 +1817,10 @@ static void firebase_task(void* pvParam) {
             s_voiceLogQueue != nullptr &&
             xQueueReceive(s_voiceLogQueue, &voiceLog, 0) == pdTRUE) {
             firebase_do_voice_log(voiceLog);
+            vTaskDelay(pdMS_TO_TICKS(50));
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
