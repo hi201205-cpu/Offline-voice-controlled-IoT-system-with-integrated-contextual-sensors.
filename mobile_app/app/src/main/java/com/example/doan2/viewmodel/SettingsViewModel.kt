@@ -86,18 +86,25 @@ class SettingsViewModel(
             }
         }
 
+        var membersJob: kotlinx.coroutines.Job? = null
         viewModelScope.launch {
             authRepository.observeUserProfile().collect { profile ->
                 _uiState.value = _uiState.value.copy(
                     userProfile = profile,
                     userEmail = profile?.email ?: authRepository.currentUserEmail
                 )
-            }
-        }
-
-        viewModelScope.launch {
-            firebaseRepository.observeMembers().collect { list ->
-                _uiState.value = _uiState.value.copy(members = list)
+                if (profile?.role == "master") {
+                    membersJob?.cancel()
+                    membersJob = launch {
+                        firebaseRepository.observeMembers().collect { list ->
+                            _uiState.value = _uiState.value.copy(members = list)
+                        }
+                    }
+                } else {
+                    membersJob?.cancel()
+                    membersJob = null
+                    _uiState.value = _uiState.value.copy(members = emptyList())
+                }
             }
         }
 
