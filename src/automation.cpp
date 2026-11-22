@@ -57,7 +57,8 @@ void automationInit() {
         s_autoMutex = xSemaphoreCreateMutex();
     }
     s_presence = PRESENCE_ABSENT;
-    s_lastMotionTimestamp = time(nullptr);
+    time_t initNow = time(nullptr);
+    s_lastMotionTimestamp = (initNow > 1000000000) ? initNow : 0;
     s_gardenStateManual = get_relay_state(3);
     s_ruleCount = 0;
     memset(s_rules, 0, sizeof(s_rules));

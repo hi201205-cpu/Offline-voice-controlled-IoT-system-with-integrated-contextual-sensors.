@@ -1049,8 +1049,12 @@ class FirebaseRepository(
             }
         }
 
-        handler.postDelayed(timeoutRunnable, 15000L)
-        targetPendingRef.setValue(pendingData).addOnCompleteListener { task ->
+        handler.postDelayed(timeoutRunnable, 25000L)
+        val initialUpdates = mapOf<String, Any>(
+            "door/pending/$newKey" to pendingData,
+            "door/passcodeOwners/$newKey" to ownerMap
+        )
+        database.reference.updateChildren(initialUpdates).addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 targetPendingRef.addValueEventListener(pendingListener)
             } else {
@@ -1146,7 +1150,7 @@ class FirebaseRepository(
             }
         }
 
-        handler.postDelayed(timeoutRunnable, 15000L)
+        handler.postDelayed(timeoutRunnable, 25000L)
         targetPendingRef.setValue(pendingData).addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 targetPendingRef.addValueEventListener(pendingListener)

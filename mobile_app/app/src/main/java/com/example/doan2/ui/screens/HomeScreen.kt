@@ -133,7 +133,7 @@ fun HomeScreen(
             // Presence Tile
             item(span = { GridItemSpan(2) }) {
                 val motionMs = if (uiState.sensorData.lastMotionTs < 10_000_000_000L) uiState.sensorData.lastMotionTs * 1000L else uiState.sensorData.lastMotionTs
-                val motionTimeStr = if (uiState.sensorData.lastMotionTs > 0) {
+                val motionTimeStr = if (uiState.sensorData.lastMotionTs > 1_000_000_000L) {
                     val calNow = java.util.Calendar.getInstance()
                     val calMotion = java.util.Calendar.getInstance().apply { timeInMillis = motionMs }
                     val isToday = calNow.get(java.util.Calendar.YEAR) == calMotion.get(java.util.Calendar.YEAR) &&

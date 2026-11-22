@@ -294,7 +294,7 @@ static void firebase_do_reinit() {
         Firebase.begin(&s_fbConfig, &s_fbAuth);
         Firebase.reconnectWiFi(true);
         s_fbCommandsStream.setResponseSize(4096);
-        s_fbWrite.setResponseSize(4096);
+        s_fbWrite.setResponseSize(8192);
         s_fbInitialized = true;
     }
 
@@ -1159,6 +1159,21 @@ static void firebase_poll_door_pending() {
             vTaskDelay(pdMS_TO_TICKS(10));
             continue;
         }
+
+        // Safeguard: Bỏ qua và xóa yêu cầu quá cũ (> 5 phút) tránh tích tụ hàng đợi
+        FirebaseJsonData tsData;
+        if (item.get(tsData, "ts") && tsData.success) {
+            int64_t reqTs = tsData.to<int64_t>();
+            time_t nowSec = time(nullptr);
+            if (nowSec > 1000000000 && reqTs > 1000000000 && (nowSec - reqTs > 300)) {
+                LOG("[DOOR] Discarding stale pending op %s (age %lld s)\n", id.c_str(), (long long)(nowSec - reqTs));
+                char cleanupPath[128];
+                snprintf(cleanupPath, sizeof(cleanupPath), "/door/pending/%s", id.c_str());
+                Firebase.deleteNode(s_fbWrite, cleanupPath);
+                vTaskDelay(pdMS_TO_TICKS(10));
+                continue;
+            }
+        }
         String name;
         String code;
         String target;
@@ -1777,6 +1792,18 @@ static void firebase_task(void* pvParam) {
             updateHandled = true;
         }
 
+        // 2a. Poll door/pending nhanh (mỗi 2.5s) để phản hồi thêm/xóa mã Keypad tức thì
+        if (s_firebaseReady && wifi_connected() && !updateHandled &&
+            uxQueueMessagesWaiting(s_fbQueue) == 0) {
+            uint32_t now = millis();
+            if (now - s_lastPendingReadMs >= 2500UL) {
+                s_lastPendingReadMs = now;
+                firebase_poll_door_pending();
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
+        }
+
+        // 2b. Automation config & pending
         if (s_firebaseReady && wifi_connected() && !updateHandled &&
             uxQueueMessagesWaiting(s_fbQueue) == 0) {
             uint32_t now = millis();
@@ -1784,13 +1811,9 @@ static void firebase_task(void* pvParam) {
                 s_lastConfigReadMs = now;
                 firebase_load_automation_config();
                 vTaskDelay(pdMS_TO_TICKS(100));
-            } else if (now - s_lastAutoPendingReadMs >= 60000UL) {
+            } else if (now - s_lastAutoPendingReadMs >= 30000UL) {
                 s_lastAutoPendingReadMs = now;
                 firebase_poll_automation_pending();
-                vTaskDelay(pdMS_TO_TICKS(100));
-            } else if (now - s_lastPendingReadMs >= 60000UL) {
-                s_lastPendingReadMs = now;
-                firebase_poll_door_pending();
                 vTaskDelay(pdMS_TO_TICKS(100));
             } else if (s_passcodeMetadataNeedsSync) {
                 firebase_sync_passcode_metadata();
