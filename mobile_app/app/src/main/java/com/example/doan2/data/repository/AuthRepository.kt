@@ -545,29 +545,19 @@ class AuthRepository(
             onResult(false, "Vui lòng đăng nhập lại")
             return
         }
-        val sysUpdates = mapOf<String, Any>(
-            "masterUid" to newMasterUid,
-            "masterEmail" to newMasterEmail
+        val updates = mapOf<String, Any>(
+            "system/masterUid" to newMasterUid,
+            "system/masterEmail" to newMasterEmail,
+            "users/$newMasterUid/role" to "master",
+            "users/$newMasterUid/is_paired" to true,
+            "users/$newMasterUid/pairedHome" to DEFAULT_HOME_CODE,
+            "users/$currentUidVal/role" to "member",
+            "devices/esp32-voice/owner" to newMasterEmail,
+            "devices/esp32-voice/ownerUid" to newMasterUid
         )
-        database.getReference("system").updateChildren(sysUpdates)
+        database.reference.updateChildren(updates)
             .addOnSuccessListener {
-                val newMasterUpdates = mapOf<String, Any>(
-                    "role" to "master",
-                    "is_paired" to true,
-                    "pairedHome" to DEFAULT_HOME_CODE
-                )
-                database.getReference("users/$newMasterUid").updateChildren(newMasterUpdates)
-
-                val oldMasterUpdates = mapOf<String, Any>(
-                    "role" to "member"
-                )
-                database.getReference("users/$currentUidVal").updateChildren(oldMasterUpdates)
-                    .addOnSuccessListener {
-                        onResult(true, "Đã chuyển quyền Chủ nhà thành công cho $newMasterEmail!")
-                    }
-                    .addOnFailureListener {
-                        onResult(true, "Đã chuyển quyền Chủ nhà sang $newMasterEmail.")
-                    }
+                onResult(true, "Đã chuyển quyền Chủ nhà thành công cho $newMasterEmail!")
             }
             .addOnFailureListener { exc ->
                 onResult(false, exc.localizedMessage ?: "Chuyển quyền Chủ nhà thất bại")

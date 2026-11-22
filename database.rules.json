@@ -43,7 +43,7 @@
           ".write": "auth.uid === $uid || (root.child('system').child('masterUid').val() === auth.uid)"
         },
         "role": {
-          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (!root.child('system').child('masterUid').exists() && newData.val() === 'master') || (auth.uid === $uid && newData.val() === 'member')"
+          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('role').val() === 'master') || (!root.child('system').child('masterUid').exists() && newData.val() === 'master') || (auth.uid === $uid && newData.val() === 'member')"
         },
         "permissions": {
           ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (auth.uid === $uid && !data.exists())"
