@@ -3,9 +3,9 @@
     ".read": false,
     ".write": false,
     "users": {
-      ".read": "root.child('system').child('masterUid').val() === auth.uid",
+      ".read": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('role').val() === 'master')",
       "$uid": {
-        ".read": "auth.uid === $uid || (root.child('system').child('masterUid').val() === auth.uid)",
+        ".read": "auth.uid === $uid || (root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('role').val() === 'master')",
         "email": {
           ".write": "auth.uid === $uid"
         },
@@ -39,10 +39,10 @@
       }
     },
     "invites": {
-      ".read": "root.child('system').child('masterUid').val() === auth.uid",
+      ".read": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('role').val() === 'master')",
       "$code": {
         ".read": "auth != null",
-        ".write": "root.child('system').child('masterUid').val() === auth.uid",
+        ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('role').val() === 'master')",
         "status": {
           ".write": "auth != null && data.val() === 'active' && newData.val() === 'used'"
         },
