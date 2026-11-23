@@ -135,6 +135,15 @@ class DoorViewModel(
             return
         }
 
+        val lastSeen = uiState.value.deviceState.esp32LastSeen
+        val isDeviceOnline = (System.currentTimeMillis() - lastSeen) < 90000L
+        if (!isDeviceOnline) {
+            _uiState.value = _uiState.value.copy(
+                toastMessage = "Thiết bị ESP32 đang Offline. Mật khẩu Keypad cần lưu bảo mật (Salted SHA-256) vào phần cứng ESP32. Vui lòng bật nguồn/Wi-Fi cho ESP32."
+            )
+            return
+        }
+
         _uiState.value = _uiState.value.copy(
             isPendingAction = true,
             pendingMessage = "Đang gửi mật khẩu tới thiết bị..."
@@ -150,7 +159,7 @@ class DoorViewModel(
                 _uiState.value = _uiState.value.copy(
                     isPendingAction = false,
                     pendingMessage = null,
-                    showAddDialog = if (success) false else _uiState.value.showAddDialog,
+                    showAddDialog = false,
                     toastMessage = if (success) "Đã thêm mật khẩu thành công" else (msg ?: "Thất bại")
                 )
             }
@@ -196,7 +205,7 @@ class DoorViewModel(
 
         val userEmail = uiState.value.userProfile?.email ?: authRepository.currentUserEmail ?: "App"
 
-        repository.deletePasscode(item.id, _uiState.value.passcodes.size) { success, msg ->
+        repository.deletePasscode(item.id, _uiState.value.passcodes.size, isMaster) { success, msg ->
             viewModelScope.launch {
                 if (success) {
                     repository.logWebAction("passcodes", "Xóa", userEmail, "Xóa mật khẩu: ${item.name}")

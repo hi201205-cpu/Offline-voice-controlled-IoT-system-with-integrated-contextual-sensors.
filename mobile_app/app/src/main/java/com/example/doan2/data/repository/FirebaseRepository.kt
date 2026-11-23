@@ -988,7 +988,9 @@ class FirebaseRepository(
             if (!isFinished) {
                 isFinished = true
                 targetPendingRef.removeEventListener(pendingListener)
-                onResult(false, "Thiết bị chưa xử lý, kiểm tra kết nối")
+                targetPendingRef.removeValue()
+                database.getReference("door/passcodeOwners/$newKey").removeValue()
+                onResult(false, "Thiết bị chưa phản hồi (ESP32 đang Offline hoặc bận). Vui lòng kiểm tra nguồn/Wi-Fi của ESP32.")
             }
         }
 
@@ -1044,12 +1046,13 @@ class FirebaseRepository(
                     isFinished = true
                     handler.removeCallbacks(timeoutRunnable)
                     targetPendingRef.removeEventListener(pendingListener)
+                    targetPendingRef.removeValue()
                     onResult(false, error.message)
                 }
             }
         }
 
-        handler.postDelayed(timeoutRunnable, 25000L)
+        handler.postDelayed(timeoutRunnable, 15000L)
         val initialUpdates = mapOf<String, Any>(
             "door/pending/$newKey" to pendingData,
             "door/passcodeOwners/$newKey" to ownerMap
@@ -1068,7 +1071,7 @@ class FirebaseRepository(
     }
 
     // Delete Passcode
-    fun deletePasscode(targetId: String, currentCount: Int, onResult: (Boolean, String?) -> Unit) {
+    fun deletePasscode(targetId: String, currentCount: Int, isMaster: Boolean = false, onResult: (Boolean, String?) -> Unit) {
         if (currentCount <= 1) {
             onResult(false, "Không thể xóa khi chỉ còn 1 mật khẩu")
             return
@@ -1099,7 +1102,14 @@ class FirebaseRepository(
             if (!isFinished) {
                 isFinished = true
                 targetPendingRef.removeEventListener(pendingListener)
-                onResult(false, "Thiết bị chưa xử lý, kiểm tra kết nối")
+                targetPendingRef.removeValue()
+                if (isMaster) {
+                    passcodesRef.child(targetId).removeValue()
+                    database.getReference("door/passcodeOwners/$targetId").removeValue()
+                    onResult(true, "Đã xóa (đồng bộ từ Cloud)")
+                } else {
+                    onResult(false, "Thiết bị chưa phản hồi (ESP32 đang Offline).")
+                }
             }
         }
 
@@ -1133,7 +1143,13 @@ class FirebaseRepository(
                                 isFinished = true
                                 handler.removeCallbacks(timeoutRunnable)
                                 targetPendingRef.removeEventListener(pendingListener)
-                                onResult(true, "Đã xóa")
+                                if (isMaster) {
+                                    passcodesRef.child(targetId).removeValue()
+                                    database.getReference("door/passcodeOwners/$targetId").removeValue()
+                                    onResult(true, "Đã xóa")
+                                } else {
+                                    onResult(true, "Đã xóa")
+                                }
                             }
                         }
                     })
@@ -1145,12 +1161,19 @@ class FirebaseRepository(
                     isFinished = true
                     handler.removeCallbacks(timeoutRunnable)
                     targetPendingRef.removeEventListener(pendingListener)
-                    onResult(false, error.message)
+                    targetPendingRef.removeValue()
+                    if (isMaster) {
+                        passcodesRef.child(targetId).removeValue()
+                        database.getReference("door/passcodeOwners/$targetId").removeValue()
+                        onResult(true, "Đã xóa (đồng bộ từ Cloud)")
+                    } else {
+                        onResult(false, error.message)
+                    }
                 }
             }
         }
 
-        handler.postDelayed(timeoutRunnable, 25000L)
+        handler.postDelayed(timeoutRunnable, 10000L)
         targetPendingRef.setValue(pendingData).addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 targetPendingRef.addValueEventListener(pendingListener)
@@ -1158,7 +1181,13 @@ class FirebaseRepository(
                 if (!isFinished) {
                     isFinished = true
                     handler.removeCallbacks(timeoutRunnable)
-                    onResult(false, task.exception?.localizedMessage ?: "Gửi dữ liệu thất bại")
+                    if (isMaster) {
+                        passcodesRef.child(targetId).removeValue()
+                        database.getReference("door/passcodeOwners/$targetId").removeValue()
+                        onResult(true, "Đã xóa (đồng bộ từ Cloud)")
+                    } else {
+                        onResult(false, task.exception?.localizedMessage ?: "Gửi dữ liệu thất bại")
+                    }
                 }
             }
         }

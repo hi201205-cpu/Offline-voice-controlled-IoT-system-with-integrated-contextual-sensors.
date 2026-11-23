@@ -137,12 +137,12 @@
     "door": {
       "passcodes": {
         ".read": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
-        ".write": "false"
+        ".write": "root.child('system').child('masterUid').val() === auth.uid"
       },
       "passcodeOwners": {
         ".read": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
         "$id": {
-          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && ((!data.exists() && newData.exists() && root.child('users').child(auth.uid).child('permissions').child('passcodeAdd').val() === true && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('uid').val() === auth.uid || root.child('system').child('masterUid').val() === auth.uid))))",
+          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && ((!data.exists() && newData.exists() && root.child('users').child(auth.uid).child('permissions').child('passcodeAdd').val() !== false && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('uid').val() === auth.uid || root.child('system').child('masterUid').val() === auth.uid))))",
           ".validate": "newData.hasChildren(['uid', 'email', 'name', 'ts']) && newData.child('uid').isString() && newData.child('email').isString() && newData.child('name').isString() && newData.child('ts').isNumber()"
         }
       },
@@ -154,7 +154,7 @@
         ".read": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
         "$op": {
           ".read": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32')",
-          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && ((newData.child('op').val() === 'add' && root.child('users').child(auth.uid).child('permissions').child('passcodeAdd').val() === true) || (newData.child('op').val() === 'delete' && (root.child('door').child('passcodeOwners').child(newData.child('target').val()).child('uid').val() === auth.uid || root.child('system').child('masterUid').val() === auth.uid)) || (!newData.exists() && data.exists())))",
+          ".write": "(root.child('system').child('masterUid').val() === auth.uid) || (root.child('users').child(auth.uid).child('pairedHome').val() === 'HOME-2026-ESP32' && ((newData.child('op').val() === 'add' && root.child('users').child(auth.uid).child('permissions').child('passcodeAdd').val() !== false) || (newData.child('op').val() === 'delete' && (root.child('door').child('passcodeOwners').child(newData.child('target').val()).child('uid').val() === auth.uid || root.child('system').child('masterUid').val() === auth.uid)) || (!newData.exists() && data.exists())))",
           ".validate": "newData.hasChildren(['op']) && (newData.child('op').val() === 'add' || newData.child('op').val() === 'delete') && (newData.child('op').val() !== 'add' || (newData.child('code').isString() && newData.child('code').val().matches(/^[0-9]{4,8}$/) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 30)) && (newData.child('op').val() !== 'delete' || (newData.child('target').isString() && newData.child('target').val().length <= 48))"
         }
       }

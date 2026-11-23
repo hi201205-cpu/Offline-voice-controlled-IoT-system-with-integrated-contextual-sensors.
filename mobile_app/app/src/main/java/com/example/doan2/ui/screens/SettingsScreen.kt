@@ -242,6 +242,13 @@ fun SettingsScreen(
         }
     }
 
+    LaunchedEffect(doorUiState?.toastMessage) {
+        doorUiState?.toastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            doorViewModel?.clearToastMessage()
+        }
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -2371,9 +2378,20 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = { doorViewModel.addPasscode(name, code) },
+                    enabled = doorUiState?.isPendingAction != true,
                     colors = ButtonDefaults.buttonColors(containerColor = AuroraAccentStart)
                 ) {
-                    Text("Lưu mã")
+                    if (doorUiState?.isPendingAction == true) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Đang lưu...")
+                    } else {
+                        Text("Lưu mã")
+                    }
                 }
             },
             dismissButton = {
