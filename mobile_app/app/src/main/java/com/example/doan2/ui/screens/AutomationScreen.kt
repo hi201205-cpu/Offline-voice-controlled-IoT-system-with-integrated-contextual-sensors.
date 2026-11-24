@@ -378,6 +378,8 @@ fun AutomationScreen(
 
                                             "dark" -> "Trời tối (cảm biến ánh sáng)"
 
+                                            "bright" -> "Trời sáng (cảm biến ánh sáng)"
+
                                             "time" -> "Khung giờ ${rule.from} - ${rule.to}"
 
                                             else -> rule.condition
@@ -620,6 +622,8 @@ fun AutomationScreen(
                         "motion" to "Phát hiện chuyển động",
 
                         "dark" to "Trời tối (cảm biến ánh sáng)",
+
+                        "bright" to "Trời sáng (cảm biến ánh sáng)",
 
                         "time" to "Trong khung giờ cụ thể"
 

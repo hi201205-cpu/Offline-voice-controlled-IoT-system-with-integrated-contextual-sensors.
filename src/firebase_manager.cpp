@@ -828,6 +828,7 @@ static AutoConditionType parse_condition_type(const String& condStr) {
     if (condStr == "no_motion") return COND_NO_MOTION;
     if (condStr == "motion") return COND_MOTION;
     if (condStr == "dark") return COND_DARK;
+    if (condStr == "bright" || condStr == "light") return COND_BRIGHT;
     if (condStr == "time") return COND_TIME;
     return COND_NONE;
 }

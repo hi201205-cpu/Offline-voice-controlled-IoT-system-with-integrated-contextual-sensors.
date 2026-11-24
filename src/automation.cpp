@@ -40,6 +40,7 @@ static PendingConfirmation s_pendingList[MAX_AUTOMATION_RULES] = {};
 static PresenceState s_presence = PRESENCE_ABSENT;
 static time_t s_lastMotionTimestamp = 0;
 static bool s_gardenStateManual = false;
+static uint32_t s_brightSinceMs = 0;
 static uint32_t s_gardenManualUntilMs = 0;
 
 // Cooldown tối thiểu giữa các lần kích hoạt quy tắc (tránh dội xung)
@@ -59,6 +60,7 @@ void automationInit() {
     time_t initNow = time(nullptr);
     s_lastMotionTimestamp = (initNow > 1000000000) ? initNow : 0;
     s_gardenStateManual = get_relay_state(3);
+    s_brightSinceMs = 0;
     s_ruleCount = 0;
     memset(s_rules, 0, sizeof(s_rules));
     memset(s_pendingList, 0, sizeof(s_pendingList));
@@ -242,6 +244,8 @@ static bool evaluate_condition(const AutoRule& rule, float temp, float hum,
         }
         case COND_DARK:
             return sensorsLightValid() && (lightLevel < 25);
+        case COND_BRIGHT:
+            return sensorsLightValid() && (lightLevel >= 50);
         case COND_TIME:
             return check_time_condition(rule.fromMinutes, rule.toMinutes, rule.daysMask, nowTime);
         default:
@@ -309,12 +313,34 @@ void automationUpdate() {
 
     // 2. Nếu Master Switch tắt -> không chạy quy tắc nào
     if (!automationGetMasterEnabled()) {
+        s_brightSinceMs = 0;
         return;
     }
 
     float temp = sensorsTemperature();
     float hum = sensorsHumidity();
     uint8_t light = sensorsLightLevel();
+
+    // Tự động tắt đèn sân khi trời sáng trở lại (ngưỡng sáng >= 50% ổn định trong 5 giây)
+    // - Chỉ hoạt động khi công tắc Master tự động hóa đang BẬT
+    // - Tuân thủ khoảng thời gian giữ tay nếu người dùng vừa điều khiển thủ công (30 giây)
+    if (get_relay_state(3) && (int32_t)(nowMs - s_gardenManualUntilMs) >= 0) {
+        if (sensorsLightValid() && light >= 50) {
+            if (s_brightSinceMs == 0) {
+                s_brightSinceMs = nowMs;
+            } else if (nowMs - s_brightSinceMs >= 5000UL) {
+                relay_control(3, false, RELAY_SOURCE_AUTO);
+                publish_state();
+                LOG("[AUTO] Troi da sang (do sang=%u%% >= 50%%) -> Tu dong tat den san\n", light);
+                firebase_queue_auto_log("Tu dong tat den san", "Troi sang", temp, light);
+                s_brightSinceMs = 0;
+            }
+        } else {
+            s_brightSinceMs = 0;
+        }
+    } else {
+        s_brightSinceMs = 0;
+    }
 
     // Mảng lưu trữ hành động hợp nhất sau xử lý xung đột
     // 0: LIGHT, 1: FAN, 2: YARD, 3: CURTAIN, 4: DOOR, 5: VOICE
@@ -441,7 +467,9 @@ void automationUpdate() {
 
 // Các hàm getter giữ lại tương thích với sensors.cpp và led_relay.cpp
 void automationNotifyManualControl(uint8_t relay) {
-    // Không khóa cứng, ghi nhận log
+    if (relay == 3) {
+        s_gardenManualUntilMs = millis() + 30000UL;
+    }
     LOG("[AUTO] Phat hien dieu khien thu cong relay %d\n", relay);
 }
 

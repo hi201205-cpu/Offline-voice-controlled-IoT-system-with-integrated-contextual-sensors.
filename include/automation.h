@@ -24,6 +24,7 @@ enum AutoConditionType : uint8_t {
     COND_NO_MOTION,
     COND_MOTION,
     COND_DARK,
+    COND_BRIGHT,
     COND_TIME
 };
 
