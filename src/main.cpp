@@ -132,6 +132,11 @@ static void inference_task_fn(void *pvParameters) {
     while (true) {
         // Chờ tín hiệu từ audio_task
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        if (ota_is_running()) {
+            s_inferenceBusy = false;
+            vTaskDelay(pdMS_TO_TICKS(200));
+            continue;
+        }
 
         s_inferenceBusy = true;
 
@@ -168,6 +173,7 @@ static void inference_task_fn(void *pvParameters) {
 }
 
 static void on_window_ready(const int16_t *window, uint32_t window_index) {
+    if (ota_is_running()) return;
     uint32_t now = millis();
 
     // ── [1] Cooldown ──────────────────────────────────────

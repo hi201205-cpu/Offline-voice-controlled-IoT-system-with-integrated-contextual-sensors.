@@ -3,6 +3,7 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <Update.h>
+#include <esp_task_wdt.h>
 #include "config.h"
 
 static OtaState s_otaState = OTA_STATE_IDLE;
@@ -139,15 +140,25 @@ static void execute_ota_download(const String& url) {
         return;
     }
 
+    static int s_lastReportedPercent = -10;
+    static uint32_t s_lastReportMs = 0;
+    s_lastReportedPercent = -10;
+    s_lastReportMs = 0;
+
     Update.onProgress([](size_t current, size_t total) {
+        esp_task_wdt_reset();
         if (total > 0) {
             int percent = (int)((current * 100) / total);
-            if (percent != s_otaProgress) {
+            uint32_t now = millis();
+            // Chi gui thong bao Firebase moi 10% hoac khi hoan tat 100%, cach nhau it nhat 2 giay
+            // de tranh gian doan stream tai ve tu GitHub va loai bo xung dot mang
+            if ((percent >= s_lastReportedPercent + 10 || percent == 100) &&
+                (now - s_lastReportMs >= 2000 || percent == 100)) {
+                s_lastReportedPercent = percent;
+                s_lastReportMs = now;
                 s_otaProgress = percent;
                 notify_progress(s_otaProgress, "flashing", nullptr);
-                if (s_otaProgress % 10 == 0) {
-                    LOG("[OTA] Tien trinh nap Flash: %d%% (%u / %u bytes)\n", s_otaProgress, current, total);
-                }
+                LOG("[OTA] Tien trinh nap Flash: %d%% (%u / %u bytes)\n", s_otaProgress, current, total);
             }
         }
     });

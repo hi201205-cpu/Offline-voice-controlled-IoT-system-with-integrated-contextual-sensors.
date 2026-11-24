@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "ota_manager.h"
 
 #define TELEGRAM_MAX_MSG_LEN 512
 #define TELEGRAM_QUEUE_SIZE  8
@@ -26,6 +27,10 @@ static void telegram_worker_task(void* pvParameters) {
 
     while (true) {
         if (xQueueReceive(s_telegramQueue, msg, portMAX_DELAY) == pdTRUE) {
+            if (ota_is_running()) {
+                vTaskDelay(pdMS_TO_TICKS(500));
+                continue;
+            }
             if (!telegram_is_configured()) {
                 continue;
             }

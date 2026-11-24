@@ -1593,6 +1593,8 @@ static void commands_stream_callback(StreamData data) {
         }
         if (url.length() > 0) {
             LOG("[OTA] Nhan lenh OTA tu /commands/%s: %s (v%s)\n", path.c_str(), url.c_str(), ver.c_str());
+            Firebase.deleteNode(s_fbWrite, "/commands/ota");
+            Firebase.deleteNode(s_fbWrite, "/commands/firmware");
             ota_start(url, ver);
         }
         return;
@@ -1770,6 +1772,11 @@ static void firebase_task(void* pvParam) {
     LOG("[WIFI] Bat dau ket noi lan 1 tren Core %d\n", xPortGetCoreID());
 
     for (;;) {
+        if (ota_is_running()) {
+            vTaskDelay(pdMS_TO_TICKS(500));
+            continue;
+        }
+
         // 1. Quản lý WiFi / reconnect
         wifi_loop();
 

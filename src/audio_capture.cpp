@@ -15,6 +15,7 @@
 // ============================================================
 
 #include "audio_capture.h"
+#include "ota_manager.h"
 #include "bandpass_filter.h"
 #include "noise_reduction.h"
 #include "config.h"
@@ -342,6 +343,11 @@ static void audio_task_fn(void *pvParameters) {
     LOG("[AUDIO_TASK] Started on Core %d, Priority %d\n",
         xPortGetCoreID(), uxTaskPriorityGet(NULL));
     while (true) {
+        if (ota_is_running()) {
+            s_state = AUDIO_STATE_IDLE;
+            vTaskDelay(pdMS_TO_TICKS(500));
+            continue;
+        }
         if (!firebase_voice_enabled()) {
             s_state = AUDIO_STATE_IDLE;
             vTaskDelay(pdMS_TO_TICKS(100));
