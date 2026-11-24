@@ -1811,10 +1811,10 @@ static void firebase_task(void* pvParam) {
                 s_lastConfigReadMs = now;
                 firebase_load_automation_config();
                 vTaskDelay(pdMS_TO_TICKS(100));
-            } else if (now - s_lastAutoPendingReadMs >= 30000UL) {
+            } else if (now - s_lastAutoPendingReadMs >= 2500UL) {
                 s_lastAutoPendingReadMs = now;
                 firebase_poll_automation_pending();
-                vTaskDelay(pdMS_TO_TICKS(100));
+                vTaskDelay(pdMS_TO_TICKS(50));
             } else if (s_passcodeMetadataNeedsSync) {
                 firebase_sync_passcode_metadata();
                 vTaskDelay(pdMS_TO_TICKS(100));

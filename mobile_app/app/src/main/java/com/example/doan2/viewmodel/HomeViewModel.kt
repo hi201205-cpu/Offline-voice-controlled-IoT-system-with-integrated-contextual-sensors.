@@ -18,6 +18,7 @@ data class HomeUiState(
     val autoConfig: AutoConfig = AutoConfig(),
     val gardenConfig: GardenConfig = GardenConfig(),
     val suggestionPending: SuggestionPending? = null,
+    val automationPending: AutomationPendingItem? = null,
     val userProfile: UserProfile? = null,
 
     val processingLight: Boolean = false,
@@ -117,6 +118,12 @@ class HomeViewModel(
         viewModelScope.launch {
             repository.observeSuggestionPending().collect { suggestion ->
                 _uiState.value = _uiState.value.copy(suggestionPending = suggestion)
+            }
+        }
+
+        viewModelScope.launch {
+            repository.observeAutomationPending().collect { pending ->
+                _uiState.value = _uiState.value.copy(automationPending = pending)
             }
         }
     }
@@ -405,6 +412,14 @@ class HomeViewModel(
 
     fun dismissSuggestion() {
         repository.dismissSuggestion()
+    }
+
+    fun answerAutomationPending(ruleId: String, answer: String) {
+        repository.answerAutomationPending(ruleId, answer)
+        _uiState.value = _uiState.value.copy(
+            automationPending = null,
+            toastMessage = if (answer == "agree") "Đã đồng ý thực hiện quy tắc!" else "Đã bỏ qua quy tắc!"
+        )
     }
 
     fun openChartDialog() {

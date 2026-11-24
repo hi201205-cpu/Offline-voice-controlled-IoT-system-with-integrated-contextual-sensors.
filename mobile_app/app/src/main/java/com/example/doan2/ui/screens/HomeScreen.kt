@@ -337,6 +337,48 @@ fun HomeScreen(
         )
     }
 
+    // Automation Rule Pending Confirmation Dialog (Hỏi trước khi làm)
+    uiState.automationPending?.let { pending ->
+        val ruleTitle = pending.ruleName.ifEmpty { "Quy tắc tự động" }
+        AlertDialog(
+            onDismissRequest = {
+                homeViewModel.answerAutomationPending(pending.ruleId, "skip")
+            },
+            title = {
+                Text(
+                    text = "Tự động hóa cần xác nhận",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
+            text = {
+                Text(
+                    text = "Quy tắc “$ruleTitle” đang chờ bạn duyệt để thực hiện hành động.",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        homeViewModel.answerAutomationPending(pending.ruleId, "agree")
+                    }
+                ) {
+                    Text("Đồng ý")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        homeViewModel.answerAutomationPending(pending.ruleId, "skip")
+                    }
+                ) {
+                    Text("Bỏ qua")
+                }
+            }
+        )
+    }
+
     // Temperature & Humidity History Chart Dialog
     if (uiState.showChartDialog) {
         TempHumChartDialog(

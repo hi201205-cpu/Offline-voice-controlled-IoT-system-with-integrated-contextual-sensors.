@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.doan2.data.model.AutoConfig
 import com.example.doan2.data.model.AutoRuleItem
+import com.example.doan2.data.model.AutomationPendingItem
 import com.example.doan2.data.model.RuleCreator
 import com.example.doan2.data.model.GardenConfig
 import com.example.doan2.data.model.UserProfile
@@ -21,6 +22,7 @@ data class AutomationUiState(
     val automationRules: List<AutoRuleItem> = emptyList(),
     val showAddEditRuleDialog: Boolean = false,
     val editingRule: AutoRuleItem? = null,
+    val automationPending: AutomationPendingItem? = null,
     val toastMessage: String? = null,
     val userProfile: UserProfile? = null
 )
@@ -61,6 +63,12 @@ class AutomationViewModel(
         viewModelScope.launch {
             firebaseRepository.observeGardenConfig().collect { garden ->
                 _uiState.value = _uiState.value.copy(gardenConfig = garden)
+            }
+        }
+
+        viewModelScope.launch {
+            firebaseRepository.observeAutomationPending().collect { pending ->
+                _uiState.value = _uiState.value.copy(automationPending = pending)
             }
         }
     }
@@ -305,6 +313,14 @@ class AutomationViewModel(
         firebaseRepository.updateGardenConfig(config)
         _uiState.value = _uiState.value.copy(
             toastMessage = "Đã lưu cấu hình đèn sân"
+        )
+    }
+
+    fun answerAutomationPending(ruleId: String, answer: String) {
+        firebaseRepository.answerAutomationPending(ruleId, answer)
+        _uiState.value = _uiState.value.copy(
+            automationPending = null,
+            toastMessage = if (answer == "agree") "Đã đồng ý thực hiện quy tắc!" else "Đã bỏ qua quy tắc!"
         )
     }
 

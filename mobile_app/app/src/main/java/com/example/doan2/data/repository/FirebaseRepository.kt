@@ -427,6 +427,47 @@ class FirebaseRepository(
         awaitClose { ref.removeEventListener(listener) }
     }
 
+    // 11b. Observe /automation/pending
+    fun observeAutomationPending(): Flow<AutomationPendingItem?> = callbackFlow {
+        val ref = database.getReference("automation/pending")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (!snapshot.exists()) {
+                    trySend(null)
+                    return
+                }
+                var foundItem: AutomationPendingItem? = null
+                for (child in snapshot.children) {
+                    val ans = child.child("answer").value?.toString() ?: ""
+                    if (ans.isEmpty()) {
+                        val ruleId = child.key ?: child.child("ruleId").value?.toString() ?: ""
+                        val ruleName = child.child("ruleName").value?.toString()
+                            ?: child.child("name").value?.toString()
+                            ?: "Quy tắc tự động"
+                        val createdAt = safeLong(child.child("createdAt").value)
+                        val expiresAt = safeLong(child.child("expiresAt").value)
+                        val timeoutAction = child.child("timeoutAction").value?.toString() ?: "auto"
+                        foundItem = AutomationPendingItem(ruleId, ruleName, createdAt, expiresAt, timeoutAction, ans)
+                        break
+                    }
+                }
+                trySend(foundItem)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                trySend(null)
+            }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    fun answerAutomationPending(ruleId: String, answer: String) {
+        if (ruleId.isNotEmpty()) {
+            database.getReference("automation/pending/$ruleId/answer").setValue(answer)
+        }
+    }
+
     // 12. Observe /logs/web
     fun observeWebLogs(): Flow<List<WebLog>> = callbackFlow {
         val ref = database.getReference("logs/web").limitToLast(100)

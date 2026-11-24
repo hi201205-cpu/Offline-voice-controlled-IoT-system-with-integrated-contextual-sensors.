@@ -79,7 +79,7 @@
 #define AUTO_DEFAULT_ENABLED         true
 #define AUTO_DEFAULT_FAN_TEMP_ON     30.0f
 #define AUTO_DEFAULT_NO_PERSON_MIN   2
-#define AUTO_CONFIG_REFRESH_MS       30000UL
+#define AUTO_CONFIG_REFRESH_MS       15000UL
 #define MANUAL_HOLD_MS               600000UL
 
 #define DOOR_PASSWORD "1234"
