@@ -1135,6 +1135,12 @@ const firebaseConfig = {
   databaseURL: "https://do-an-2-f791a-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "do-an-2-f791a",
 };
+// Master Email mặc định và cấu hình đồng bộ
+const MASTER_EMAIL = "xhai2005@gmail.com";
+const DEFAULT_HOME_CODE = "HOME-2026-ESP32";
+window.MASTER_EMAIL = MASTER_EMAIL;
+window.DEFAULT_HOME_CODE = DEFAULT_HOME_CODE;
+
 // Giá trị lệnh rèm gửi xuống ESP32 (khớp với code ESP32 của bạn)
 const CURTAIN_OPEN = "open", CURTAIN_CLOSE = "close";
 // ===========================================================================================
@@ -1848,13 +1854,25 @@ async function checkUserDeviceLink(user) {
     } catch(e) {}
     window.masterUid = masterUid;
 
+    let masterEmail = null;
+    try {
+      const sysEmailSnap = await get(ref(db, "system/masterEmail"));
+      if (sysEmailSnap.exists()) {
+        masterEmail = sysEmailSnap.val();
+      }
+    } catch(e) {}
+    window.masterEmail = masterEmail;
+
     let userRole = null;
     try {
       const uSnap = await get(ref(db, "users/" + user.uid + "/role"));
       if (uSnap.exists()) userRole = uSnap.val();
     } catch(e) {}
 
-    const isMasterAccount = (masterUid && masterUid === user.uid) || (userRole === "master");
+    const activeMasterEmail = (masterEmail || MASTER_EMAIL).toLowerCase();
+    const isMasterAccount = (masterUid && masterUid === user.uid) || 
+                            (userRole === "master") || 
+                            (user.email && user.email.toLowerCase() === activeMasterEmail);
 
     if (isMasterAccount) {
       currentUserRole = "master";
@@ -1933,6 +1951,17 @@ async function checkUserDeviceLink(user) {
     onValue(ref(db, "users/" + user.uid), userSnapLive => {
       const liveData = userSnapLive.val();
       if (!liveData) return;
+
+      // Đồng bộ khi vai trò (role) thay đổi (ví dụ: được chuyển quyền Master)
+      if (liveData.role && liveData.role !== currentUserRole) {
+        currentUserRole = liveData.role;
+        window.currentUserRole = currentUserRole;
+        if (currentUserRole === "master") {
+          showToast("Bạn đã được chuyển quyền trở thành Chủ nhà (Master)!");
+          setTimeout(() => location.reload(), 1200);
+          return;
+        }
+      }
       const livePaired = (liveData.pairedHome === DEFAULT_HOME_CODE);
       if (livePaired !== isUserPaired) {
         isUserPaired = livePaired;
@@ -2009,9 +2038,15 @@ function listenSharedMembers() {
     if (!listEl) return;
 
     const members = [];
+    const currentMasterEmail = (window.masterEmail || MASTER_EMAIL).toLowerCase();
     Object.keys(users).forEach(uid => {
       const u = users[uid];
-      if (u && u.email && u.email.toLowerCase() !== MASTER_EMAIL.toLowerCase() && u.pairedHome === DEFAULT_HOME_CODE) {
+      if (!u) return;
+      const isMasterUser = (uid === window.masterUid) || 
+                           (u.role === "master") || 
+                           (u.email && u.email.toLowerCase() === currentMasterEmail);
+      const isPaired = (u.pairedHome === DEFAULT_HOME_CODE) || (u.is_paired === true);
+      if (!isMasterUser && isPaired) {
         members.push({ uid, ...u });
       }
     });
@@ -2034,22 +2069,24 @@ function listenSharedMembers() {
         auto: true, passcodeAdd: false
       };
       const prof = m.profile || {};
-      const rawPhone = String(prof.phone || "").trim();
+      const rawPhone = String(prof.phone || m.phone || "").trim();
       // Chống XSS href="tel:...": chỉ cho phép số, dấu +, khoảng trắng và dấu gạch
       const safePhoneHref = rawPhone.replace(/[^0-9+\s\-]/g, "");
       const phoneDisplay = rawPhone 
         ? `<a href="tel:${safePhoneHref}" style="color:var(--accent);text-decoration:none;font-weight:600;">${escapeHtml(rawPhone)}</a>` 
         : `<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>`;
       
-      const rawDob = String(prof.dob || "").trim();
+      const rawDob = String(prof.dob || m.dob || "").trim();
       const dobParts = rawDob.split("-");
       const formattedDob = (dobParts.length === 3) ? `${dobParts[2]}/${dobParts[1]}/${dobParts[0]}` : rawDob;
       const dobDisplay = rawDob 
         ? escapeHtml(formattedDob)
         : `<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>`;
 
-      const genderText = prof.gender === 'male' ? 'Nam' : prof.gender === 'female' ? 'Nữ' : prof.gender === 'other' ? 'Khác' : '<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>';
-      const addressText = prof.address ? escapeHtml(prof.address) : '<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>';
+      const gVal = prof.gender || m.gender || "";
+      const genderText = gVal === 'male' ? 'Nam' : gVal === 'female' ? 'Nữ' : gVal === 'other' ? 'Khác' : '<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>';
+      const addrVal = prof.address || m.address || "";
+      const addressText = addrVal ? escapeHtml(addrVal) : '<span style="color:var(--mute);font-style:italic;">Chưa cập nhật</span>';
       const lastUpdated = prof.updatedAt ? new Date(prof.updatedAt).toLocaleDateString("vi-VN") : null;
       const initial = (m.name && m.name.trim()) ? m.name.trim().charAt(0).toUpperCase() : (m.email ? m.email.charAt(0).toUpperCase() : "U");
       const isOpen = openUids.has(m.uid);
@@ -2147,7 +2184,7 @@ function listenSharedMembers() {
       };
     });
 
-    // Bắt sự kiện chuyển quyền Chủ nhà (Master) cho thành viên khác
+    // Bắt sự kiện chuyển quyền Chủ nhà (Master) cho thành viên khác (Atomic Multi-path Update)
     listEl.querySelectorAll("[data-transfer-member]").forEach(btn => {
       btn.onclick = async (e) => {
         e.stopPropagation();
@@ -2157,20 +2194,16 @@ function listenSharedMembers() {
         const targetName = btn.dataset.memberName || "Thành viên";
         if (!confirm(`Bạn có chắc chắn muốn chuyển giao toàn bộ quyền Chủ nhà (Master) cho "${targetName}" (${targetEmail})?\n\nSau khi chuyển, tài khoản của bạn sẽ trở thành Thành viên bình thường.`)) return;
         try {
-          await update(ref(db, "system"), {
-            masterUid: targetUid,
-            masterEmail: targetEmail
-          });
-          await update(ref(db, "users/" + targetUid), {
-            role: "master",
-            is_paired: true,
-            pairedHome: DEFAULT_HOME_CODE
-          });
+          const updates = {};
+          updates["system/masterUid"] = targetUid;
+          updates["system/masterEmail"] = targetEmail;
+          updates[`users/${targetUid}/role`] = "master";
+          updates[`users/${targetUid}/pairedHome`] = DEFAULT_HOME_CODE;
+          updates[`users/${targetUid}/is_paired`] = true;
           if (currentUser) {
-            await update(ref(db, "users/" + currentUser.uid), {
-              role: "member"
-            });
+            updates[`users/${currentUser.uid}/role`] = "member";
           }
+          await update(ref(db), updates);
           showToast(`Đã chuyển quyền Chủ nhà thành công cho ${targetEmail}!`);
           setTimeout(() => location.reload(), 1500);
         } catch(err) {
@@ -2362,6 +2395,7 @@ function listenSharedMembers() {
               try {
                 await update(ref(db, `users/${uid}`), {
                   pairedHome: null,
+                  is_paired: null,
                   permissions: null
                 });
                 showToast("Đã hủy quyền liên kết của thành viên thành công.");
@@ -2723,6 +2757,7 @@ function openDevicePairModal(isNewAccount = false) {
       multiUpdates[`invites/${code}/usedByEmail`] = currentUser.email || "Thành viên gia đình";
       multiUpdates[`invites/${code}/usedAt`] = now;
       multiUpdates[`users/${currentUser.uid}/pairedHome`] = validHome;
+      multiUpdates[`users/${currentUser.uid}/is_paired`] = true;
       multiUpdates[`users/${currentUser.uid}/inviteCode`] = code;
       multiUpdates[`users/${currentUser.uid}/pairedAt`] = now;
 
@@ -2799,9 +2834,10 @@ if (btnMemberSelfUnlink) {
 
     try {
       isSelfUnlinking = true;
-      // 1. Cập nhật Firebase xóa pairedHome của user
+      // 1. Cập nhật Firebase xóa pairedHome và is_paired của user
       await update(ref(db, "users/" + currentUser.uid), {
-        pairedHome: null
+        pairedHome: null,
+        is_paired: null
       });
 
       // 2. Ghi nhật ký thao tác
@@ -3679,8 +3715,13 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
   const db = window.db || getDatabase(app, "https://do-an-2-f791a-default-rtdb.asia-southeast1.firebasedatabase.app");
   const $ui = id => document.getElementById(id);
   function checkIsMaster() {
-    return (window.currentUserRole === "master") || 
-      (window.masterUid && window.auth?.currentUser?.uid === window.masterUid);
+    if (window.currentUserRole === "master" || (typeof currentUserRole !== "undefined" && currentUserRole === "master")) return true;
+    const user = window.auth?.currentUser || (typeof currentUser !== "undefined" ? currentUser : null);
+    if (!user) return false;
+    if (window.masterUid && user.uid === window.masterUid) return true;
+    const mEmail = (window.masterEmail || window.MASTER_EMAIL || "xhai2005@gmail.com").toLowerCase();
+    if (user.email && user.email.toLowerCase() === mEmail) return true;
+    return false;
   }
 
   function readPreference(key) {
@@ -5370,12 +5411,7 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
         }
       }
 
-      const ids = Object.keys(currentPasscodes);
-      if (ids.length === 0) {
-        list.innerHTML = `<p class="meta">Chưa có mật khẩu nào được lưu.</p>`;
-        return;
-      }
-
+      const allIds = Object.keys(currentPasscodes);
       const isMaster = checkIsMaster();
       const user = window.auth?.currentUser;
       const curUid = user ? user.uid : "";
@@ -5385,6 +5421,35 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
       try {
         myCreatedPasscodes = JSON.parse(sessionStorage.getItem("my_created_passcodes") || "[]");
       } catch(e) {}
+
+      // Lọc danh sách passcodes theo vai trò: Master thấy toàn bộ; Thành viên CHỈ thấy passcode nick mình tạo
+      const ids = allIds.filter(id => {
+        if (isMaster) return true;
+        const owner = passcodeOwners[id];
+        if (owner) {
+          if (curUid && owner.uid === curUid) return true;
+          if (curEmail && owner.email && owner.email.toLowerCase() === curEmail) return true;
+        }
+        return myCreatedPasscodes.includes(id);
+      });
+
+      const perms = window.userPermissions || {};
+      const canAddPass = isMaster || perms.passcodeAdd === true;
+
+      // Cập nhật số lượng hiển thị trên badge
+      const countEl = $ui("passcodeCountBadge") || document.querySelector(".passcode-count-badge");
+      if (countEl) {
+        countEl.textContent = isMaster ? `${allIds.length} mã PIN mở cửa` : `${ids.length} mã PIN của bạn`;
+      }
+
+      if (ids.length === 0) {
+        if (!isMaster && !canAddPass) {
+          list.innerHTML = `<p class="meta">Bạn chưa có mật khẩu mở cửa nào và chưa được cấp quyền tạo mật khẩu.</p>`;
+        } else {
+          list.innerHTML = `<p class="meta">Chưa có mật khẩu nào được lưu.</p>`;
+        }
+        return;
+      }
 
       list.innerHTML = ids.map(id => {
         const item = currentPasscodes[id] || {};
@@ -5469,12 +5534,29 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
               btn.disabled = true;
               btn.textContent = "Đang xóa...";
               try {
-                await set(ref(db, "door/pending/" + opId), {
+                // Nếu là Master: Xóa trực tiếp trên Realtime Database để UI phản hồi tức thì
+                if (isMaster) {
+                  try {
+                    await remove(ref(db, `door/passcodes/${targetId}`));
+                    await remove(ref(db, `door/passcodeOwners/${targetId}`));
+                  } catch (directErr) {
+                    console.warn("Direct cloud delete fallback error:", directErr);
+                  }
+                }
+
+                const pendingRef = ref(db, "door/pending/" + opId);
+                await set(pendingRef, {
                   op: "delete",
                   target: targetId
                 });
                 pendingPasscodeDeletions.add(targetId);
-                showToast(`Đã gửi yêu cầu xóa mã “${targetName}”. ESP32 đang xử lý...`);
+
+                // Tự động dọn dẹp lệnh xóa pending sau 15 giây
+                setTimeout(async () => {
+                  try { await remove(pendingRef); } catch(_) {}
+                }, 15000);
+
+                showToast(`Đã gửi yêu cầu xóa mã “${targetName}”.`);
               } catch (err) {
                 if (err.code === "PERMISSION_DENIED" || (err.message && err.message.includes("PERMISSION_DENIED"))) {
                   showToast("Bạn không có quyền xóa mật khẩu mở cửa!");
@@ -5600,6 +5682,11 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
             if (!list.includes(opId)) list.push(opId);
             sessionStorage.setItem("my_created_passcodes", JSON.stringify(list));
           } catch(err) {}
+
+          // Tự động dọn dẹp pending add sau 15 giây nếu ESP32 offline
+          setTimeout(async () => {
+            try { await remove(ref(db, `door/pending/${opId}`)); } catch(_) {}
+          }, 15000);
 
           root.replaceChildren();
           showToast(`Đã gửi yêu cầu thêm mã “${name}”. ESP32 đang lưu vào bộ nhớ...`);

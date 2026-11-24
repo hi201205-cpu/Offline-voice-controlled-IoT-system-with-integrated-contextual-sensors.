@@ -20,6 +20,8 @@ yarn-error.log*
 
 # ── Mobile App Build & Cache ──────────────────────────────────
 **/android/.gradle/
+**/.gradle/
+*_dump.xml
 **/android/local.properties
 **/.dart_tool/
 **/build/
@@ -61,3 +63,5 @@ include/config.h
 Thumbs.db
 desktop.ini
 *.zip
+
+provision_device.py
