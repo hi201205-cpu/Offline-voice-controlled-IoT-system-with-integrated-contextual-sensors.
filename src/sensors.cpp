@@ -273,7 +273,7 @@ void sensorsInit() {
         nullptr,
         SENSOR_TASK_PRIORITY,
         nullptr,
-        0);
+        1); // Chay tren Core 1 de khong anh huong ngat WiFi/BT tren Core 0
 
     if (taskCreated != pdPASS) {
         vQueueDelete(s_readQueue);

@@ -189,8 +189,13 @@ static void execute_ota_download(const String& url) {
             LOG("  [OTA] CAP NHAT FIRMWARE THANH CONG 100%!\n");
             LOG("  He thong se tu dong khoi dong lai vao Firmware moi...\n");
             LOG("=======================================================\n");
-            delay(1500);
-            ESP.restart();
+            https.end();
+            delete secureClient;
+            secureClient = nullptr;
+            delay(1000);
+            WiFi.disconnect(true, true);
+            delay(500);
+            esp_restart();
         } else {
             snprintf(s_otaErrorMsg, sizeof(s_otaErrorMsg), "Update.end() khong hoan tat duoc");
             s_otaState = OTA_STATE_FAILED;

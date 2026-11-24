@@ -423,4 +423,8 @@ void loop() {
                       static_cast<unsigned long>(loopDurationMs));
     }
 #endif
+
+    // Cho phep Core 1 nhuong quyen (yield) 5ms de Idle Task chay, giam 100% CPU xuong muc toi uu
+    // ngan chan hoan toan Interrupt Watchdog (IWDT) do chiem dung CPU Core 1
+    vTaskDelay(pdMS_TO_TICKS(5));
 }
