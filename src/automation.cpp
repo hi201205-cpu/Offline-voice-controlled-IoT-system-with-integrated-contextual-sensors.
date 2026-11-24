@@ -93,18 +93,19 @@ void automationSetRules(const AutoRule* rules, uint8_t count) {
         memset(s_rules, 0, sizeof(s_rules));
     } else {
         uint8_t newCount = (count > MAX_AUTOMATION_RULES) ? MAX_AUTOMATION_RULES : count;
-        AutoRule tempRules[MAX_AUTOMATION_RULES] = {};
+        static AutoRule s_tempRules[MAX_AUTOMATION_RULES] = {};
+        memset(s_tempRules, 0, sizeof(s_tempRules));
         for (uint8_t i = 0; i < newCount; ++i) {
-            tempRules[i] = rules[i];
+            s_tempRules[i] = rules[i];
             for (uint8_t j = 0; j < s_ruleCount; ++j) {
                 if (strcmp(rules[i].id, s_rules[j].id) == 0) {
-                    tempRules[i].prevConditionMet = s_rules[j].prevConditionMet;
-                    tempRules[i].lastFiredMs = s_rules[j].lastFiredMs;
+                    s_tempRules[i].prevConditionMet = s_rules[j].prevConditionMet;
+                    s_tempRules[i].lastFiredMs = s_rules[j].lastFiredMs;
                     break;
                 }
             }
         }
-        memcpy(s_rules, tempRules, sizeof(AutoRule) * newCount);
+        memcpy(s_rules, s_tempRules, sizeof(AutoRule) * newCount);
         s_ruleCount = newCount;
     }
     auto_unlock();
@@ -348,20 +349,21 @@ void automationUpdate() {
     bool hasMergedAction[6] = {false, false, false, false, false, false};
     char triggeredRuleNames[6][RULE_NAME_LEN];
 
-    // Sao chép danh sách quy tắc ra cục bộ để không phải giữ mutex khi đánh giá
-    AutoRule localRules[MAX_AUTOMATION_RULES];
+    // Sao chép danh sách quy tắc ra biến tĩnh (automationUpdate chỉ chạy trên Core 1)
+    // để tránh cấp phát mảng >3KB trên stack của loopTask
+    static AutoRule s_evalRules[MAX_AUTOMATION_RULES];
     uint8_t localCount = 0;
     if (auto_lock(pdMS_TO_TICKS(50))) {
         localCount = s_ruleCount;
         if (localCount > MAX_AUTOMATION_RULES) localCount = MAX_AUTOMATION_RULES;
         for (uint8_t i = 0; i < localCount; ++i) {
-            localRules[i] = s_rules[i];
+            s_evalRules[i] = s_rules[i];
         }
         auto_unlock();
     }
 
     for (uint8_t i = 0; i < localCount; ++i) {
-        AutoRule& r = localRules[i];
+        AutoRule& r = s_evalRules[i];
         if (!r.enabled) {
             r.prevConditionMet = false;
             continue;
@@ -450,8 +452,8 @@ void automationUpdate() {
     if (auto_lock(pdMS_TO_TICKS(50))) {
         for (uint8_t i = 0; i < s_ruleCount; ++i) {
             if (i < localCount) {
-                s_rules[i].prevConditionMet = localRules[i].prevConditionMet;
-                s_rules[i].lastFiredMs = localRules[i].lastFiredMs;
+                s_rules[i].prevConditionMet = s_evalRules[i].prevConditionMet;
+                s_rules[i].lastFiredMs = s_evalRules[i].lastFiredMs;
             }
         }
         auto_unlock();

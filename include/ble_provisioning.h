@@ -7,8 +7,8 @@
 #define BLE_PROV_CHAR_CONFIG_UUID    "beb5483e-36e1-4688-b7f5-ea07361b26a8" // Write (SSID|PASS|HOME_ID|OWNER|UID)
 #define BLE_PROV_CHAR_STATUS_UUID    "1c95d5e3-d8f7-413a-bf3d-7a2e5d7be87e" // Read & Notify
 
-// Thời gian chờ ghép đôi Bluetooth tối đa: 10 phút (600 giây) nếu đã có Wi-Fi
-#define BLE_PROV_TIMEOUT_MS          600000UL
+// Thời gian chờ ghép đôi Bluetooth tối đa: 3 phút (180 giây) nếu đã có Wi-Fi
+#define BLE_PROV_TIMEOUT_MS          180000UL
 
 // Trạng thái cấu hình BLE
 enum BleProvStatus {

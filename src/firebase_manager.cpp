@@ -14,6 +14,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 
 #if DEBUG_FIRMWARE_METRICS
 #define FB_TIMED(label, expression) ([&]() { \
@@ -215,6 +216,53 @@ static QueueHandle_t  s_voiceLogQueue = nullptr;
 static QueueHandle_t  s_deviceCommandQueue = nullptr;
 static QueueHandle_t  s_doorCommandQueue = nullptr;
 static TaskHandle_t   s_fbTaskHandle = nullptr;
+static SemaphoreHandle_t s_fbWriteMutex = nullptr;
+static SemaphoreHandle_t s_pendingCmdMutex = nullptr;
+
+static volatile bool  s_pendingReboot = false;
+static volatile bool  s_pendingFactoryReset = false;
+static volatile bool  s_pendingOta = false;
+static char           s_pendingOtaUrl[256] = {};
+static char           s_pendingOtaVer[32] = {};
+static bool           s_wasBleActive = false;
+
+static bool fb_write_lock(TickType_t waitTicks = pdMS_TO_TICKS(5000)) {
+    return (s_fbWriteMutex == nullptr) || (xSemaphoreTake(s_fbWriteMutex, waitTicks) == pdTRUE);
+}
+
+static void fb_write_unlock() {
+    if (s_fbWriteMutex != nullptr) {
+        xSemaphoreGive(s_fbWriteMutex);
+    }
+}
+
+static void queue_pending_reboot() {
+    if (s_pendingCmdMutex && xSemaphoreTake(s_pendingCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        s_pendingReboot = true;
+        xSemaphoreGive(s_pendingCmdMutex);
+    } else {
+        s_pendingReboot = true;
+    }
+}
+
+static void queue_pending_factory_reset() {
+    if (s_pendingCmdMutex && xSemaphoreTake(s_pendingCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        s_pendingFactoryReset = true;
+        xSemaphoreGive(s_pendingCmdMutex);
+    } else {
+        s_pendingFactoryReset = true;
+    }
+}
+
+static void queue_pending_ota(const char* url, const char* ver) {
+    if (!url || !url[0]) return;
+    if (s_pendingCmdMutex && xSemaphoreTake(s_pendingCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        snprintf(s_pendingOtaUrl, sizeof(s_pendingOtaUrl), "%s", url);
+        snprintf(s_pendingOtaVer, sizeof(s_pendingOtaVer), "%s", ver ? ver : "");
+        s_pendingOta = true;
+        xSemaphoreGive(s_pendingCmdMutex);
+    }
+}
 
 // Khai báo trước các hàm nội bộ
 static void firebase_task(void* pvParam);
@@ -252,16 +300,22 @@ static void fb_http_reset() {
 
 static bool fb_patch(const char* path, const char* body) {
     if (!s_firebaseReady || !wifi_connected() || !Firebase.ready()) return false;
+    if (!fb_write_lock()) return false;
     FirebaseJson json;
     json.setJsonData(body);
-    return FB_TIMED("updateNode", Firebase.updateNode(s_fbWrite, path, json));
+    bool ok = FB_TIMED("updateNode", Firebase.updateNode(s_fbWrite, path, json));
+    fb_write_unlock();
+    return ok;
 }
 
 static bool fb_put(const char* path, const char* body) {
     if (!s_firebaseReady || !wifi_connected() || !Firebase.ready()) return false;
+    if (!fb_write_lock()) return false;
     FirebaseJson json;
     json.setJsonData(body);
-    return FB_TIMED("setJSON", Firebase.setJSON(s_fbWrite, path, json));
+    bool ok = FB_TIMED("setJSON", Firebase.setJSON(s_fbWrite, path, json));
+    fb_write_unlock();
+    return ok;
 }
 
 static bool firebase_enqueue_update(const FbUpdateMsg& msg) {
@@ -316,6 +370,7 @@ static void firebase_do_reinit() {
 
     vTaskDelay(pdMS_TO_TICKS(100));
     esp_task_wdt_reset();
+    Firebase.removeStreamCallback(s_fbCommandsStream);
     Firebase.endStream(s_fbCommandsStream);
     bool commandsStreamStarted = FB_TIMED(
         "beginStream commands",
@@ -980,7 +1035,8 @@ static void firebase_load_automation_config() {
     // 2. Đồng bộ danh sách Rules: /automation/rules
     if (FB_TIMED("getJSON /automation/rules",
                  Firebase.getJSON(s_fbWrite, "/automation/rules"))) {
-        AutoRule parsedRules[MAX_AUTOMATION_RULES] = {};
+        static AutoRule s_parsedRules[MAX_AUTOMATION_RULES] = {};
+        memset(s_parsedRules, 0, sizeof(s_parsedRules));
         uint8_t ruleCount = 0;
 
         if (s_fbWrite.dataType() == "array") {
@@ -992,12 +1048,12 @@ static void firebase_load_automation_config() {
                     item.setJsonData(itemData.stringValue);
                     char fallbackId[16];
                     snprintf(fallbackId, sizeof(fallbackId), "rule-%d", (int)i);
-                    if (parse_single_auto_rule(item, fallbackId, parsedRules[ruleCount])) {
+                    if (parse_single_auto_rule(item, fallbackId, s_parsedRules[ruleCount])) {
                         ruleCount++;
                     }
                 }
             }
-            automationSetRules(parsedRules, ruleCount);
+            automationSetRules(s_parsedRules, ruleCount);
         } else if (s_fbWrite.dataType() == "json") {
             FirebaseJson json = s_fbWrite.to<FirebaseJson>();
             size_t len = json.iteratorBegin();
@@ -1010,13 +1066,13 @@ static void firebase_load_automation_config() {
                 if (type == FirebaseJson::JSON_OBJECT) {
                     FirebaseJson item;
                     item.setJsonData(value);
-                    if (parse_single_auto_rule(item, key.c_str(), parsedRules[ruleCount])) {
+                    if (parse_single_auto_rule(item, key.c_str(), s_parsedRules[ruleCount])) {
                         ruleCount++;
                     }
                 }
             }
             json.iteratorEnd();
-            automationSetRules(parsedRules, ruleCount);
+            automationSetRules(s_parsedRules, ruleCount);
         } else if (s_fbWrite.dataType() == "null") {
             // Không có quy tắc nào trên Firebase
             automationSetRules(nullptr, 0);
@@ -1413,12 +1469,27 @@ bool wifi_init() {
 void wifi_loop() {
     // Nếu đang ở chế độ BLE Provisioning thì ưu tiên xử lý cấu hình BLE
     if (ble_provisioning_is_active()) {
+        s_wasBleActive = true;
         ble_provisioning_update();
         return;
     }
 
     // Nếu thiết bị chưa có Wi-Fi trong NVS thì dừng, chờ người dùng nạp Wi-Fi qua BLE
     if (!ble_has_saved_wifi()) {
+        return;
+    }
+
+    // Nếu vừa thoát BLE timeout (khi vẫn còn Wi-Fi đã lưu) -> reset counter và thử kết nối Wi-Fi lại
+    if (s_wasBleActive) {
+        s_wasBleActive = false;
+        s_wifiAttemptCount = 0;
+        String activeSsid, activePass, activeHome;
+        if (ble_get_saved_wifi(activeSsid, activePass, activeHome) && activeSsid.length() > 0) {
+            LOG("[WIFI] Thoat BLE, thu ket noi lai WiFi da luu: %s ...\n", activeSsid.c_str());
+            WiFi.mode(WIFI_STA);
+            WiFi.begin(activeSsid.c_str(), activePass.c_str());
+            s_lastReconnectMs = millis();
+        }
         return;
     }
 
@@ -1535,6 +1606,18 @@ static bool enqueue_json_device_command(FirebaseJson& json, const char* key,
 
 // ── Stream callbacks ─────────────────────────────────────────
 
+static void parse_and_queue_ota_json(FirebaseJson& json, const char* sourceName) {
+    FirebaseJsonData val;
+    String url = "";
+    String ver = "";
+    if (json.get(val, "url") && val.success) url = val.stringValue;
+    if (json.get(val, "version") && val.success) ver = val.stringValue;
+    if (url.length() > 0) {
+        LOG("[OTA] Nhan lenh OTA tu %s: %s (v%s)\n", sourceName, url.c_str(), ver.c_str());
+        queue_pending_ota(url.c_str(), ver.c_str());
+    }
+}
+
 static void commands_stream_callback(StreamData data) {
     String path = data.dataPath();
     if (data.eventType() == "keep-alive") return;
@@ -1551,52 +1634,36 @@ static void commands_stream_callback(StreamData data) {
     }
     if (path == "commands") path = "";
 
-    // Lenh khoi dong lai ESP32 tu xa (Remote Reboot)
+    // Quan trong: commands_stream_callback chay tren Core 1 (Stream task)
+    // TUYET DOI KHONG goi s_fbWrite o day; chi day vao pending flag cho firebase_task (Core 0) xu ly an toan.
     if (path == "reboot") {
-        LOG("[CMD] Nhan lenh REBOOT tu xa qua Firebase!\n");
-        if (s_firebaseReady) {
-            for (int i = 0; i < 3; i++) {
-                if (Firebase.deleteNode(s_fbWrite, "/commands/reboot")) break;
-                delay(100);
-            }
+        bool doReboot = (data.dataType() == "boolean") ? data.boolData() : true;
+        if (doReboot) {
+            LOG("[CMD] Nhan lenh REBOOT tu xa qua Firebase!\n");
+            queue_pending_reboot();
         }
-        buzzer_trigger(BUZZER_MODE_SUCCESS);
-        delay(1000);
-        ESP.restart();
         return;
     }
 
-    // Lenh khoi phuc cai dat goc & huy lien ket tu xa (Remote Factory Reset)
     if (path == "factory_reset") {
-        LOG("[CMD] Nhan lenh FACTORY RESET tu xa qua Firebase!\n");
-        if (s_firebaseReady) {
-            Firebase.deleteNode(s_fbWrite, "/commands/factory_reset");
-            Firebase.deleteNode(s_fbWrite, "/system/masterUid");
-            Firebase.deleteNode(s_fbWrite, "/system/masterEmail");
+        bool doReset = (data.dataType() == "boolean") ? data.boolData() : true;
+        if (doReset) {
+            LOG("[CMD] Nhan lenh FACTORY RESET tu xa qua Firebase!\n");
+            queue_pending_factory_reset();
         }
-        buzzer_trigger(BUZZER_MODE_ALARM);
-        ble_factory_reset();
-        delay(1000);
-        ESP.restart();
         return;
     }
 
     if (path == "ota" || path == "firmware") {
-        String url = "";
-        String ver = "";
         if (data.dataType() == "string") {
-            url = data.stringData();
+            String url = data.stringData();
+            if (url.length() > 0) {
+                LOG("[OTA] Nhan lenh OTA tu /commands/%s: %s\n", path.c_str(), url.c_str());
+                queue_pending_ota(url.c_str(), "");
+            }
         } else if (data.dataType() == "json") {
             FirebaseJson json = data.to<FirebaseJson>();
-            FirebaseJsonData val;
-            if (json.get(val, "url") && val.success) url = val.stringValue;
-            if (json.get(val, "version") && val.success) ver = val.stringValue;
-        }
-        if (url.length() > 0) {
-            LOG("[OTA] Nhan lenh OTA tu /commands/%s: %s (v%s)\n", path.c_str(), url.c_str(), ver.c_str());
-            Firebase.deleteNode(s_fbWrite, "/commands/ota");
-            Firebase.deleteNode(s_fbWrite, "/commands/firmware");
-            ota_start(url, ver);
+            parse_and_queue_ota_json(json, path.c_str());
         }
         return;
     }
@@ -1604,27 +1671,32 @@ static void commands_stream_callback(StreamData data) {
         FirebaseJson commands = data.to<FirebaseJson>();
 
         FirebaseJsonData cmdCheck;
-        if (commands.get(cmdCheck, "reboot") && cmdCheck.success && (cmdCheck.type == "bool" ? cmdCheck.boolValue : true)) {
+        if (commands.get(cmdCheck, "reboot") && cmdCheck.success &&
+            cmdCheck.type == "boolean" && cmdCheck.boolValue) {
             LOG("[CMD] Nhan lenh REBOOT tu xa (root commands json)!\n");
-            for (int i = 0; i < 3; i++) {
-                if (Firebase.deleteNode(s_fbWrite, "/commands/reboot")) break;
-                delay(100);
-            }
-            buzzer_trigger(BUZZER_MODE_SUCCESS);
-            delay(1000);
-            ESP.restart();
+            queue_pending_reboot();
             return;
         }
-        if (commands.get(cmdCheck, "factory_reset") && cmdCheck.success && (cmdCheck.type == "bool" ? cmdCheck.boolValue : true)) {
+        if (commands.get(cmdCheck, "factory_reset") && cmdCheck.success &&
+            cmdCheck.type == "boolean" && cmdCheck.boolValue) {
             LOG("[CMD] Nhan lenh FACTORY RESET tu xa (root commands json)!\n");
-            Firebase.deleteNode(s_fbWrite, "/commands/factory_reset");
-            Firebase.deleteNode(s_fbWrite, "/system/masterUid");
-            Firebase.deleteNode(s_fbWrite, "/system/masterEmail");
-            buzzer_trigger(BUZZER_MODE_ALARM);
-            ble_factory_reset();
-            delay(1000);
-            ESP.restart();
+            queue_pending_factory_reset();
             return;
+        }
+        const char* otaKeys[2] = {"ota", "firmware"};
+        for (int k = 0; k < 2; ++k) {
+            if (commands.get(cmdCheck, otaKeys[k]) && cmdCheck.success) {
+                if (cmdCheck.type == "string" && cmdCheck.stringValue.length() > 0) {
+                    queue_pending_ota(cmdCheck.stringValue.c_str(), "");
+                    return;
+                } else if (cmdCheck.type == "json") {
+                    FirebaseJson otaJson;
+                    if (cmdCheck.getJSON(otaJson)) {
+                        parse_and_queue_ota_json(otaJson, otaKeys[k]);
+                        return;
+                    }
+                }
+            }
         }
         enqueue_json_device_command(commands, "light", 0);
         enqueue_json_device_command(commands, "fan", 1);
@@ -1761,10 +1833,82 @@ static void stream_timeout_callback(bool timeout) {
     }
 }
 
+static void firebase_stop_stream_and_restart(bool factoryReset) {
+    Firebase.removeStreamCallback(s_fbCommandsStream);
+    Firebase.endStream(s_fbCommandsStream);
+    if (factoryReset) {
+        ble_factory_reset();
+    }
+    vTaskDelay(pdMS_TO_TICKS(800));
+    WiFi.disconnect(true, false);
+    vTaskDelay(pdMS_TO_TICKS(200));
+    esp_restart();
+}
+
+static void firebase_process_pending_control_commands() {
+    bool doReboot = false;
+    bool doReset = false;
+    bool doOta = false;
+    char otaUrl[256] = {};
+    char otaVer[32] = {};
+
+    if (s_pendingCmdMutex && xSemaphoreTake(s_pendingCmdMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        doReboot = s_pendingReboot;
+        doReset = s_pendingFactoryReset;
+        doOta = s_pendingOta;
+        if (doOta) {
+            snprintf(otaUrl, sizeof(otaUrl), "%s", s_pendingOtaUrl);
+            snprintf(otaVer, sizeof(otaVer), "%s", s_pendingOtaVer);
+        }
+        s_pendingReboot = false;
+        s_pendingFactoryReset = false;
+        s_pendingOta = false;
+        xSemaphoreGive(s_pendingCmdMutex);
+    }
+
+    if (doReset) {
+        if (s_firebaseReady && wifi_connected() && fb_write_lock()) {
+            Firebase.deleteNode(s_fbWrite, "/commands/factory_reset");
+            Firebase.deleteNode(s_fbWrite, "/system/masterUid");
+            Firebase.deleteNode(s_fbWrite, "/system/masterEmail");
+            fb_write_unlock();
+        }
+        buzzer_trigger(BUZZER_MODE_ALARM);
+        firebase_stop_stream_and_restart(true);
+        return;
+    }
+
+    if (doReboot) {
+        if (s_firebaseReady && wifi_connected() && fb_write_lock()) {
+            for (int i = 0; i < 3; ++i) {
+                if (Firebase.deleteNode(s_fbWrite, "/commands/reboot")) break;
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+            fb_write_unlock();
+        }
+        buzzer_trigger(BUZZER_MODE_SUCCESS);
+        firebase_stop_stream_and_restart(false);
+        return;
+    }
+
+    if (doOta && otaUrl[0] != '\0') {
+        if (s_firebaseReady && wifi_connected() && fb_write_lock()) {
+            Firebase.deleteNode(s_fbWrite, "/commands/ota");
+            Firebase.deleteNode(s_fbWrite, "/commands/firmware");
+            fb_write_unlock();
+        }
+        // Dung stream truoc khi tai OTA de giai phong ~25KB SSL RAM + task Stream
+        Firebase.removeStreamCallback(s_fbCommandsStream);
+        Firebase.endStream(s_fbCommandsStream);
+        ota_start(String(otaUrl), String(otaVer));
+    }
+}
+
 // ── firebase_task ────────────────────────────────────────────
 // Toàn bộ WiFi + Firebase init/loop chạy ở đây, trên Core 0.
 static void firebase_task(void* pvParam) {
     FbUpdateMsg msg;
+    bool wasOtaRunning = false;
 
     LOG("[FB] firebase_task khoi dong (Core %d)\n", xPortGetCoreID());
 
@@ -1774,6 +1918,19 @@ static void firebase_task(void* pvParam) {
 
     for (;;) {
         if (ota_is_running()) {
+            wasOtaRunning = true;
+            vTaskDelay(pdMS_TO_TICKS(500));
+            continue;
+        }
+        if (wasOtaRunning) {
+            wasOtaRunning = false;
+            s_needFirebaseReinit = true;
+        }
+
+        // Xử lý các lệnh điều khiển nặng (reboot, factory_reset, ota) an toàn ngay trên firebase_task
+        firebase_process_pending_control_commands();
+        if (ota_is_running()) {
+            wasOtaRunning = true;
             vTaskDelay(pdMS_TO_TICKS(500));
             continue;
         }
@@ -1861,6 +2018,13 @@ void firebase_manager_start() {
     if (s_fbTaskHandle != nullptr) {
         LOG("[FB] Manager da chay roi\n");
         return;
+    }
+
+    if (!s_fbWriteMutex) {
+        s_fbWriteMutex = xSemaphoreCreateMutex();
+    }
+    if (!s_pendingCmdMutex) {
+        s_pendingCmdMutex = xSemaphoreCreateMutex();
     }
 
     if (!s_fbQueue) {

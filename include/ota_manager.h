@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define FIRMWARE_CURRENT_VERSION "1.0.3"
+#define FIRMWARE_CURRENT_VERSION "1.0.4"
 
 enum OtaState {
     OTA_STATE_IDLE = 0,

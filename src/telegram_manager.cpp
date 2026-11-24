@@ -95,7 +95,7 @@ void telegram_init() {
         xTaskCreatePinnedToCore(
             telegram_worker_task,
             "telegram_task",
-            6144,
+            12288, // Du stack cho mbedTLS handshake + HTTPClient + payload buffer
             nullptr,
             1, // Muc uu tien thap, khong tranh chap voi I2S/Inference
             &s_telegramTaskHandle,

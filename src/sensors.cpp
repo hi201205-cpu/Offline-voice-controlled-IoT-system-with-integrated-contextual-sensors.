@@ -1,6 +1,6 @@
 #include "sensors.h"
 
-#include <DHT.h>
+#include <esp_timer.h>
 #include <math.h>
 #include <time.h>
 
@@ -10,12 +10,12 @@
 #include "telegram_manager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
-#define DHT_TYPE DHT11
 #define SENSOR_READ_INTERVAL_MS 5000
 #define SENSOR_PUSH_INTERVAL_MS 10000
-#define SENSOR_TASK_STACK_SIZE 4096
+#define SENSOR_TASK_STACK_SIZE 6144
 #define SENSOR_TASK_PRIORITY 1
 
 #define LD2410S_BUFFER_SIZE 96
@@ -25,11 +25,80 @@
 static_assert(RAW_DARK != RAW_BRIGHT,
               "RAW_DARK and RAW_BRIGHT must be different ADC values");
 
-#include "freertos/semphr.h"
-
-static DHT s_dht(PIN_DHT, DHT_TYPE);
 static QueueHandle_t s_readQueue = nullptr;
 static SemaphoreHandle_t s_sensorMutex = nullptr;
+
+static int32_t dht_wait_level_us(uint8_t pin, int level, uint32_t timeoutUs) {
+    int64_t start = esp_timer_get_time();
+    while (digitalRead(pin) == level) {
+        if ((esp_timer_get_time() - start) > static_cast<int64_t>(timeoutUs)) {
+            return -1;
+        }
+    }
+    return static_cast<int32_t>(esp_timer_get_time() - start);
+}
+
+// Đọc DHT11 dùng esp_timer không tắt ngắt (noInterrupts) để tránh kích hoạt Interrupt Watchdog
+static bool dht11_read_once(uint8_t pin, float* outTemp, float* outHum) {
+    uint8_t data[5] = {};
+
+    pinMode(pin, INPUT_PULLUP);
+    vTaskDelay(pdMS_TO_TICKS(1));
+
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, LOW);
+    vTaskDelay(pdMS_TO_TICKS(20));
+
+    pinMode(pin, INPUT_PULLUP);
+    delayMicroseconds(30);
+
+    // Chờ phản hồi của DHT11: ~80us LOW + ~80us HIGH
+    if (dht_wait_level_us(pin, HIGH, 120) < 0) return false;
+    if (dht_wait_level_us(pin, LOW, 120) < 0) return false;
+    if (dht_wait_level_us(pin, HIGH, 120) < 0) return false;
+
+    for (int i = 0; i < 40; ++i) {
+        int32_t lowUs = dht_wait_level_us(pin, LOW, 100);
+        if (lowUs < 0) return false;
+        int32_t highUs = dht_wait_level_us(pin, HIGH, 120);
+        if (highUs < 0) return false;
+
+        data[i / 8] <<= 1;
+        if (highUs > lowUs) {
+            data[i / 8] |= 1;
+        }
+    }
+
+    uint8_t checksum = static_cast<uint8_t>(data[0] + data[1] + data[2] + data[3]);
+    if (data[4] != checksum) {
+        return false;
+    }
+
+    float hum = data[0] + data[1] * 0.1f;
+    float temp = data[2];
+    if (data[3] & 0x80) {
+        temp = -1.0f - temp;
+    }
+    temp += (data[3] & 0x0F) * 0.1f;
+
+    if (hum < 5.0f || hum > 100.0f || temp < -10.0f || temp > 80.0f) {
+        return false;
+    }
+
+    *outTemp = temp;
+    *outHum = hum;
+    return true;
+}
+
+static bool dht11_read_nonlocking(uint8_t pin, float* outTemp, float* outHum) {
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        if (dht11_read_once(pin, outTemp, outHum)) {
+            return true;
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    return false;
+}
 
 static bool sensor_lock(TickType_t waitTicks = portMAX_DELAY) {
     if (s_sensorMutex == nullptr) {
@@ -208,9 +277,10 @@ static void sensor_task(void *parameter) {
             continue;
         }
 
-        float temperature = s_dht.readTemperature();
-        float humidity = s_dht.readHumidity();
-        if (isnan(temperature) || isnan(humidity)) {
+        float temperature = NAN;
+        float humidity = NAN;
+        if (!dht11_read_nonlocking(PIN_DHT, &temperature, &humidity) ||
+            isnan(temperature) || isnan(humidity)) {
             LOG("[SENSOR] Loi doc DHT11; giu gia tri hop le gan nhat\n");
             continue;
         }
@@ -238,7 +308,10 @@ static void sensor_task(void *parameter) {
 }
 
 void sensorsInit() {
-    s_dht.begin();
+    if (s_sensorMutex == nullptr) {
+        s_sensorMutex = xSemaphoreCreateMutex();
+    }
+    pinMode(PIN_DHT, INPUT_PULLUP);
     analogReadResolution(12);
     analogSetPinAttenuation(PIN_GARDEN_LIGHT, ADC_11db);
     pinMode(PIN_GARDEN_LIGHT, INPUT);

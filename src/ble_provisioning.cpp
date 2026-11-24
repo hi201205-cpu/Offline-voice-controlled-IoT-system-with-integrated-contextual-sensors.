@@ -36,7 +36,6 @@ class BleProvServerCallbacks : public BLEServerCallbacks {
         Serial.println("[BLE_PROV] Client ngat ket noi Bluetooth.");
         if (s_bleActive) {
             s_currentStatus = BLE_PROV_ADVERTISING;
-            s_advStartMs = millis(); // Reset lại timer chờ nếu client ngắt kết nối giữa chừng
             BLEDevice::startAdvertising();
         }
     }
@@ -237,10 +236,12 @@ void ble_provisioning_stop() {
 void ble_provisioning_update() {
     if (!s_bleActive) return;
 
-    // Chỉ timeout tắt BLE nếu thiết bị ĐÃ CÓ Wi-Fi lưu sẵn (nút bấm kích hoạt tạm thời).
-    // Nếu thiết bị chưa từng có Wi-Fi (xuất xưởng / Factory Reset) -> DUY TRÌ BLE LIÊN TỤC để người dùng kết nối.
-    if (ble_has_saved_wifi() && s_currentStatus == BLE_PROV_ADVERTISING && (millis() - s_advStartMs > BLE_PROV_TIMEOUT_MS)) {
-        Serial.println("[BLE_PROV] Timeout khong co thiet bi nao ket noi. Tu dong tat BLE de tiep tuc Wi-Fi da luu!");
+    // Chỉ timeout tắt BLE nếu thiết bị ĐÃ CÓ Wi-Fi lưu sẵn (từ lỗi Wi-Fi tạm thời hoặc nhấn giữ nút).
+    // Không gia hạn timer khi client chỉ kết nối/ngắt thăm dò mà chưa gửi cấu hình mới.
+    if (ble_has_saved_wifi() && !s_hasNewCredentials &&
+        s_currentStatus != BLE_PROV_CONNECTING_WIFI &&
+        (millis() - s_advStartMs > BLE_PROV_TIMEOUT_MS)) {
+        Serial.println("[BLE_PROV] Timeout khong co cau hinh moi. Tu dong tat BLE de thu ket noi lai Wi-Fi da luu!");
         ble_provisioning_stop();
         return;
     }

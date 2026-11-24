@@ -192,8 +192,8 @@ static void execute_ota_download(const String& url) {
             https.end();
             delete secureClient;
             secureClient = nullptr;
-            delay(1000);
-            WiFi.disconnect(true, true);
+            delay(500);
+            WiFi.disconnect(true, false);
             delay(500);
             esp_restart();
         } else {

@@ -27,8 +27,9 @@
 // --- Bộ lọc thông dải 300–3400Hz ---
 static BandpassFilter s_bpf;
 
-// --- Ring buffer (ghi liên tục, đọc bằng audio_get_window) ---
+// --- Ring buffer & Window buffer (cấp phát PSRAM để tiết kiệm Internal SRAM) ---
 static int16_t *s_ringBuf = nullptr;
+static int16_t *s_windowBuf = nullptr;
 static uint32_t s_ringHead = 0;          // Vị trí ghi tiếp theo
 
 // --- Buffer tạm cho I2S (32-bit raw từ INMP441) ---
@@ -112,6 +113,19 @@ void audio_init() {
     }
     if (s_ringBuf != nullptr) {
         memset(s_ringBuf, 0, RING_BUF_SAMPLES * sizeof(int16_t));
+    }
+    if (s_windowBuf == nullptr) {
+        if (psramFound()) {
+            s_windowBuf = (int16_t*)ps_malloc(WINDOW_SAMPLES * sizeof(int16_t));
+            LOG("[AUDIO] Window buffer allocated in PSRAM (32 KB)\n");
+        }
+        if (s_windowBuf == nullptr) {
+            s_windowBuf = (int16_t*)malloc(WINDOW_SAMPLES * sizeof(int16_t));
+            LOG("[AUDIO] Window buffer allocated in internal RAM\n");
+        }
+    }
+    if (s_windowBuf != nullptr) {
+        memset(s_windowBuf, 0, WINDOW_SAMPLES * sizeof(int16_t));
     }
     memset(s_frameBuf, 0, sizeof(s_frameBuf));
     memset(s_i2sRaw,   0, sizeof(s_i2sRaw));
@@ -301,10 +315,7 @@ void audio_sliding_window_loop() {
             while (s_hopCounter >= HOP_SAMPLES) {
                 s_hopCounter -= HOP_SAMPLES;   // giữ phần dư
 
-                if (s_callback != nullptr) {
-                    // Buffer tĩnh để tránh alloc trên heap
-                    static int16_t s_windowBuf[WINDOW_SAMPLES];
-
+                if (s_callback != nullptr && s_windowBuf != nullptr) {
                     // Lấy WINDOW_SAMPLES (16000) mẫu gần nhất từ ring buffer
                     audio_get_window(s_windowBuf);
 
