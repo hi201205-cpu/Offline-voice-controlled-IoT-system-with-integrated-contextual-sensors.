@@ -1,7 +1,7 @@
 // Service Worker cho Ứng dụng Nhà Thông Minh ESP32
 // CHỈ cache các tài nguyên tĩnh nội bộ; TUYỆT ĐỐI KHÔNG cache Firebase, Google APIs hay Realtime Database
 
-const CACHE_NAME = "smart-home-static-v4";
+const CACHE_NAME = "smart-home-static-v5";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
