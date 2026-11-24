@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -224,18 +225,19 @@ fun HomeScreen(
                 )
             }
 
-            // 3. Curtain Tile
+            // 3. Curtain Tile (Làm mờ, hiển thị trạng thái Đang phát triển)
             item {
-                val isCurtainOpen = uiState.deviceState.curtain == "open"
                 DeviceTileCard(
                     title = stringResource(R.string.tile_curtain),
-                    statusText = if (isCurtainOpen) stringResource(R.string.state_open) else stringResource(R.string.state_closed),
-                    icon = if (isCurtainOpen) Icons.Filled.Curtains else Icons.Outlined.Curtains,
-                    isOn = isCurtainOpen,
-                    isProcessing = uiState.processingCurtain,
-                    isErrorText = uiState.curtainError,
-                    enabled = !homeViewModel.isDisconnected,
-                    onClick = { homeViewModel.toggleCurtain() }
+                    statusText = "Đang phát triển",
+                    icon = Icons.Outlined.Curtains,
+                    isOn = false,
+                    isProcessing = false,
+                    isErrorText = false,
+                    enabled = true,
+                    showSwitch = false,
+                    onClick = { homeViewModel.toggleCurtain() },
+                    modifier = Modifier.alpha(0.55f)
                 )
             }
 

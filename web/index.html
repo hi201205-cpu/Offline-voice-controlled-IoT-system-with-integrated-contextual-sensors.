@@ -669,7 +669,7 @@ li em{font-style:normal;color:var(--mute);white-space:nowrap}
             <div class="device-list">
               <div class="dev" data-device="light"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4m-6.5-7.5a7 7 0 1 1 9 0c-.8.7-1.2 1.5-1.4 2.5H9.9c-.2-1-.6-1.8-1.4-2.5Z"/></svg></span><div><b>Đèn phòng</b><span id="s-light">--</span></div></div><button type="button" data-dev="light" role="switch" aria-checked="false" aria-label="Bật hoặc tắt đèn phòng">Bật / Tắt</button></div>
               <div class="dev" data-device="fan"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M12 10c-1-2-1-5 1-7 3 0 4 3 2 6m-1 4c2-1 5-1 7 1 0 3-3 4-6 2m-4-1c1 2 1 5-1 7-3 0-4-3-2-6m1-4c-2 1-5 1-7-1 0-3 3-4 6-2"/></svg></span><div><b>Quạt</b><span id="s-fan">--</span></div></div><button type="button" data-dev="fan" role="switch" aria-checked="false" aria-label="Bật hoặc tắt quạt">Bật / Tắt</button></div>
-              <div class="dev" data-device="curtain"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h18M5 5v15m14-15v15M5 20h14"/><path class="curtain-left" d="M6 6h5v12H6z"/><path class="curtain-right" d="M13 6h5v12h-5z"/></svg></span><div><b>Rèm cửa</b><span id="s-curtain">--</span></div></div><button type="button" data-dev="curtain" role="switch" aria-checked="false" aria-label="Mở hoặc đóng rèm">Mở / Đóng</button></div>
+              <div class="dev dev-curtain-dimmed" data-device="curtain" style="opacity:0.55;cursor:pointer;"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h18M5 5v15m14-15v15M5 20h14"/><path class="curtain-left" d="M6 6h5v12H6z"/><path class="curtain-right" d="M13 6h5v12h-5z"/></svg></span><div><b>Rèm cửa</b><span id="s-curtain" style="color:var(--gold,#eab308);font-size:11.5px;font-weight:600;">Đang phát triển</span></div></div><button type="button" data-dev="curtain" role="switch" aria-checked="false" aria-label="Rèm cửa đang triển khai" style="opacity:0.65;cursor:pointer;background:var(--line);color:var(--mute);border-color:var(--line);">Đang phát triển</button></div>
               <div class="dev" data-device="door"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="door-leaf" d="M3 3h13v18H3z"/><circle cx="13" cy="12" r=".7"/><rect x="17" y="12" width="5" height="5" rx="1"/><path class="door-locked" d="M18 12V9.5a1.5 1.5 0 0 1 3 0V12"/><path class="door-unlocked" d="M19 12V9.5a1.5 1.5 0 0 1 2.7-1"/></svg></span><div><b>Cửa chính</b><span id="s-door">--</span></div></div><button class="primary" type="button" data-dev="door" role="switch" aria-checked="false" aria-label="Mở cửa chính">Mở cửa</button></div>
               <div class="dev" data-device="yard"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.3 6.1L21 10l-5.2 3.5L16.5 20 12 16.2 7.5 20l.7-6.5L3 10l6.7-1.9L12 2Z"/></svg></span><div><b>Đèn sân</b><span id="s-yard">--</span></div></div><button type="button" data-dev="yard" role="switch" aria-checked="false" aria-label="Bật hoặc tắt đèn sân">Bật / Tắt</button></div>
               <div class="dev" data-device="voice"><div class="dev-copy"><span class="device-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3m-4 0h8"/></svg></span><div><b>Nhận diện giọng nói &amp; LED</b><span id="s-voice">--</span></div></div><button type="button" data-dev="voice" role="switch" aria-checked="true" aria-label="Bật hoặc tắt nhận diện giọng nói">Bật / Tắt</button></div>
@@ -1877,6 +1877,7 @@ async function checkUserDeviceLink(user) {
     if (isMasterAccount) {
       currentUserRole = "master";
       isUserPaired = true;
+      window.isUserPaired = true;
       userPermissions = { light: true, fan: true, curtain: true, door: true, yard: true, voice: true, auto: true, passcodeAdd: true };
       window.currentUserRole = currentUserRole;
       window.userPermissions = userPermissions;
@@ -1941,6 +1942,7 @@ async function checkUserDeviceLink(user) {
     }
 
     isUserPaired = (uData.pairedHome === DEFAULT_HOME_CODE);
+    window.isUserPaired = isUserPaired;
     if (uData.permissions) {
       userPermissions = { ...userPermissions, ...uData.permissions };
     }
@@ -1965,6 +1967,7 @@ async function checkUserDeviceLink(user) {
       const livePaired = (liveData.pairedHome === DEFAULT_HOME_CODE);
       if (livePaired !== isUserPaired) {
         isUserPaired = livePaired;
+        window.isUserPaired = isUserPaired;
         applyDevicePairingUI(isUserPaired);
         const memberLeaveSec = $("memberLeaveSection");
         if (memberLeaveSec) {
@@ -2982,6 +2985,10 @@ document.querySelectorAll("[data-dev]").forEach(btn => {
       return;
     }
     const d = btn.dataset.dev;
+    if (d === "curtain") {
+      showToast("Thiết bị rèm cửa đang trong quá trình lắp đặt phần cứng & phát triển!");
+      return;
+    }
     if (d === "door" && isKeypadLocked) {
       showToast("Cảnh báo: Bàn phím ngoài cửa chính đang bị KHÓA CỨNG do nhập sai 4 lần liên tiếp!");
       return;
@@ -3249,6 +3256,25 @@ const btnUnlockKeypadEl = $("btnUnlockKeypad");
 if (btnUnlockKeypadEl) btnUnlockKeypadEl.onclick = handleUnlockKeypad;
 
 function renderDevice(d) {
+  if (d === "curtain") {
+    const labelEl = $("s-curtain");
+    if (labelEl) {
+      labelEl.textContent = "Đang phát triển";
+      labelEl.style.color = "var(--gold, #eab308)";
+    }
+    const toggle = document.querySelector('[data-dev="curtain"]');
+    if (toggle) {
+      toggle.textContent = "Đang phát triển";
+      toggle.classList.remove("on");
+      toggle.setAttribute("aria-checked", "false");
+    }
+    const row = toggle ? toggle.closest(".dev") : null;
+    if (row) {
+      row.classList.remove("is-on");
+      row.style.opacity = "0.55";
+    }
+    return;
+  }
   const on = d === "curtain" ? state.curtain === CURTAIN_OPEN : !!state[d];
   const txt = d === "door"
     ? (on ? "Đang mở" : "Đang đóng")
@@ -3324,8 +3350,25 @@ function listen() {
   onValue(ref(db, "sensors/latest"), s => {
     const v = s.val();
     if (!v) return;
-    $("t").textContent = Number(v.temp).toFixed(1);
-    $("h").textContent = Number(v.hum).toFixed(0);
+    const rawTemp = v.temp != null ? v.temp : v.temperature;
+    const rawHum = v.hum != null ? v.hum : v.humidity;
+    const hasTemp = rawTemp != null && !isNaN(Number(rawTemp));
+    const hasHum = rawHum != null && !isNaN(Number(rawHum));
+
+    if (hasTemp) {
+      window.lastValidTemp = Number(rawTemp).toFixed(1);
+      $("t").textContent = window.lastValidTemp;
+    } else {
+      $("t").textContent = window.lastValidTemp || "0.0";
+    }
+
+    if (hasHum) {
+      window.lastValidHum = Number(rawHum).toFixed(0);
+      $("h").textContent = window.lastValidHum;
+    } else {
+      $("h").textContent = window.lastValidHum || "0";
+    }
+
     lastSensorTs = v.ts || 0;
 
     // Cập nhật trạng thái chuyển động & giờ phát hiện gần nhất
@@ -3844,9 +3887,10 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
     const hour = new Date().getHours();
     const period = greetingPeriods.find(item => hour >= item.start && hour < item.end) || greetingPeriods[3];
     $ui("greeting").textContent = period.text;
-    const temp = $ui("t").textContent;
-    const humidity = $ui("h").textContent;
-    $ui("greetingSub").textContent = temp !== "--"
+    const temp = $ui("t") ? $ui("t").textContent : "--";
+    const humidity = $ui("h") ? $ui("h").textContent : "--";
+    const isValidTemp = temp && temp !== "--" && !temp.includes("NaN");
+    $ui("greetingSub").textContent = isValidTemp
       ? `${temp}°C · ${humidity}% độ ẩm · Trạng thái hiện diện chưa có dữ liệu`
       : "Đang cập nhật cảm biến · Trạng thái hiện diện chưa có dữ liệu";
   }
@@ -3861,6 +3905,10 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
   document.querySelectorAll(".dev").forEach(row => {
     row.addEventListener("click", event => {
       if (event.target.closest("button")) return;
+      if (row.dataset.device === "curtain") {
+        showToast("Thiết bị rèm cửa đang trong quá trình lắp đặt phần cứng & phát triển!");
+        return;
+      }
       const toggle = row.querySelector("[data-dev]");
       if (toggle && !toggle.disabled) toggle.click();
     });
@@ -4445,7 +4493,9 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
   }
   function canAddRule() {
     if (checkIsMaster()) return true;
-    return !!(window.isUserPaired && window.userPermissions && window.userPermissions.auto !== false);
+    const isPaired = window.isUserPaired === true || (typeof isUserPaired !== "undefined" && isUserPaired);
+    const perms = window.userPermissions || (typeof userPermissions !== "undefined" ? userPermissions : {});
+    return !!(isPaired && perms.auto !== false);
   }
 
   function canDeleteRule(rule) {
@@ -4488,11 +4538,13 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
     if (!list) return;
     list.replaceChildren();
 
-    // Nút thêm quy tắc hiển thị nếu là Master hoặc Thành viên được cấp quyền tự động hóa
+    // Nút thêm quy tắc luôn hiển thị; bật nếu có quyền hoặc Master, mờ đi nếu chưa được cấp quyền
     const addRuleBtn = $ui("addRule");
     if (addRuleBtn) {
-      addRuleBtn.style.display = canAdd ? "" : "none";
+      addRuleBtn.style.display = "";
       addRuleBtn.disabled = !canAdd;
+      addRuleBtn.style.opacity = canAdd ? "1" : "0.55";
+      addRuleBtn.title = canAdd ? "Thêm quy tắc mới" : "Chủ nhà chưa cấp quyền tự động hóa cho bạn";
     }
     const autoMasterToggle = $ui("automationMaster");
     if (autoMasterToggle) {
@@ -4647,7 +4699,7 @@ import { getDatabase, ref, onValue, set, push, remove, update } from "https://ww
   }
   function persistRules() {
     const isMaster = checkIsMaster();
-    const canPersist = isMaster || (window.isUserPaired && window.userPermissions && window.userPermissions.auto !== false);
+    const canPersist = canAddRule();
     if (!canPersist) {
       console.warn("Bạn không có quyền lưu cấu hình quy tắc lên Firebase.");
       return;

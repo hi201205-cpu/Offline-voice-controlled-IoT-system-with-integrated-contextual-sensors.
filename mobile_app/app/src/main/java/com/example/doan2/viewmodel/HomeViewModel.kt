@@ -243,43 +243,7 @@ class HomeViewModel(
     }
 
     fun toggleCurtain() {
-        if (!checkPermission("curtain")) {
-            _uiState.value = _uiState.value.copy(toastMessage = "Bạn không có quyền đóng/mở rèm")
-            return
-        }
-        if (isDisconnected) {
-            _uiState.value = _uiState.value.copy(toastMessage = "Thiết bị đang offline (quá 30s)")
-            return
-        }
-        val targetOpen = _uiState.value.deviceState.curtain != "open"
-        val userEmail = uiState.value.userProfile?.email ?: authRepository.currentUserEmail ?: "App"
-
-        _uiState.value = _uiState.value.copy(processingCurtain = true, curtainError = false)
-        repository.setCurtain(onResult = { success, error ->
-            if (success) {
-                repository.logWebAction("curtain", if (targetOpen) "Mở" else "Đóng", userEmail, "${if (targetOpen) "Mở" else "Đóng"} · Rèm cửa")
-            } else {
-                curtainJob?.cancel()
-                _uiState.value = _uiState.value.copy(
-                    processingCurtain = false,
-                    curtainError = true,
-                    toastMessage = error ?: "Lỗi ghi Firebase"
-                )
-            }
-        })
-
-        curtainJob?.cancel()
-        curtainJob = viewModelScope.launch {
-            delay(5000L)
-            val curr = _uiState.value
-            if (curr.deviceState.isCurtainPending || curr.processingCurtain) {
-                _uiState.value = curr.copy(
-                    processingCurtain = false,
-                    curtainError = true,
-                    toastMessage = "Thiết bị chưa phản hồi"
-                )
-            }
-        }
+        _uiState.value = _uiState.value.copy(toastMessage = "Thiết bị rèm cửa đang trong quá trình lắp đặt phần cứng & phát triển!")
     }
 
     fun toggleGarden() {
